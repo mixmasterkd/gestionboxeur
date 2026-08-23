@@ -462,7 +462,7 @@
   <div class="toast hidden" id="toast" role="status"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../js/config.js"></script>
+  <script src="js/config.js"></script>
   <script>
   "use strict";
   (() => {
@@ -540,7 +540,7 @@
     async function loadState() {
       const { data: { session } } = await supabase.auth.getSession();
       currentUser = session?.user;
-      if (!currentUser) { window.location.href = "../"; return; }
+      if (!currentUser) { window.location.href = "login.html"; return; }
       const [athletesResult, coachesResult, profileResult, gymResult] = await Promise.all([
         supabase.from("athletes").select("*").order("last_name"),
         supabase.from("coach_contacts").select("*").order("last_name"),
@@ -832,7 +832,7 @@
     $("weightButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareWeight = e.target.dataset.value; setSegment($("weightButtons"), shareWeight); updateSharePreview(); });
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
     $("settingsButton").addEventListener("click", openSettings); $("settingsForm").addEventListener("submit", saveSettings);
-    $("logoutButton").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "../"; });
+    $("logoutButton").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "login.html"; });
     document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => $(button.dataset.close).close()));
     document.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); }));
     loadState().catch(error => { console.error(error); showToast(`Erreur Supabase : ${error.message}`); });
