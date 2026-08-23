@@ -261,9 +261,10 @@
   <header class="topbar">
     <div class="brand" aria-label="Crew">CREW</div>
     <div class="topbar-actions">
-      <span class="save-state">Sauvegardé localement</span>
+      <span class="save-state">Sauvegardé sur Supabase</span>
       <button class="text-button" id="exportButton" type="button">Exporter JSON</button>
       <button class="text-button" id="importButton" type="button">Importer JSON</button>
+      <button class="text-button" id="logoutButton" type="button">Déconnexion</button>
       <input class="visually-hidden" id="importFile" type="file" accept="application/json,.json">
     </div>
   </header>
@@ -433,15 +434,18 @@
 
   <div class="toast hidden" id="toast" role="status"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/config.js"></script>
   <script>
   "use strict";
   (() => {
-    const STORAGE_KEY = "crew-athlete-manager-v2";
+    const supabase = window.supabaseClient;
     const KG_TO_LB = 2.2046226218;
     const statusLabels = { available: "Disponible", unavailable: "Indisponible", injured: "Blessé", sick: "Malade", not_ready: "Pas prêt" };
     const sexLabels = { M: "Homme", F: "Femme" };
     const sexShortLabels = { M: "H", F: "F" };
-    let state = loadState();
+    let state = { athletes: [], coaches: [] };
+    let currentUser;
     let shareType = "combat";
     let shareWeight = "both";
     let sortKey = "name";
@@ -484,15 +488,31 @@
       if (!c || typeof c !== "object") return null;
       return { id: String(c.id || uid()), firstName: String(c.firstName || "").trim(), lastName: String(c.lastName || "").trim(), phone: String(c.phone || "").trim(), email: String(c.email || "").trim() };
     }
-    function loadState() {
-      try {
-        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (!raw || typeof raw !== "object") throw new Error();
-        return { athletes: (raw.athletes || []).map(normalizeAthlete).filter(Boolean), coaches: (raw.coaches || []).map(normalizeCoach).filter(Boolean) };
-      } catch { return { athletes: [], coaches: [] }; }
+    function athleteFromDb(row) {
+      return { id: row.id, firstName: row.first_name, lastName: row.last_name, birthDate: row.birth_date || "", sex: row.sex || "M",
+        weightKg: Number(row.weight_kg) || 0, fights: row.fights || 0, wins: row.wins, losses: row.losses, status: row.status || "available",
+        note: row.notes || "", selected: !!row.selected && row.status === "available", updatedAt: row.updated_at };
+    }
+    function coachFromDb(row) { return { id: row.id, firstName: row.first_name, lastName: row.last_name || "", phone: row.phone || "", email: row.email || "" }; }
+    function athleteToDb(athlete) {
+      return { coach_id: currentUser.id, first_name: athlete.firstName, last_name: athlete.lastName, birth_date: athlete.birthDate || null, sex: athlete.sex,
+        weight_kg: athlete.weightKg, fights: athlete.fights, wins: athlete.wins, losses: athlete.losses, status: athlete.status, notes: athlete.note || null,
+        selected: athlete.selected, is_active: athlete.status === "available" };
+    }
+    function coachToDb(coach) { return { coach_id: currentUser.id, first_name: coach.firstName, last_name: coach.lastName || null, phone: coach.phone || null, email: coach.email || null }; }
+    async function loadState() {
+      const { data: { session } } = await supabase.auth.getSession();
+      currentUser = session?.user;
+      if (!currentUser) { window.location.href = "../"; return; }
+      const [athletesResult, coachesResult] = await Promise.all([
+        supabase.from("athletes").select("*").order("last_name"),
+        supabase.from("coach_contacts").select("*").order("last_name")
+      ]);
+      if (athletesResult.error || coachesResult.error) throw (athletesResult.error || coachesResult.error);
+      state = { athletes: athletesResult.data.map(athleteFromDb), coaches: coachesResult.data.map(coachFromDb) };
+      renderAll();
     }
     function saveState(message) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, athletes: state.athletes, coaches: state.coaches }));
       renderAll();
       if (message) showToast(message);
     }
@@ -552,7 +572,11 @@
         const tr = node("tr", { class: a.selected ? "selected" : "" });
         const checkTd = node("td", { class: "check-cell" });
         const check = node("input", { type: "checkbox", checked: a.selected, disabled: a.status !== "available", ariaLabel: `Sélectionner ${a.firstName} ${a.lastName}` });
-        check.addEventListener("change", () => { a.selected = check.checked; saveState(); });
+        check.addEventListener("change", async () => {
+          a.selected = check.checked; saveState();
+          const { error } = await supabase.from("athletes").update({ selected: a.selected }).eq("id", a.id);
+          if (error) { a.selected = !check.checked; saveState("Impossible d’enregistrer la sélection."); }
+        });
         checkTd.append(check); tr.append(checkTd);
 
         const nameTd = node("td");
@@ -610,7 +634,7 @@
       updateWeightConversion(); els.athleteDialog.showModal(); setTimeout(() => $("firstName").focus(), 0);
     }
     function athleteError(message) { $("athleteError").textContent = message; $("athleteError").classList.remove("hidden"); }
-    function saveAthlete(event) {
+    async function saveAthlete(event) {
       event.preventDefault(); $("athleteError").classList.add("hidden");
       const birthDate = $("birthDate").value; const age = ageFromBirthDate(birthDate); const weightRaw = Number($("weight").value);
       const weightKg = $("weightUnit").value === "lb" ? weightRaw / KG_TO_LB : weightRaw;
@@ -626,7 +650,12 @@
       const athlete = { id: id || uid(), firstName: $("firstName").value.trim(), lastName: $("lastName").value.trim(), birthDate, sex: $("sex").value,
         weightKg: Math.round(weightKg * 10) / 10, fights, wins, losses, status: $("status").value, note: $("athleteNote").value.trim(),
         selected: $("status").value === "available" ? !!old?.selected : false, updatedAt: new Date().toISOString() };
-      if (id) state.athletes = state.athletes.map(a => a.id === id ? athlete : a); else state.athletes.unshift(athlete);
+      const result = id
+        ? await supabase.from("athletes").update(athleteToDb(athlete)).eq("id", id).select().single()
+        : await supabase.from("athletes").insert(athleteToDb(athlete)).select().single();
+      if (result.error) return athleteError(result.error.message);
+      const saved = athleteFromDb(result.data);
+      if (id) state.athletes = state.athletes.map(a => a.id === id ? saved : a); else state.athletes.unshift(saved);
       els.athleteDialog.close(); saveState(id ? "Fiche mise à jour." : "Athlète ajouté.");
     }
     function updateWeightConversion() {
@@ -641,13 +670,18 @@
       els.coachDialog.showModal(); setTimeout(() => $("coachFirstName").focus(), 0);
     }
     function coachError(message) { $("coachError").textContent = message; $("coachError").classList.remove("hidden"); }
-    function saveCoach(event) {
+    async function saveCoach(event) {
       event.preventDefault(); $("coachError").classList.add("hidden");
       const firstName = $("coachFirstName").value.trim(), lastName = $("coachLastName").value.trim(), phone = $("coachPhone").value.trim(), email = $("coachEmail").value.trim();
       if (!firstName) return coachError("Le prénom est obligatoire.");
       if (email && !$("coachEmail").checkValidity()) return coachError("Le courriel n’est pas valide.");
       const id = $("coachId").value; const coach = { id: id || uid(), firstName, lastName, phone, email };
-      if (id) state.coaches = state.coaches.map(c => c.id === id ? coach : c); else state.coaches.push(coach);
+      const result = id
+        ? await supabase.from("coach_contacts").update(coachToDb(coach)).eq("id", id).select().single()
+        : await supabase.from("coach_contacts").insert(coachToDb(coach)).select().single();
+      if (result.error) return coachError(result.error.message);
+      const saved = coachFromDb(result.data);
+      if (id) state.coaches = state.coaches.map(c => c.id === id ? saved : c); else state.coaches.push(saved);
       els.coachDialog.close(); saveState(id ? "Coach mis à jour." : "Coach ajouté.");
     }
 
@@ -716,15 +750,28 @@
         const athletes = athletesRaw.map(normalizeAthlete).filter(Boolean); const coaches = coachesRaw.map(normalizeCoach).filter(Boolean);
         if (athletes.length !== athletesRaw.length) throw new Error();
         if (!confirm(`Remplacer les données actuelles par ${athletes.length} athlète${athletes.length === 1 ? "" : "s"} et ${coaches.length} coach${coaches.length === 1 ? "" : "s"}?`)) return;
-        state = { athletes, coaches }; saveState("Données importées.");
+        const existingAthletes = await supabase.from("athletes").delete().eq("coach_id", currentUser.id);
+        const existingCoaches = await supabase.from("coach_contacts").delete().eq("coach_id", currentUser.id);
+        if (existingAthletes.error || existingCoaches.error) throw (existingAthletes.error || existingCoaches.error);
+        if (athletes.length) {
+          const result = await supabase.from("athletes").insert(athletes.map(athleteToDb)).select();
+          if (result.error) throw result.error;
+          state.athletes = result.data.map(athleteFromDb);
+        } else state.athletes = [];
+        if (coaches.length) {
+          const result = await supabase.from("coach_contacts").insert(coaches.map(coachToDb)).select();
+          if (result.error) throw result.error;
+          state.coaches = result.data.map(coachFromDb);
+        } else state.coaches = [];
+        saveState("Données importées dans Supabase.");
       } catch { showToast("Ce fichier JSON n’est pas valide pour ce gestionnaire."); }
     }
 
     $("addAthleteButton").addEventListener("click", () => openAthlete()); $("athleteForm").addEventListener("submit", saveAthlete);
     $("weight").addEventListener("input", updateWeightConversion); $("weightUnit").addEventListener("change", updateWeightConversion);
-    $("deleteAthleteButton").addEventListener("click", () => { const id = $("athleteId").value; const a = state.athletes.find(x => x.id === id); if (a && confirm(`Supprimer la fiche de ${a.firstName} ${a.lastName}?`)) { state.athletes = state.athletes.filter(x => x.id !== id); els.athleteDialog.close(); saveState("Fiche supprimée."); } });
+    $("deleteAthleteButton").addEventListener("click", async () => { const id = $("athleteId").value; const a = state.athletes.find(x => x.id === id); if (a && confirm(`Supprimer la fiche de ${a.firstName} ${a.lastName}?`)) { const { error } = await supabase.from("athletes").delete().eq("id", id); if (error) return athleteError(error.message); state.athletes = state.athletes.filter(x => x.id !== id); els.athleteDialog.close(); saveState("Fiche supprimée."); } });
     $("addCoachButton").addEventListener("click", () => openCoach()); $("coachForm").addEventListener("submit", saveCoach);
-    $("deleteCoachButton").addEventListener("click", () => { const id = $("coachId").value; const c = state.coaches.find(x => x.id === id); if (c && confirm(`Supprimer ${coachName(c)} des coachs?`)) { state.coaches = state.coaches.filter(x => x.id !== id); els.coachDialog.close(); saveState("Coach supprimé."); } });
+    $("deleteCoachButton").addEventListener("click", async () => { const id = $("coachId").value; const c = state.coaches.find(x => x.id === id); if (c && confirm(`Supprimer ${coachName(c)} des coachs?`)) { const { error } = await supabase.from("coach_contacts").delete().eq("id", id); if (error) return coachError(error.message); state.coaches = state.coaches.filter(x => x.id !== id); els.coachDialog.close(); saveState("Coach supprimé."); } });
     [$("searchInput"), $("statusFilter"), $("sexFilter")].forEach(el => el.addEventListener("input", renderAthletes));
     document.querySelectorAll(".sort-button").forEach(button => button.addEventListener("click", () => {
       if (sortKey === button.dataset.sort) sortDirection = sortDirection === "asc" ? "desc" : "asc";
@@ -738,9 +785,10 @@
     $("weightButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareWeight = e.target.dataset.value; setSegment($("weightButtons"), shareWeight); updateSharePreview(); });
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
     $("exportButton").addEventListener("click", exportJson); $("importButton").addEventListener("click", () => $("importFile").click()); $("importFile").addEventListener("change", importJson);
+    $("logoutButton").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "../"; });
     document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => $(button.dataset.close).close()));
     document.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); }));
-    renderAll();
+    loadState().catch(error => { console.error(error); showToast(`Erreur Supabase : ${error.message}`); });
   })();
   </script>
 </body>
