@@ -50,6 +50,7 @@
       color: #fff; font-family: Arial Rounded MT Bold, Trebuchet MS, Arial, sans-serif;
       font-size: 25px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase;
     }
+    .brand-location { color: #aaa; display: block; font-family: Arial, Helvetica, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .05em; margin-top: 4px; text-transform: none; }
     .topbar-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 18px; }
     .save-state { align-items: center; color: #aaa; display: flex; font-size: 11px; gap: 8px; }
     .save-state::before { background: var(--accent); border-radius: 50%; content: ""; height: 7px; width: 7px; }
@@ -171,6 +172,9 @@
     .preview-sheet pre { font-family: Courier New, monospace; font-size: 12px; line-height: 1.75; margin: 0; white-space: pre-wrap; }
     .share-foot { margin: 0; }
     .toast { background: #000; bottom: 22px; color: #fff; font-size: 12px; font-weight: 800; left: 50%; padding: 13px 18px; position: fixed; transform: translateX(-50%); z-index: 20; }
+    .palette { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+    .palette button { background: #fff; border: 2px solid #aaa; cursor: pointer; font-size: 9px; font-weight: 900; min-height: 42px; padding: 7px; text-transform: uppercase; }
+    .palette button.active { border-color: #000; box-shadow: inset 0 -5px var(--palette-color); }
     @media (max-width: 900px) {
       .hero { grid-template-columns: 1fr; }
       .stats { max-width: 650px; }
@@ -259,13 +263,12 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand" aria-label="Crew">CREW</div>
+    <div class="brand" aria-label="Gym"><span id="gymBrand">CREW</span><span class="brand-location" id="gymAddress"></span></div>
     <div class="topbar-actions">
       <span class="save-state">Sauvegardé sur Supabase</span>
-      <button class="text-button" id="exportButton" type="button">Exporter JSON</button>
-      <button class="text-button" id="importButton" type="button">Importer JSON</button>
+      <button class="text-button" id="settingsButton" type="button">⚙ Paramètres</button>
+      <a class="text-button hidden" id="adminButton" href="../admin/">Administration</a>
       <button class="text-button" id="logoutButton" type="button">Déconnexion</button>
-      <input class="visually-hidden" id="importFile" type="file" accept="application/json,.json">
     </div>
   </header>
 
@@ -315,7 +318,7 @@
         </table>
         <div class="empty" id="athleteEmpty"><strong>Aucun athlète</strong>Ajoute ta première fiche pour commencer.</div>
       </div>
-      <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Les données restent dans ce navigateur</span></footer>
+      <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Données privées synchronisées avec Supabase</span></footer>
     </section>
 
     <section class="panel" aria-labelledby="coachesTitle">
@@ -369,6 +372,28 @@
     </section>
   </dialog>
 
+  <dialog id="settingsDialog">
+    <section class="dialog-box">
+      <header class="dialog-head"><div><p class="kicker">Paramètres</p><h2 class="dialog-title">Mon profil et mon gym</h2></div><button class="close" data-close="settingsDialog" type="button" aria-label="Fermer">×</button></header>
+      <form id="settingsForm" novalidate>
+        <fieldset><legend>Mon profil</legend>
+          <div class="form-grid cols-2"><label><span>Nom du coach *</span><input id="profileName" required></label><label><span>Téléphone</span><input id="profilePhone" type="tel"></label></div>
+          <p class="hint">Courriel : <span id="profileEmail"></span></p>
+        </fieldset>
+        <fieldset><legend>Mon gym</legend>
+          <label><span>Nom du gym *</span><input id="settingsGymName" required></label>
+          <label><span>Adresse — facultatif</span><input id="settingsGymAddress"></label>
+        </fieldset>
+        <fieldset><legend>Sécurité</legend>
+          <p class="hint">Laisse ces champs vides si tu ne veux pas modifier ton mot de passe.</p>
+          <div class="form-grid cols-2"><label><span>Nouveau mot de passe</span><input id="newPassword" type="password" minlength="6" autocomplete="new-password"></label><label><span>Confirmer le mot de passe</span><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></label></div>
+        </fieldset>
+        <p class="error hidden" id="settingsError" role="alert"></p>
+        <footer class="dialog-foot"><span class="spacer"></span><button class="button" data-close="settingsDialog" type="button">Annuler</button><button class="button button-dark" type="submit">Enregistrer</button></footer>
+      </form>
+    </section>
+  </dialog>
+
   <dialog id="coachDialog">
     <section class="dialog-box">
       <header class="dialog-head"><div><p class="kicker">Contact</p><h2 class="dialog-title" id="coachDialogTitle">Ajouter un coach</h2></div><button class="close" data-close="coachDialog" type="button" aria-label="Fermer">×</button></header>
@@ -398,15 +423,17 @@
       <div class="share-layout">
         <aside class="share-options">
           <div class="option-group">
+            <span class="option-title">Type de liste</span>
+            <div class="segmented" id="typeButtons"><button class="active" data-value="combat" type="button">Combat</button><button data-value="sparring" type="button">Sparring</button></div>
+          </div>
+          <div class="option-group">
             <label><span>Nom du gym</span><input id="shareGym" value="Crew"></label>
+            <div class="checks"><label><input id="includeGymName" type="checkbox" checked> Ajouter le nom du gym</label></div>
+            <div class="checks"><label><input id="includeGymAddress" type="checkbox"> Ajouter l’adresse du gym</label></div>
           </div>
           <div class="option-group">
             <label><span>Date</span><input id="shareDate" type="date"></label>
             <div class="checks"><label><input id="includeDate" type="checkbox" checked> Afficher la date</label></div>
-          </div>
-          <div class="option-group">
-            <span class="option-title">Type de liste</span>
-            <div class="segmented" id="typeButtons"><button class="active" data-value="combat" type="button">Combat</button><button data-value="sparring" type="button">Sparring</button></div>
           </div>
           <div class="option-group">
             <span class="option-title">Poids affiché</span>
@@ -446,6 +473,8 @@
     const sexShortLabels = { M: "H", F: "F" };
     let state = { athletes: [], coaches: [] };
     let currentUser;
+    let profileData;
+    let gymSettings;
     let shareType = "combat";
     let shareWeight = "both";
     let sortKey = "name";
@@ -455,7 +484,7 @@
     const $ = id => document.getElementById(id);
     const els = {
       athleteRows: $("athleteRows"), athleteEmpty: $("athleteEmpty"), coachGrid: $("coachGrid"), coachEmpty: $("coachEmpty"),
-      athleteDialog: $("athleteDialog"), coachDialog: $("coachDialog"), shareDialog: $("shareDialog"), toast: $("toast")
+      athleteDialog: $("athleteDialog"), coachDialog: $("coachDialog"), shareDialog: $("shareDialog"), settingsDialog: $("settingsDialog"), toast: $("toast")
     };
 
     function uid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -494,6 +523,14 @@
         note: row.notes || "", selected: !!row.selected && row.status === "available", updatedAt: row.updated_at };
     }
     function coachFromDb(row) { return { id: row.id, firstName: row.first_name, lastName: row.last_name || "", phone: row.phone || "", email: row.email || "" }; }
+    function selfCoach() {
+      const pieces = (profileData?.full_name || currentUser?.user_metadata?.full_name || "Moi").trim().split(/\s+/);
+      return { id: currentUser.id, firstName: pieces.shift() || "Moi", lastName: pieces.join(" "), phone: profileData?.phone || "", email: currentUser.email || "", isSelf: true };
+    }
+    function applyGymSettings() {
+      $("gymBrand").textContent = gymSettings?.gym_name || "Mon gym";
+      $("gymAddress").textContent = gymSettings?.address || "";
+    }
     function athleteToDb(athlete) {
       return { coach_id: currentUser.id, first_name: athlete.firstName, last_name: athlete.lastName, birth_date: athlete.birthDate || null, sex: athlete.sex,
         weight_kg: athlete.weightKg, fights: athlete.fights, wins: athlete.wins, losses: athlete.losses, status: athlete.status, notes: athlete.note || null,
@@ -504,12 +541,17 @@
       const { data: { session } } = await supabase.auth.getSession();
       currentUser = session?.user;
       if (!currentUser) { window.location.href = "../"; return; }
-      const [athletesResult, coachesResult] = await Promise.all([
+      const [athletesResult, coachesResult, profileResult, gymResult] = await Promise.all([
         supabase.from("athletes").select("*").order("last_name"),
-        supabase.from("coach_contacts").select("*").order("last_name")
+        supabase.from("coach_contacts").select("*").order("last_name"),
+        supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
+        supabase.from("gym_settings").select("*").eq("coach_id", currentUser.id).single()
       ]);
-      if (athletesResult.error || coachesResult.error) throw (athletesResult.error || coachesResult.error);
-      state = { athletes: athletesResult.data.map(athleteFromDb), coaches: coachesResult.data.map(coachFromDb) };
+      if (athletesResult.error || coachesResult.error || profileResult.error || gymResult.error) throw (athletesResult.error || coachesResult.error || profileResult.error || gymResult.error);
+      profileData = profileResult.data; gymSettings = gymResult.data;
+      state = { athletes: athletesResult.data.map(athleteFromDb), coaches: [selfCoach(), ...coachesResult.data.map(coachFromDb)] };
+      applyGymSettings();
+      $("adminButton").classList.toggle("hidden", !profileData.is_admin);
       renderAll();
     }
     function saveState(message) {
@@ -614,7 +656,7 @@
         card.append(node("strong", {}, coachName(c)));
         if (c.phone) card.append(node("span", {}, c.phone));
         if (c.email) card.append(node("span", {}, c.email));
-        const edit = node("button", { class: "edit", type: "button" }, "Modifier"); edit.addEventListener("click", () => openCoach(c.id)); card.append(edit);
+        const edit = node("button", { class: "edit", type: "button" }, c.isSelf ? "Paramètres" : "Modifier"); edit.addEventListener("click", () => c.isSelf ? openSettings() : openCoach(c.id)); card.append(edit);
         els.coachGrid.append(card);
       });
       els.coachEmpty.classList.toggle("hidden", state.coaches.length > 0);
@@ -685,6 +727,39 @@
       els.coachDialog.close(); saveState(id ? "Coach mis à jour." : "Coach ajouté.");
     }
 
+    function openSettings() {
+      $("settingsError").classList.add("hidden");
+      $("profileName").value = profileData?.full_name || "";
+      $("profilePhone").value = profileData?.phone || "";
+      $("profileEmail").textContent = currentUser.email || "";
+      $("settingsGymName").value = gymSettings?.gym_name || "Mon gym";
+      $("settingsGymAddress").value = gymSettings?.address || "";
+      $("newPassword").value = ""; $("confirmPassword").value = "";
+      $("settingsDialog").showModal();
+    }
+    async function saveSettings(event) {
+      event.preventDefault(); $("settingsError").classList.add("hidden");
+      const fullName = $("profileName").value.trim();
+      const gymName = $("settingsGymName").value.trim();
+      const password = $("newPassword").value;
+      const confirmPassword = $("confirmPassword").value;
+      if (!fullName || !gymName) { $("settingsError").textContent = "Le nom du coach et le nom du gym sont obligatoires."; $("settingsError").classList.remove("hidden"); return; }
+      if (password && password.length < 6) { $("settingsError").textContent = "Le mot de passe doit contenir au moins 6 caractères."; $("settingsError").classList.remove("hidden"); return; }
+      if (password !== confirmPassword) { $("settingsError").textContent = "Les deux mots de passe ne correspondent pas."; $("settingsError").classList.remove("hidden"); return; }
+      const [profileResult, gymResult] = await Promise.all([
+        supabase.from("profiles").update({ full_name: fullName, phone: $("profilePhone").value.trim() || null }).eq("id", currentUser.id).select().single(),
+        supabase.from("gym_settings").update({ gym_name: gymName, address: $("settingsGymAddress").value.trim() || null }).eq("coach_id", currentUser.id).select().single()
+      ]);
+      if (profileResult.error || gymResult.error) { $("settingsError").textContent = (profileResult.error || gymResult.error).message; $("settingsError").classList.remove("hidden"); return; }
+      if (password) {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) { $("settingsError").textContent = error.message; $("settingsError").classList.remove("hidden"); return; }
+      }
+      profileData = profileResult.data; gymSettings = gymResult.data;
+      state.coaches = [selfCoach(), ...state.coaches.filter(c => !c.isSelf)];
+      applyGymSettings(); els.settingsDialog.close(); saveState("Paramètres enregistrés.");
+    }
+
     function renderCoachChoices() {
       const wrap = $("coachChoices"); wrap.replaceChildren();
       state.coaches.forEach(c => {
@@ -703,7 +778,9 @@
     function formattedDate(value) { if (!value) return ""; return new Intl.DateTimeFormat("fr-CA", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`)); }
     function shareText() {
       const gym = $("shareGym").value.trim() || "Crew"; const athletes = selectedAthletes();
-      const lines = [gym.toUpperCase(), `ATHLÈTES DISPONIBLES POUR ${shareType === "combat" ? "COMBAT" : "SPARRING"}`];
+      const lines = [`ATHLÈTES DISPONIBLES POUR ${shareType === "combat" ? "COMBAT" : "SPARRING"}`];
+      if ($("includeGymName").checked) lines.push(gym.toUpperCase());
+      if ($("includeGymAddress").checked && gymSettings?.address) lines.push(gymSettings.address);
       if ($("includeDate").checked) lines.push(formattedDate($("shareDate").value));
       lines.push("");
       athletes.forEach(a => {
@@ -727,7 +804,7 @@
     }
     function updateSharePreview() { $("sharePreview").textContent = shareText(); }
     function openShare() {
-      $("shareGym").value = "Crew"; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "combat"; shareWeight = "both";
+      $("shareGym").value = gymSettings?.gym_name || "Mon gym"; $("includeGymName").checked = true; $("includeGymAddress").checked = !!gymSettings?.address; $("includeGymAddress").disabled = !gymSettings?.address; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "combat"; shareWeight = "both";
       setSegment($("typeButtons"), shareType); setSegment($("weightButtons"), shareWeight); renderCoachChoices(); updateSharePreview(); els.shareDialog.showModal();
     }
     function setSegment(group, value) { group.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.value === value)); }
@@ -737,36 +814,6 @@
       catch { const area = node("textarea", { value: text }); area.style.position = "fixed"; area.style.opacity = "0"; document.body.append(area); area.select(); document.execCommand("copy"); area.remove(); }
       showToast("Liste copiée — prête à envoyer.");
     }
-    function exportJson() {
-      const data = { version: 2, exportedAt: new Date().toISOString(), athletes: state.athletes, coaches: state.coaches };
-      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-      const a = node("a", { href: url, download: `crew-athletes-${todayLocal()}.json` }); a.click(); URL.revokeObjectURL(url); showToast("Sauvegarde JSON téléchargée.");
-    }
-    async function importJson(event) {
-      const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
-      try {
-        const raw = JSON.parse(await file.text()); const athletesRaw = Array.isArray(raw) ? raw : raw.athletes; const coachesRaw = Array.isArray(raw?.coaches) ? raw.coaches : [];
-        if (!Array.isArray(athletesRaw)) throw new Error();
-        const athletes = athletesRaw.map(normalizeAthlete).filter(Boolean); const coaches = coachesRaw.map(normalizeCoach).filter(Boolean);
-        if (athletes.length !== athletesRaw.length) throw new Error();
-        if (!confirm(`Remplacer les données actuelles par ${athletes.length} athlète${athletes.length === 1 ? "" : "s"} et ${coaches.length} coach${coaches.length === 1 ? "" : "s"}?`)) return;
-        const existingAthletes = await supabase.from("athletes").delete().eq("coach_id", currentUser.id);
-        const existingCoaches = await supabase.from("coach_contacts").delete().eq("coach_id", currentUser.id);
-        if (existingAthletes.error || existingCoaches.error) throw (existingAthletes.error || existingCoaches.error);
-        if (athletes.length) {
-          const result = await supabase.from("athletes").insert(athletes.map(athleteToDb)).select();
-          if (result.error) throw result.error;
-          state.athletes = result.data.map(athleteFromDb);
-        } else state.athletes = [];
-        if (coaches.length) {
-          const result = await supabase.from("coach_contacts").insert(coaches.map(coachToDb)).select();
-          if (result.error) throw result.error;
-          state.coaches = result.data.map(coachFromDb);
-        } else state.coaches = [];
-        saveState("Données importées dans Supabase.");
-      } catch { showToast("Ce fichier JSON n’est pas valide pour ce gestionnaire."); }
-    }
-
     $("addAthleteButton").addEventListener("click", () => openAthlete()); $("athleteForm").addEventListener("submit", saveAthlete);
     $("weight").addEventListener("input", updateWeightConversion); $("weightUnit").addEventListener("change", updateWeightConversion);
     $("deleteAthleteButton").addEventListener("click", async () => { const id = $("athleteId").value; const a = state.athletes.find(x => x.id === id); if (a && confirm(`Supprimer la fiche de ${a.firstName} ${a.lastName}?`)) { const { error } = await supabase.from("athletes").delete().eq("id", id); if (error) return athleteError(error.message); state.athletes = state.athletes.filter(x => x.id !== id); els.athleteDialog.close(); saveState("Fiche supprimée."); } });
@@ -779,12 +826,12 @@
       renderAthletes();
     }));
     $("resetFilters").addEventListener("click", () => { $("searchInput").value = ""; $("statusFilter").value = "all"; $("sexFilter").value = "all"; renderAthletes(); });
-    $("shareButton").addEventListener("click", openShare); $("shareGym").addEventListener("input", updateSharePreview); $("shareDate").addEventListener("input", updateSharePreview); $("includeRecord").addEventListener("change", updateSharePreview);
+    $("shareButton").addEventListener("click", openShare); $("shareGym").addEventListener("input", updateSharePreview); $("shareDate").addEventListener("input", updateSharePreview); $("includeRecord").addEventListener("change", updateSharePreview); $("includeGymName").addEventListener("change", updateSharePreview); $("includeGymAddress").addEventListener("change", updateSharePreview);
     $("includeDate").addEventListener("change", () => { $("shareDate").disabled = !$("includeDate").checked; updateSharePreview(); });
     $("typeButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareType = e.target.dataset.value; setSegment($("typeButtons"), shareType); updateSharePreview(); });
     $("weightButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareWeight = e.target.dataset.value; setSegment($("weightButtons"), shareWeight); updateSharePreview(); });
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
-    $("exportButton").addEventListener("click", exportJson); $("importButton").addEventListener("click", () => $("importFile").click()); $("importFile").addEventListener("change", importJson);
+    $("settingsButton").addEventListener("click", openSettings); $("settingsForm").addEventListener("submit", saveSettings);
     $("logoutButton").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "../"; });
     document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => $(button.dataset.close).close()));
     document.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); }));
