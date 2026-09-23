@@ -1,5 +1,9 @@
 # Base de données
 
+Le projet `opxsaykcofzbufzzzqwz` est à jour depuis le 22 septembre 2026 (heure de Toronto) : les huit migrations locales sont enregistrées, `admin-users` version 3 est active avec `verify_jwt=true`, et la nouvelle interface est publiée sur GitHub Pages. La sauvegarde applicative et sa restauration isolée ont été vérifiées avant la bascule ; les contrôles de conservation et de droits ont réussi sur la base réelle. Aucun compte de test distant n'a été créé pendant cette publication.
+
+Supabase Auth utilise `https://mixmasterkd.github.io/gestionboxeur/` comme Site URL et `https://mixmasterkd.github.io/gestionboxeur/**` pour les redirections de l'application. Les destinations de récupération et d'invitation ont été vérifiées sans envoi de courriel.
+
 La migration `20260921110000_secure_profile_roles.sql` peut être appliquée seule pour fermer l'auto-attribution du statut administrateur tout en conservant la compatibilité avec le site existant. Elle limite les modifications de profil à `full_name` et `phone`.
 
 La migration `20260921120000_training_platform.sql` complète les trois migrations historiques et le correctif de sécurité. Elle conserve les identifiants, comptes, réglages, contacts et fiches existants. Elle ajoute les relations coach–athlète et copie les anciennes notes et sélections dans la relation du coach d'origine. Les anciennes colonnes restent présentes mais leur lecture et leur modification sont refusées aux clients. Cette migration doit être coordonnée avec le déploiement de la nouvelle interface : l'ancienne interface utilise `select('*')` sur les athlètes et n'est plus compatible.
