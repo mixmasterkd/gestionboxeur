@@ -1,4 +1,46 @@
 <!doctype html>
 <html lang="fr-CA">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gestionnaire Arhlete — Connexion</title><link rel="stylesheet" href="css/app.css"></head>
-<body class="auth-page"><main class="auth-card"><p class="eyebrow">Gestionnaire de boxe</p><h1 id="authTitle">Connexion</h1><p class="muted" id="authIntro">Accède à la liste de tes athlètes.</p><form id="authForm"><label class="field signup-only hidden"><span>Nom du coach</span><input id="fullName" autocomplete="name"></label><label class="field signup-only hidden"><span>Nom du gym</span><input id="gymName" autocomplete="organization"></label><label class="field signup-only hidden"><span>Adresse du gym <small>(facultatif)</small></span><input id="gymAddress" autocomplete="street-address"></label><label class="field"><span>Courriel</span><input id="email" type="email" required autocomplete="email"></label><label class="field"><span>Mot de passe</span><input id="password" type="password" required minlength="6" autocomplete="current-password"></label><p class="form-error hidden" id="authError" role="alert"></p><button class="button button-dark full" id="authSubmit" type="submit">Se connecter</button></form><button class="link-button" id="authToggle" type="button">Créer un compte coach</button><p class="success hidden" id="authSuccess" role="status"></p></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/config.js"></script><script src="js/auth.js"></script></body></html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101113">
+  <title>Connexion — Athlètes et entraînements</title><link rel="stylesheet" href="css/app.css"><link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="auth-page">
+  <main class="auth-card">
+    <h1 id="authTitle">Connexion</h1>
+    <p class="muted" id="authIntro">Retrouve les athlètes de ton gym, tes listes combat/sparring et tes entraînements.</p>
+    <p class="invite-notice hidden" id="inviteNotice">Une invitation t’attend. Connecte-toi à ton compte athlète ou crée-le pour rejoindre ton coach.</p>
+    <form id="authForm">
+      <label class="field signup-only hidden"><span>Je suis</span><select id="accountType"><option value="athlete" selected>Athlète — mon calendrier et mes entraînements</option><option value="coach">Coach — mon équipe et ses entraînements</option></select></label>
+      <label class="field signup-only hidden"><span>Ton nom</span><input id="fullName" autocomplete="name" maxlength="160"></label>
+      <div class="signup-only athlete-only hidden">
+        <div class="form-grid">
+          <label class="field"><span>Date de naissance · obligatoire</span><input id="birthDate" type="date" autocomplete="bday"></label>
+          <label class="field"><span>Genre</span><select id="sex"><option value="">À compléter</option><option value="M">M — Masculin</option><option value="F">F — Féminin</option></select></label>
+          <label class="field"><span>Poids</span><input id="weight" type="number" min="0.1" max="1500" step="0.1" inputmode="decimal" placeholder="Ex. 65"></label>
+          <label class="field"><span>Unité du poids</span><select id="weightUnit"><option value="kg">KG</option><option value="lb">LBS</option></select></label>
+          <label class="field"><span>Combats</span><input id="fights" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+          <label class="field"><span>Victoires</span><input id="wins" type="number" min="0" step="1" inputmode="numeric" placeholder="À compléter"></label>
+          <label class="field"><span>Défaites</span><input id="losses" type="number" min="0" step="1" inputmode="numeric" placeholder="À compléter"></label>
+        </div>
+        <label class="field"><span>Mon gym</span><select id="athleteGym"><option value="">Chargement des gyms…</option></select></label>
+        <p class="muted" id="gymDirectoryNotice">Choisir un gym ne donne pas accès à ton calendrier. Les accès des coachs se gèrent séparément.</p>
+      </div>
+      <label class="field signup-only coach-only hidden"><span>Nom du gym <small>(facultatif)</small></span><input id="gymName" autocomplete="organization" maxlength="160"></label>
+      <label class="field signup-only coach-only hidden"><span>Adresse du gym <small>(facultatif)</small></span><input id="gymAddress" autocomplete="street-address" maxlength="500"></label>
+      <label class="field" id="emailField"><span>Courriel</span><input id="email" type="email" required autocomplete="email"></label>
+      <label class="field" id="passwordField"><span id="passwordLabel">Mot de passe</span><input id="password" type="password" required minlength="6" autocomplete="current-password"></label>
+      <label class="field hidden" id="confirmPasswordField"><span>Confirmer le nouveau mot de passe</span><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></label>
+      <p class="form-error hidden" id="authError" role="alert"></p>
+      <p class="success hidden" id="authSuccess" role="status"></p>
+      <button class="button button-dark full" id="authSubmit" type="submit">Se connecter</button>
+    </form>
+    <div class="auth-links">
+      <button class="link-button" id="authToggle" type="button">Créer un compte</button>
+      <button class="link-button" id="forgotPassword" type="button">Mot de passe oublié</button>
+    </div>
+    <a class="link-button hidden" id="continueButton" href="./">Accéder à mon espace</a>
+  </main>
+  <script type="module" src="js/auth.js"></script>
+</body>
+</html>

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0b0c">
-  <meta name="description" content="Gestionnaire local des athlètes de boxe du Crew.">
-  <title>Crew</title>
+  <meta name="description" content="Fiches de boxeurs, contacts et listes combat ou sparring.">
+  <title>Athlètes et listes — Mon gym</title>
   <style>
     :root {
       --ink: #0b0b0c;
@@ -32,7 +32,7 @@
     }
     button, input, select, textarea { font: inherit; }
     button { color: inherit; }
-    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
       outline: 3px solid #5f5f5f;
       outline-offset: 2px;
     }
@@ -50,6 +50,7 @@
       color: #fff; font-family: Arial Rounded MT Bold, Trebuchet MS, Arial, sans-serif;
       font-size: 25px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase;
     }
+    .brand { overflow-wrap: anywhere; min-width: 0; }
     .brand-location { color: #aaa; display: block; font-family: Arial, Helvetica, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .05em; margin-top: 4px; text-transform: none; }
     .topbar-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 18px; }
     .save-state { align-items: center; color: #aaa; display: flex; font-size: 11px; gap: 8px; }
@@ -185,10 +186,10 @@
       .share-options { border-bottom: 2px solid #000; border-right: 0; }
     }
     @media (max-width: 620px) {
-      .topbar { align-items: center; gap: 10px; min-height: 56px; padding: 9px 14px; }
+      .topbar { align-items: flex-start; flex-direction: column; gap: 12px; min-height: 56px; padding: 14px; }
       .brand { font-size: 20px; }
       .save-state { display: none; }
-      .topbar-actions { gap: 9px; justify-content: flex-end; }
+      .topbar-actions { gap: 10px 16px; justify-content: flex-start; }
       .text-button { font-size: 9px; }
       .hero { gap: 20px; padding: 24px 18px 38px; }
       .hero h1 { font-size: clamp(40px, 14vw, 56px); line-height: .92; }
@@ -259,41 +260,40 @@
       #shareDialog[open] .preview-sheet { border: 0; box-shadow: none; left: 0; min-height: 0; padding: 18mm; position: absolute; top: 0; width: 100%; }
       #shareDialog[open] .preview-label { display: none; }
     }
+    .name-button, .subtext, .coach-card strong, .preview-sheet pre { overflow-wrap: anywhere; }
   </style>
+  <link rel="stylesheet" href="css/theme.css">
 </head>
-<body>
+<body class="roster-page">
+  <a class="skip-link" href="#rosterTitle">Aller à mes athlètes</a>
   <header class="topbar">
-    <div class="brand" aria-label="Gym"><span id="gymBrand">CREW</span><span class="brand-location" id="gymAddress"></span></div>
+    <div class="brand" aria-label="Gym"><span id="gymBrand">Mon gym</span><span class="brand-location" id="gymAddress"></span></div>
     <div class="topbar-actions">
-      <span class="save-state">Sauvegardé sur Supabase</span>
+      <a class="text-button" href="./" aria-current="page">Athlètes &amp; listes</a>
+      <a class="text-button" href="planning.html">Planification</a>
+      <span class="save-state" id="saveState" role="status">Chargement…</span>
       <button class="text-button" id="settingsButton" type="button">⚙ Paramètres</button>
       <a class="text-button hidden" id="adminButton" href="admin/">Administration</a>
       <button class="text-button" id="logoutButton" type="button">Déconnexion</button>
     </div>
   </header>
 
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">Équipe de boxe · registre interne</p>
-      <h1>Athlètes</h1>
-      <p>Garde les fiches à jour, sélectionne les boxeurs et prépare rapidement une liste pour un combat ou une séance de sparring.</p>
-    </div>
-    <div class="stats" aria-label="Résumé de l’équipe">
-      <article class="stat"><strong id="statAthletes">0</strong><span>Athlètes</span></article>
-      <article class="stat"><strong id="statAvailable">0</strong><span>Disponibles</span></article>
-      <article class="stat"><strong id="statSelected">0</strong><span>Sélectionnés</span></article>
-    </div>
-  </section>
-
   <main class="content">
+    <p class="error hidden" id="pageError" role="alert"></p>
     <section class="panel" aria-labelledby="rosterTitle">
       <header class="panel-head">
-        <div><p class="kicker">Effectif</p><h2 class="section-title" id="rosterTitle">Liste de l’équipe</h2></div>
+        <h1 class="section-title" id="rosterTitle" tabindex="-1">Mes athlètes</h1>
         <div class="actions">
           <button class="button" id="shareButton" type="button">Préparer une liste <span class="count" id="selectedCount">0</span></button>
           <button class="button button-dark" id="addAthleteButton" type="button">＋ Ajouter un athlète</button>
         </div>
       </header>
+
+      <div class="stats roster-summary" aria-label="Résumé des athlètes">
+        <div class="stat"><strong id="statAthletes">0</strong><span>Athlètes</span></div>
+        <div class="stat"><strong id="statAvailable">0</strong><span>Disponibles</span></div>
+        <div class="stat"><strong id="statSelected">0</strong><span>Sélectionnés</span></div>
+      </div>
 
       <div class="filters" aria-label="Filtres">
         <label class="field-inline search-field"><span>Recherche</span><input id="searchInput" type="search" placeholder="Nom de l’athlète…"></label>
@@ -316,14 +316,14 @@
           </tr></thead>
           <tbody id="athleteRows"></tbody>
         </table>
-        <div class="empty" id="athleteEmpty"><strong>Aucun athlète</strong>Ajoute ta première fiche pour commencer.</div>
+        <div class="empty" id="athleteEmpty"><span class="empty-ring" aria-hidden="true"></span><strong>Aucun athlète affiché</strong>Ajoute un athlète pour préparer tes listes, avec ou sans compte sur la plateforme.</div>
       </div>
-      <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Données privées synchronisées avec Supabase</span></footer>
+      <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Effectif et contacts enregistrés</span></footer>
     </section>
 
     <section class="panel" aria-labelledby="coachesTitle">
       <header class="panel-head">
-        <div><p class="kicker">Contacts</p><h2 class="section-title" id="coachesTitle">Coachs</h2></div>
+        <h2 class="section-title" id="coachesTitle">Contacts coachs</h2>
         <button class="button button-dark" id="addCoachButton" type="button">＋ Ajouter un coach</button>
       </header>
       <div class="coach-grid" id="coachGrid"></div>
@@ -331,24 +331,25 @@
     </section>
   </main>
 
-  <dialog id="athleteDialog">
+  <dialog id="athleteDialog" aria-labelledby="athleteDialogTitle">
     <section class="dialog-box">
       <header class="dialog-head"><div><p class="kicker">Fiche d’athlète</p><h2 class="dialog-title" id="athleteDialogTitle">Ajouter un athlète</h2></div><button class="close" data-close="athleteDialog" type="button" aria-label="Fermer">×</button></header>
       <form id="athleteForm" novalidate>
+        <p class="hint">Un prénom suffit pour créer une fiche sans compte. Les détails sont facultatifs.</p>
         <input id="athleteId" type="hidden">
         <div class="form-grid cols-2">
-          <label><span>Prénom *</span><input id="firstName" required autocomplete="given-name"></label>
-          <label><span>Nom *</span><input id="lastName" required autocomplete="family-name"></label>
+          <label><span>Prénom *</span><input id="firstName" maxlength="200" required autocomplete="given-name"></label>
+          <label><span>Nom — facultatif</span><input id="lastName" maxlength="200" autocomplete="family-name"></label>
         </div>
         <div class="form-grid cols-3">
-          <label><span>Date de naissance *</span><input id="birthDate" type="date" required></label>
-          <label><span>Sexe *</span><select id="sex" required><option value="M">Homme</option><option value="F">Femme</option></select></label>
+          <label><span>Date de naissance — facultatif</span><input id="birthDate" type="date"></label>
+          <label><span>Sexe — facultatif</span><select id="sex"><option value="">Non renseigné</option><option value="M">Homme</option><option value="F">Femme</option></select></label>
           <label><span>Statut *</span><select id="status" required><option value="available">Disponible</option><option value="unavailable">Indisponible</option><option value="injured">Blessé</option><option value="sick">Malade</option><option value="not_ready">Pas prêt</option></select></label>
         </div>
         <fieldset>
-          <legend>Poids *</legend>
+          <legend>Poids — facultatif</legend>
           <div class="form-grid cols-2">
-            <label><span>Poids</span><input id="weight" type="number" min="20" max="250" step="0.1" required></label>
+            <label><span>Poids</span><input id="weight" type="number" min="1" max="600" step="0.1"></label>
             <label><span>Unité</span><select id="weightUnit"><option value="kg">Kilogrammes (kg)</option><option value="lb">Livres (lb)</option></select></label>
           </div>
           <p class="hint" id="weightConversion"></p>
@@ -362,19 +363,19 @@
           </div>
           <p class="hint">Exemple : 6 combats (4-2). Si le dossier est inscrit, les victoires et les défaites doivent totaliser le nombre de combats.</p>
         </fieldset>
-        <label><span>Note interne — jamais incluse dans une liste</span><textarea id="athleteNote" placeholder="Disponibilités, précision utile…"></textarea></label>
+        <label><span>Note privée du coach — jamais incluse dans une liste</span><textarea id="athleteNote" maxlength="20000" placeholder="Disponibilités, précision utile…"></textarea></label>
         <p class="error hidden" id="athleteError" role="alert"></p>
         <footer class="dialog-foot">
-          <button class="danger hidden" id="deleteAthleteButton" type="button">Supprimer</button><span class="spacer"></span>
+          <button class="danger hidden" id="deleteAthleteButton" type="button">Retirer de mon effectif</button><span class="spacer"></span>
           <button class="button" data-close="athleteDialog" type="button">Annuler</button><button class="button button-dark" type="submit">Enregistrer</button>
         </footer>
       </form>
     </section>
   </dialog>
 
-  <dialog id="settingsDialog">
+  <dialog id="settingsDialog" aria-labelledby="settingsDialogTitle">
     <section class="dialog-box">
-      <header class="dialog-head"><div><p class="kicker">Paramètres</p><h2 class="dialog-title">Mon profil et mon gym</h2></div><button class="close" data-close="settingsDialog" type="button" aria-label="Fermer">×</button></header>
+      <header class="dialog-head"><div><p class="kicker">Paramètres</p><h2 class="dialog-title" id="settingsDialogTitle">Mon profil et mon gym</h2></div><button class="close" data-close="settingsDialog" type="button" aria-label="Fermer">×</button></header>
       <form id="settingsForm" novalidate>
         <fieldset><legend>Mon profil</legend>
           <div class="form-grid cols-2"><label><span>Nom du coach *</span><input id="profileName" required></label><label><span>Téléphone</span><input id="profilePhone" type="tel"></label></div>
@@ -394,7 +395,7 @@
     </section>
   </dialog>
 
-  <dialog id="coachDialog">
+  <dialog id="coachDialog" aria-labelledby="coachDialogTitle">
     <section class="dialog-box">
       <header class="dialog-head"><div><p class="kicker">Contact</p><h2 class="dialog-title" id="coachDialogTitle">Ajouter un coach</h2></div><button class="close" data-close="coachDialog" type="button" aria-label="Fermer">×</button></header>
       <form id="coachForm" novalidate>
@@ -417,9 +418,9 @@
     </section>
   </dialog>
 
-  <dialog id="shareDialog">
+  <dialog id="shareDialog" aria-labelledby="shareDialogTitle">
     <section class="dialog-box dialog-wide">
-      <header class="dialog-head dark"><div><p class="kicker">Liste à envoyer</p><h2 class="dialog-title">Aperçu en temps réel</h2></div><button class="close" data-close="shareDialog" type="button" aria-label="Fermer">×</button></header>
+      <header class="dialog-head dark"><div><p class="kicker">Liste à envoyer</p><h2 class="dialog-title" id="shareDialogTitle">Aperçu en temps réel</h2></div><button class="close" data-close="shareDialog" type="button" aria-label="Fermer">×</button></header>
       <div class="share-layout">
         <aside class="share-options">
           <div class="option-group">
@@ -427,7 +428,7 @@
             <div class="segmented" id="typeButtons"><button class="active" data-value="combat" type="button">Combat</button><button data-value="sparring" type="button">Sparring</button></div>
           </div>
           <div class="option-group">
-            <label><span>Nom du gym</span><input id="shareGym" value="Crew"></label>
+            <label><span>Nom du gym</span><input id="shareGym" value="Mon gym"></label>
             <div class="checks"><label><input id="includeGymName" type="checkbox" checked> Ajouter le nom du gym</label></div>
             <div class="checks"><label><input id="includeGymAddress" type="checkbox"> Ajouter l’adresse du gym</label></div>
           </div>
@@ -441,7 +442,7 @@
           </div>
           <div class="option-group checks">
             <span class="option-title">Informations</span>
-            <p class="hint">Le sexe, l’âge et le nombre de combats sont toujours inclus.</p>
+            <p class="hint">Les renseignements disponibles sont inclus.</p>
             <label><input id="includeRecord" type="checkbox" checked> Ajouter le dossier victoires-défaites</label>
           </div>
           <div class="option-group">
@@ -461,382 +462,6 @@
 
   <div class="toast hidden" id="toast" role="status"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js"></script>
-  <script>
-  "use strict";
-  (() => {
-    const supabase = window.supabaseClient;
-    const KG_TO_LB = 2.2046226218;
-    const statusLabels = { available: "Disponible", unavailable: "Indisponible", injured: "Blessé", sick: "Malade", not_ready: "Pas prêt" };
-    const sexLabels = { M: "Homme", F: "Femme" };
-    const sexShortLabels = { M: "H", F: "F" };
-    let state = { athletes: [], coaches: [] };
-    let currentUser;
-    let profileData;
-    let gymSettings;
-    let shareType = "combat";
-    let shareWeight = "both";
-    let sortKey = "name";
-    let sortDirection = "asc";
-    let toastTimer;
-
-    const $ = id => document.getElementById(id);
-    const els = {
-      athleteRows: $("athleteRows"), athleteEmpty: $("athleteEmpty"), coachGrid: $("coachGrid"), coachEmpty: $("coachEmpty"),
-      athleteDialog: $("athleteDialog"), coachDialog: $("coachDialog"), shareDialog: $("shareDialog"), settingsDialog: $("settingsDialog"), toast: $("toast")
-    };
-
-    function uid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
-    function todayLocal() {
-      const d = new Date();
-      return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-");
-    }
-    function ageFromBirthDate(value) {
-      if (!value) return null;
-      const [year, month, day] = value.split("-").map(Number);
-      const now = new Date();
-      let age = now.getFullYear() - year;
-      if (now.getMonth() + 1 < month || (now.getMonth() + 1 === month && now.getDate() < day)) age--;
-      return age;
-    }
-    function normalizeAthlete(a) {
-      const oldSex = a.sex === "H" ? "M" : a.sex;
-      if (!a || typeof a !== "object" || !["M", "F"].includes(oldSex)) return null;
-      let birthDate = typeof a.birthDate === "string" ? a.birthDate : "";
-      if (!birthDate && Number.isInteger(a.age)) birthDate = `${new Date().getFullYear() - a.age}-01-01`;
-      return {
-        id: String(a.id || uid()), firstName: String(a.firstName || "").trim(), lastName: String(a.lastName || "").trim(),
-        birthDate, sex: oldSex, weightKg: Number(a.weightKg) || 0, fights: Math.max(0, Number(a.fights) || 0),
-        wins: Number.isInteger(a.wins) ? a.wins : null, losses: Number.isInteger(a.losses) ? a.losses : null,
-        status: statusLabels[a.status] ? a.status : "available", note: String(a.note || ""),
-        selected: !!a.selected && (a.status || "available") === "available", updatedAt: a.updatedAt || new Date().toISOString()
-      };
-    }
-    function normalizeCoach(c) {
-      if (!c || typeof c !== "object") return null;
-      return { id: String(c.id || uid()), firstName: String(c.firstName || "").trim(), lastName: String(c.lastName || "").trim(), phone: String(c.phone || "").trim(), email: String(c.email || "").trim() };
-    }
-    function athleteFromDb(row) {
-      return { id: row.id, firstName: row.first_name, lastName: row.last_name, birthDate: row.birth_date || "", sex: row.sex || "M",
-        weightKg: Number(row.weight_kg) || 0, fights: row.fights || 0, wins: row.wins, losses: row.losses, status: row.status || "available",
-        note: row.notes || "", selected: !!row.selected && row.status === "available", updatedAt: row.updated_at };
-    }
-    function coachFromDb(row) { return { id: row.id, firstName: row.first_name, lastName: row.last_name || "", phone: row.phone || "", email: row.email || "" }; }
-    function selfCoach() {
-      const pieces = (profileData?.full_name || currentUser?.user_metadata?.full_name || "Moi").trim().split(/\s+/);
-      return { id: currentUser.id, firstName: pieces.shift() || "Moi", lastName: pieces.join(" "), phone: profileData?.phone || "", email: currentUser.email || "", isSelf: true };
-    }
-    function applyGymSettings() {
-      $("gymBrand").textContent = gymSettings?.gym_name || "Mon gym";
-      $("gymAddress").textContent = gymSettings?.address || "";
-    }
-    function athleteToDb(athlete) {
-      return { coach_id: currentUser.id, first_name: athlete.firstName, last_name: athlete.lastName, birth_date: athlete.birthDate || null, sex: athlete.sex,
-        weight_kg: athlete.weightKg, fights: athlete.fights, wins: athlete.wins, losses: athlete.losses, status: athlete.status, notes: athlete.note || null,
-        selected: athlete.selected, is_active: athlete.status === "available" };
-    }
-    function coachToDb(coach) { return { coach_id: currentUser.id, first_name: coach.firstName, last_name: coach.lastName || null, phone: coach.phone || null, email: coach.email || null }; }
-    async function loadState() {
-      const { data: { session } } = await supabase.auth.getSession();
-      currentUser = session?.user;
-      if (!currentUser) { window.location.href = "login.html"; return; }
-      const [athletesResult, coachesResult, profileResult, gymResult] = await Promise.all([
-        supabase.from("athletes").select("*").order("last_name"),
-        supabase.from("coach_contacts").select("*").order("last_name"),
-        supabase.from("profiles").select("*").eq("id", currentUser.id).single(),
-        supabase.from("gym_settings").select("*").eq("coach_id", currentUser.id).single()
-      ]);
-      if (athletesResult.error || coachesResult.error || profileResult.error || gymResult.error) throw (athletesResult.error || coachesResult.error || profileResult.error || gymResult.error);
-      profileData = profileResult.data; gymSettings = gymResult.data;
-      state = { athletes: athletesResult.data.map(athleteFromDb), coaches: [selfCoach(), ...coachesResult.data.map(coachFromDb)] };
-      applyGymSettings();
-      $("adminButton").classList.toggle("hidden", !profileData.is_admin);
-      renderAll();
-    }
-    function saveState(message) {
-      renderAll();
-      if (message) showToast(message);
-    }
-    function showToast(message) {
-      clearTimeout(toastTimer); els.toast.textContent = `✓ ${message}`; els.toast.classList.remove("hidden");
-      toastTimer = setTimeout(() => els.toast.classList.add("hidden"), 2500);
-    }
-    function node(tag, attrs = {}, text = "") {
-      const el = document.createElement(tag);
-      Object.entries(attrs).forEach(([key, value]) => {
-        if (key === "class") el.className = value;
-        else if (key.startsWith("data-")) el.setAttribute(key, value);
-        else if (key in el) el[key] = value;
-        else el.setAttribute(key, value);
-      });
-      if (text !== "") el.textContent = text;
-      return el;
-    }
-    function formatNumber(n) { return Number(n).toLocaleString("fr-CA", { maximumFractionDigits: 1 }); }
-    function coachName(c) { return [c.firstName, c.lastName].filter(Boolean).join(" "); }
-    function recordText(a) {
-      const base = `${a.fights} combat${a.fights === 1 ? "" : "s"}`;
-      return a.wins !== null && a.losses !== null ? `${base} (${a.wins}-${a.losses})` : base;
-    }
-    function athleteMatches(a) {
-      const q = $("searchInput").value.trim().toLocaleLowerCase("fr-CA");
-      const status = $("statusFilter").value;
-      const sex = $("sexFilter").value;
-      return (!q || `${a.firstName} ${a.lastName}`.toLocaleLowerCase("fr-CA").includes(q)) && (status === "all" || a.status === status) && (sex === "all" || a.sex === sex);
-    }
-    function athleteSortValue(a, key) {
-      if (key === "age") return ageFromBirthDate(a.birthDate) ?? -1;
-      if (key === "sex") return sexLabels[a.sex];
-      if (key === "weight") return a.weightKg;
-      if (key === "fights") return a.fights;
-      if (key === "status") return statusLabels[a.status];
-      return `${a.lastName} ${a.firstName}`.trim();
-    }
-    function compareAthletes(a, b) {
-      const av = athleteSortValue(a, sortKey), bv = athleteSortValue(b, sortKey);
-      let result = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), "fr", { sensitivity: "base" });
-      if (result === 0) result = `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, "fr", { sensitivity: "base" });
-      return sortDirection === "asc" ? result : -result;
-    }
-    function updateSortHeaders() {
-      document.querySelectorAll(".sort-button").forEach(button => {
-        const active = button.dataset.sort === sortKey;
-        button.querySelector(".sort-arrow").textContent = active ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
-        button.closest("th").setAttribute("aria-sort", active ? (sortDirection === "asc" ? "ascending" : "descending") : "none");
-      });
-    }
-    function renderAthletes() {
-      const athletes = state.athletes.filter(athleteMatches).sort(compareAthletes);
-      updateSortHeaders();
-      els.athleteRows.replaceChildren();
-      athletes.forEach(a => {
-        const tr = node("tr", { class: a.selected ? "selected" : "" });
-        const checkTd = node("td", { class: "check-cell" });
-        const check = node("input", { type: "checkbox", checked: a.selected, disabled: a.status !== "available", ariaLabel: `Sélectionner ${a.firstName} ${a.lastName}` });
-        check.addEventListener("change", async () => {
-          a.selected = check.checked; saveState();
-          const { error } = await supabase.from("athletes").update({ selected: a.selected }).eq("id", a.id);
-          if (error) { a.selected = !check.checked; saveState("Impossible d’enregistrer la sélection."); }
-        });
-        checkTd.append(check); tr.append(checkTd);
-
-        const nameTd = node("td");
-        const nameButton = node("button", { class: "name-button", type: "button" }, `${a.firstName} ${a.lastName}`);
-        nameButton.addEventListener("click", () => openAthlete(a.id));
-        nameTd.append(nameButton);
-        if (a.note) nameTd.append(node("span", { class: "subtext" }, a.note));
-        tr.append(nameTd);
-
-        const age = ageFromBirthDate(a.birthDate);
-        const ageTd = node("td");
-        ageTd.append(node("strong", {}, age === null ? "—" : `${age} ans`));
-        tr.append(ageTd);
-        const sexTd = node("td");
-        sexTd.append(node("span", { class: "chip sex-full" }, sexLabels[a.sex]));
-        tr.append(sexTd);
-        const weightTd = node("td");
-        weightTd.append(node("strong", {}, `${formatNumber(a.weightKg)} kg`), node("span", { class: "subtext" }, `${formatNumber(a.weightKg * KG_TO_LB)} lb`));
-        tr.append(weightTd);
-        tr.append(node("td", {}, recordText(a)));
-        const statusTd = node("td"); statusTd.append(node("span", { class: `status ${a.status}` }, statusLabels[a.status])); tr.append(statusTd);
-        const editTd = node("td"); const edit = node("button", { class: "edit", type: "button" }, "Modifier"); edit.addEventListener("click", () => openAthlete(a.id)); editTd.append(edit); tr.append(editTd);
-        els.athleteRows.append(tr);
-      });
-      els.athleteEmpty.classList.toggle("hidden", athletes.length > 0);
-      $("athleteFoot").textContent = `${athletes.length} fiche${athletes.length === 1 ? "" : "s"} affichée${athletes.length === 1 ? "" : "s"}`;
-      const available = state.athletes.filter(a => a.status === "available").length;
-      const selected = state.athletes.filter(a => a.selected && a.status === "available").length;
-      $("statAthletes").textContent = state.athletes.length; $("statAvailable").textContent = available; $("statSelected").textContent = selected; $("selectedCount").textContent = selected;
-    }
-    function renderCoaches() {
-      els.coachGrid.replaceChildren();
-      state.coaches.forEach(c => {
-        const card = node("article", { class: "coach-card" });
-        card.append(node("strong", {}, coachName(c)));
-        if (c.phone) card.append(node("span", {}, c.phone));
-        if (c.email) card.append(node("span", {}, c.email));
-        const edit = node("button", { class: "edit", type: "button" }, c.isSelf ? "Paramètres" : "Modifier"); edit.addEventListener("click", () => c.isSelf ? openSettings() : openCoach(c.id)); card.append(edit);
-        els.coachGrid.append(card);
-      });
-      els.coachEmpty.classList.toggle("hidden", state.coaches.length > 0);
-    }
-    function renderAll() { renderAthletes(); renderCoaches(); }
-
-    function openAthlete(id = "") {
-      $("athleteForm").reset(); $("athleteId").value = id; $("athleteError").classList.add("hidden");
-      $("athleteDialogTitle").textContent = id ? "Modifier la fiche" : "Ajouter un athlète";
-      $("deleteAthleteButton").classList.toggle("hidden", !id);
-      if (id) {
-        const a = state.athletes.find(x => x.id === id); if (!a) return;
-        $("firstName").value = a.firstName; $("lastName").value = a.lastName; $("birthDate").value = a.birthDate;
-        $("sex").value = a.sex; $("status").value = a.status; $("weight").value = a.weightKg; $("weightUnit").value = "kg";
-        $("fights").value = a.fights; $("wins").value = a.wins ?? ""; $("losses").value = a.losses ?? ""; $("athleteNote").value = a.note;
-      } else { $("sex").value = "M"; $("status").value = "available"; $("weightUnit").value = "kg"; $("fights").value = 0; }
-      updateWeightConversion(); els.athleteDialog.showModal(); setTimeout(() => $("firstName").focus(), 0);
-    }
-    function athleteError(message) { $("athleteError").textContent = message; $("athleteError").classList.remove("hidden"); }
-    async function saveAthlete(event) {
-      event.preventDefault(); $("athleteError").classList.add("hidden");
-      const birthDate = $("birthDate").value; const age = ageFromBirthDate(birthDate); const weightRaw = Number($("weight").value);
-      const weightKg = $("weightUnit").value === "lb" ? weightRaw / KG_TO_LB : weightRaw;
-      const fights = Number($("fights").value); const hasWins = $("wins").value !== ""; const hasLosses = $("losses").value !== "";
-      const wins = hasWins ? Number($("wins").value) : null; const losses = hasLosses ? Number($("losses").value) : null;
-      if (!$("firstName").value.trim() || !$("lastName").value.trim()) return athleteError("Le prénom et le nom sont obligatoires.");
-      if (age === null || age < 5 || age > 100) return athleteError("Inscris une date de naissance valide.");
-      if (!Number.isFinite(weightKg) || weightKg < 20 || weightKg > 250) return athleteError("Inscris un poids valide.");
-      if (!Number.isInteger(fights) || fights < 0) return athleteError("Le nombre de combats doit être un entier positif ou zéro.");
-      if (hasWins !== hasLosses) return athleteError("Inscris les victoires et les défaites ensemble, ou laisse les deux champs vides.");
-      if (hasWins && (!Number.isInteger(wins) || !Number.isInteger(losses) || wins < 0 || losses < 0 || wins + losses !== fights)) return athleteError("Les victoires et les défaites doivent être des entiers positifs dont le total égale le nombre de combats.");
-      const id = $("athleteId").value; const old = state.athletes.find(a => a.id === id);
-      const athlete = { id: id || uid(), firstName: $("firstName").value.trim(), lastName: $("lastName").value.trim(), birthDate, sex: $("sex").value,
-        weightKg: Math.round(weightKg * 10) / 10, fights, wins, losses, status: $("status").value, note: $("athleteNote").value.trim(),
-        selected: $("status").value === "available" ? !!old?.selected : false, updatedAt: new Date().toISOString() };
-      const result = id
-        ? await supabase.from("athletes").update(athleteToDb(athlete)).eq("id", id).select().single()
-        : await supabase.from("athletes").insert(athleteToDb(athlete)).select().single();
-      if (result.error) return athleteError(result.error.message);
-      const saved = athleteFromDb(result.data);
-      if (id) state.athletes = state.athletes.map(a => a.id === id ? saved : a); else state.athletes.unshift(saved);
-      els.athleteDialog.close(); saveState(id ? "Fiche mise à jour." : "Athlète ajouté.");
-    }
-    function updateWeightConversion() {
-      const value = Number($("weight").value); if (!value) { $("weightConversion").textContent = ""; return; }
-      $("weightConversion").textContent = $("weightUnit").value === "kg" ? `Équivaut à ${formatNumber(value * KG_TO_LB)} lb` : `Équivaut à ${formatNumber(value / KG_TO_LB)} kg`;
-    }
-
-    function openCoach(id = "") {
-      $("coachForm").reset(); $("coachId").value = id; $("coachError").classList.add("hidden");
-      $("coachDialogTitle").textContent = id ? "Modifier le coach" : "Ajouter un coach"; $("deleteCoachButton").classList.toggle("hidden", !id);
-      if (id) { const c = state.coaches.find(x => x.id === id); if (!c) return; $("coachFirstName").value = c.firstName; $("coachLastName").value = c.lastName; $("coachPhone").value = c.phone; $("coachEmail").value = c.email; }
-      els.coachDialog.showModal(); setTimeout(() => $("coachFirstName").focus(), 0);
-    }
-    function coachError(message) { $("coachError").textContent = message; $("coachError").classList.remove("hidden"); }
-    async function saveCoach(event) {
-      event.preventDefault(); $("coachError").classList.add("hidden");
-      const firstName = $("coachFirstName").value.trim(), lastName = $("coachLastName").value.trim(), phone = $("coachPhone").value.trim(), email = $("coachEmail").value.trim();
-      if (!firstName) return coachError("Le prénom est obligatoire.");
-      if (email && !$("coachEmail").checkValidity()) return coachError("Le courriel n’est pas valide.");
-      const id = $("coachId").value; const coach = { id: id || uid(), firstName, lastName, phone, email };
-      const result = id
-        ? await supabase.from("coach_contacts").update(coachToDb(coach)).eq("id", id).select().single()
-        : await supabase.from("coach_contacts").insert(coachToDb(coach)).select().single();
-      if (result.error) return coachError(result.error.message);
-      const saved = coachFromDb(result.data);
-      if (id) state.coaches = state.coaches.map(c => c.id === id ? saved : c); else state.coaches.push(saved);
-      els.coachDialog.close(); saveState(id ? "Coach mis à jour." : "Coach ajouté.");
-    }
-
-    function openSettings() {
-      $("settingsError").classList.add("hidden");
-      $("profileName").value = profileData?.full_name || "";
-      $("profilePhone").value = profileData?.phone || "";
-      $("profileEmail").textContent = currentUser.email || "";
-      $("settingsGymName").value = gymSettings?.gym_name || "Mon gym";
-      $("settingsGymAddress").value = gymSettings?.address || "";
-      $("newPassword").value = ""; $("confirmPassword").value = "";
-      $("settingsDialog").showModal();
-    }
-    async function saveSettings(event) {
-      event.preventDefault(); $("settingsError").classList.add("hidden");
-      const fullName = $("profileName").value.trim();
-      const gymName = $("settingsGymName").value.trim();
-      const password = $("newPassword").value;
-      const confirmPassword = $("confirmPassword").value;
-      if (!fullName || !gymName) { $("settingsError").textContent = "Le nom du coach et le nom du gym sont obligatoires."; $("settingsError").classList.remove("hidden"); return; }
-      if (password && password.length < 6) { $("settingsError").textContent = "Le mot de passe doit contenir au moins 6 caractères."; $("settingsError").classList.remove("hidden"); return; }
-      if (password !== confirmPassword) { $("settingsError").textContent = "Les deux mots de passe ne correspondent pas."; $("settingsError").classList.remove("hidden"); return; }
-      const [profileResult, gymResult] = await Promise.all([
-        supabase.from("profiles").update({ full_name: fullName, phone: $("profilePhone").value.trim() || null }).eq("id", currentUser.id).select().single(),
-        supabase.from("gym_settings").update({ gym_name: gymName, address: $("settingsGymAddress").value.trim() || null }).eq("coach_id", currentUser.id).select().single()
-      ]);
-      if (profileResult.error || gymResult.error) { $("settingsError").textContent = (profileResult.error || gymResult.error).message; $("settingsError").classList.remove("hidden"); return; }
-      if (password) {
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) { $("settingsError").textContent = error.message; $("settingsError").classList.remove("hidden"); return; }
-      }
-      profileData = profileResult.data; gymSettings = gymResult.data;
-      state.coaches = [selfCoach(), ...state.coaches.filter(c => !c.isSelf)];
-      applyGymSettings(); els.settingsDialog.close(); saveState("Paramètres enregistrés.");
-    }
-
-    function renderCoachChoices() {
-      const wrap = $("coachChoices"); wrap.replaceChildren();
-      state.coaches.forEach(c => {
-        const box = node("div", { class: "coach-choice", "data-coach-id": c.id });
-        const head = node("label", { class: "coach-choice-head" });
-        const include = node("input", { type: "checkbox", checked: true, class: "include-coach" });
-        head.append(include, node("strong", {}, coachName(c))); box.append(head);
-        const methods = node("div", { class: "coach-methods" });
-        if (c.phone) { const l = node("label"); l.append(node("input", { type: "checkbox", checked: true, class: "include-phone" }), document.createTextNode(" Téléphone")); methods.append(l); }
-        if (c.email) { const l = node("label"); l.append(node("input", { type: "checkbox", checked: false, class: "include-email" }), document.createTextNode(" Courriel")); methods.append(l); }
-        box.append(methods); box.addEventListener("change", updateSharePreview); wrap.append(box);
-      });
-      $("noCoachChoice").classList.toggle("hidden", state.coaches.length > 0);
-    }
-    function selectedAthletes() { return state.athletes.filter(a => a.selected && a.status === "available").sort(compareAthletes); }
-    function formattedDate(value) { if (!value) return ""; return new Intl.DateTimeFormat("fr-CA", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`)); }
-    function shareText() {
-      const gym = $("shareGym").value.trim() || "Crew"; const athletes = selectedAthletes();
-      const lines = [`ATHLÈTES DISPONIBLES POUR ${shareType === "combat" ? "COMBAT" : "SPARRING"}`];
-      if ($("includeGymName").checked) lines.push(gym.toUpperCase());
-      if ($("includeGymAddress").checked && gymSettings?.address) lines.push(gymSettings.address);
-      if ($("includeDate").checked) lines.push(formattedDate($("shareDate").value));
-      lines.push("");
-      athletes.forEach(a => {
-        const age = ageFromBirthDate(a.birthDate); const kg = `${formatNumber(a.weightKg)} kg`; const lb = `${formatNumber(a.weightKg * KG_TO_LB)} lb`;
-        const weight = shareWeight === "kg" ? kg : shareWeight === "lb" ? lb : `${kg} / ${lb}`;
-        let experience = `${a.fights} combat${a.fights === 1 ? "" : "s"}`;
-        if ($("includeRecord").checked && a.wins !== null && a.losses !== null) experience += ` (${a.wins}-${a.losses})`;
-        lines.push(`• ${a.firstName} ${a.lastName} — ${sexShortLabels[a.sex]}, ${age} ans, ${weight}, ${experience}`);
-      });
-      const contacts = [];
-      document.querySelectorAll(".coach-choice").forEach(box => {
-        if (!box.querySelector(".include-coach").checked) return;
-        const c = state.coaches.find(x => x.id === box.dataset.coachId); if (!c) return;
-        const details = [];
-        if (box.querySelector(".include-phone")?.checked && c.phone) details.push(c.phone);
-        if (box.querySelector(".include-email")?.checked && c.email) details.push(c.email);
-        contacts.push(details.length ? `${coachName(c)} — ${details.join(" — ")}` : coachName(c));
-      });
-      if (contacts.length) lines.push("", "COACHS CONTACTS", ...contacts);
-      return lines.join("\n");
-    }
-    function updateSharePreview() { $("sharePreview").textContent = shareText(); }
-    function openShare() {
-      $("shareGym").value = gymSettings?.gym_name || "Mon gym"; $("includeGymName").checked = true; $("includeGymAddress").checked = !!gymSettings?.address; $("includeGymAddress").disabled = !gymSettings?.address; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "combat"; shareWeight = "both";
-      setSegment($("typeButtons"), shareType); setSegment($("weightButtons"), shareWeight); renderCoachChoices(); updateSharePreview(); els.shareDialog.showModal();
-    }
-    function setSegment(group, value) { group.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.value === value)); }
-    async function copyShare() {
-      const text = shareText();
-      try { await navigator.clipboard.writeText(text); }
-      catch { const area = node("textarea", { value: text }); area.style.position = "fixed"; area.style.opacity = "0"; document.body.append(area); area.select(); document.execCommand("copy"); area.remove(); }
-      showToast("Liste copiée — prête à envoyer.");
-    }
-    $("addAthleteButton").addEventListener("click", () => openAthlete()); $("athleteForm").addEventListener("submit", saveAthlete);
-    $("weight").addEventListener("input", updateWeightConversion); $("weightUnit").addEventListener("change", updateWeightConversion);
-    $("deleteAthleteButton").addEventListener("click", async () => { const id = $("athleteId").value; const a = state.athletes.find(x => x.id === id); if (a && confirm(`Supprimer la fiche de ${a.firstName} ${a.lastName}?`)) { const { error } = await supabase.from("athletes").delete().eq("id", id); if (error) return athleteError(error.message); state.athletes = state.athletes.filter(x => x.id !== id); els.athleteDialog.close(); saveState("Fiche supprimée."); } });
-    $("addCoachButton").addEventListener("click", () => openCoach()); $("coachForm").addEventListener("submit", saveCoach);
-    $("deleteCoachButton").addEventListener("click", async () => { const id = $("coachId").value; const c = state.coaches.find(x => x.id === id); if (c && confirm(`Supprimer ${coachName(c)} des coachs?`)) { const { error } = await supabase.from("coach_contacts").delete().eq("id", id); if (error) return coachError(error.message); state.coaches = state.coaches.filter(x => x.id !== id); els.coachDialog.close(); saveState("Coach supprimé."); } });
-    [$("searchInput"), $("statusFilter"), $("sexFilter")].forEach(el => el.addEventListener("input", renderAthletes));
-    document.querySelectorAll(".sort-button").forEach(button => button.addEventListener("click", () => {
-      if (sortKey === button.dataset.sort) sortDirection = sortDirection === "asc" ? "desc" : "asc";
-      else { sortKey = button.dataset.sort; sortDirection = "asc"; }
-      renderAthletes();
-    }));
-    $("resetFilters").addEventListener("click", () => { $("searchInput").value = ""; $("statusFilter").value = "all"; $("sexFilter").value = "all"; renderAthletes(); });
-    $("shareButton").addEventListener("click", openShare); $("shareGym").addEventListener("input", updateSharePreview); $("shareDate").addEventListener("input", updateSharePreview); $("includeRecord").addEventListener("change", updateSharePreview); $("includeGymName").addEventListener("change", updateSharePreview); $("includeGymAddress").addEventListener("change", updateSharePreview);
-    $("includeDate").addEventListener("change", () => { $("shareDate").disabled = !$("includeDate").checked; updateSharePreview(); });
-    $("typeButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareType = e.target.dataset.value; setSegment($("typeButtons"), shareType); updateSharePreview(); });
-    $("weightButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareWeight = e.target.dataset.value; setSegment($("weightButtons"), shareWeight); updateSharePreview(); });
-    $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
-    $("settingsButton").addEventListener("click", openSettings); $("settingsForm").addEventListener("submit", saveSettings);
-    $("logoutButton").addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "login.html"; });
-    document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => $(button.dataset.close).close()));
-    document.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); }));
-    loadState().catch(error => { console.error(error); showToast(`Erreur Supabase : ${error.message}`); });
-  })();
-  </script>
+  <script type="module" src="js/roster.js"></script>
 </body>
 </html>
