@@ -1,0 +1,344 @@
+:root{--ink:#0b0b0c;--muted:#696760;--paper:#f4f2ec;--white:#fff;--line:#c9c5bb;--soft:#e7e4dc;--accent:#d9ff43;--accent-dark:#526d22;--danger:#a83434;--radius:12px;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--paper);font-synthesis:none}
+*{box-sizing:border-box}
+body{margin:0;min-width:320px}
+button,input,select,textarea{font:inherit}
+button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.55}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #79932d;outline-offset:3px}
+a{color:inherit}
+button{color:inherit}
+[hidden]{display:none!important}
+.skip-link{position:fixed;left:12px;top:-100px;z-index:100;background:var(--accent);padding:12px}
+.skip-link:focus{top:10px}
+.muted{color:var(--muted);line-height:1.5}
+.eyebrow,.tiny-label{font-size:10px;font-weight:750;letter-spacing:.14em;color:var(--muted);line-height:1.6;margin:0 0 8px}
+.app-header{min-height:84px;display:flex;align-items:center;gap:32px;padding:14px 34px;background:var(--ink);color:#f7f8f2;border-bottom:1px solid #2c342c}
+.gym-identity{display:block;min-width:0;text-decoration:none;max-width:390px;overflow-wrap:anywhere}
+.gym-name{display:block;color:#fff;font-family:Arial Rounded MT Bold,Trebuchet MS,Arial,sans-serif;font-size:25px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;line-height:1.2}
+.gym-address{display:block;color:#aaa;font-size:10px;font-weight:700;letter-spacing:.05em;margin-top:4px;line-height:1.5}
+.main-nav{align-self:stretch;display:flex;align-items:stretch;gap:24px;flex-shrink:0}
+.main-nav a,.main-nav button{display:flex;align-items:center;text-decoration:none;background:none;border:0;border-bottom:3px solid transparent;color:#aeb9ac;font-size:13px;padding:3px 0 0}
+.main-nav [aria-current]{color:var(--accent);border-bottom-color:var(--accent)}
+.account-nav{display:flex;gap:16px;align-items:center;margin-left:auto;font-size:12px}
+.account-name{max-width:170px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.quiet-button{border:0;background:transparent;padding:10px 0;font-size:12px;color:inherit;text-align:left}
+.icon-button{border:1px solid var(--line);background:var(--white);border-radius:50%;width:34px;height:34px;display:inline-grid;place-items:center;padding:0;font-size:17px;flex-shrink:0}
+.app-header .icon-button{background:transparent;border-color:#495447;color:var(--accent)}
+.workspace{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 84px)}
+.workspace.athlete-workspace{grid-template-columns:1fr}
+.athlete-sidebar{background:#e7e4dc;border-right:1px solid var(--line);padding:32px 18px;display:flex;flex-direction:column;gap:22px}
+.sidebar-heading{display:flex;align-items:center;justify-content:space-between}
+.sidebar-heading .eyebrow{margin:0}
+.round-button{width:29px;height:29px;border:1px solid #bfc7b7;border-radius:50%;display:grid;place-items:center;text-decoration:none}
+.search-box{display:flex;gap:9px;border-bottom:1px solid #c6cdbf;padding:9px 1px;align-items:center}
+.search-box input{border:0;background:transparent;width:100%;min-width:0;font-size:11px;outline:none}
+.search-box span{font-size:23px}
+.athlete-list{display:flex;flex-direction:column;gap:7px}
+.athlete-item{display:flex;gap:10px;align-items:center;text-align:left;background:transparent;border:1px solid transparent;border-radius:10px;padding:11px 9px;width:100%}
+.athlete-item:hover{background:#e4e9db}
+.athlete-item.active{background:#fff;border-color:#d1d9c5;box-shadow:0 3px 9px #25301d06}
+.athlete-avatar{width:33px;height:33px;background:#e0e6d5;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex-shrink:0}
+.active .athlete-avatar{background:var(--ink);color:var(--accent)}
+.athlete-item strong{font-size:12px;display:block;overflow-wrap:anywhere}
+.athlete-item small{display:block;font-size:10px;color:var(--muted);margin-top:4px}
+.athlete-item .dot{height:6px;width:6px;background:#668f45;border-radius:50%;margin-left:auto;flex-shrink:0}
+.sidebar-footer{margin-top:auto;padding:35px 6px 0}
+.roster-shortcut{display:block;font-size:12px;font-weight:700;line-height:1.6;margin-bottom:18px;text-underline-offset:4px}
+.planner-main{padding:36px 36px 28px;max-width:1880px;width:100%;margin:auto;align-self:start;min-width:0}
+.planner-intro{display:flex;gap:20px;align-items:center;justify-content:space-between;margin-bottom:35px}
+.planner-intro h1{font-family:Impact,Arial Black,Arial Narrow,sans-serif;font-size:clamp(34px,3.4vw,54px);font-weight:600;line-height:1.02;letter-spacing:-.015em;margin:6px 0 12px;overflow-wrap:anywhere}
+.planner-intro .muted{font-size:12px;margin:0}
+.intro-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.button{display:inline-flex;justify-content:center;align-items:center;gap:7px;border-radius:2px;padding:12px 16px;min-height:43px;font-size:12px;font-weight:650;text-decoration:none;border:1px solid transparent;line-height:1.3;transition:background .15s,transform .15s}
+.button:hover{transform:translateY(-1px)}
+.primary{background:var(--ink);color:var(--accent)}
+.primary:hover{background:#2c382c}
+.secondary{background:transparent;border-color:#c9d0c0;color:var(--ink)}
+.secondary:hover{background:var(--soft)}
+.danger-button{background:#a83434;color:white}
+.calendar-toolbar{display:flex;gap:18px;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:24px 0 20px}
+.date-navigation{display:flex;gap:12px;align-items:center}
+.date-navigation h2{font-size:18px;font-weight:600;min-width:155px;margin:0;text-transform:capitalize}
+.today-button{background:none;border:0;text-decoration:underline;text-underline-offset:4px;font-size:11px;padding:9px}
+.segmented{display:flex;padding:4px;background:#e8ece0;border-radius:8px;gap:3px}
+.segmented button{border:0;padding:9px 17px;border-radius:5px;background:transparent;font-size:11px;color:var(--muted)}
+.segmented [aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 4px #2b381115}
+.week-overview{display:flex;align-items:center;gap:0;margin:0 0 22px;padding:19px 0;border-bottom:1px solid var(--line)}
+.week-overview>div{min-width:120px;padding-right:34px}
+.week-overview>div+div{border-left:1px solid var(--line);padding-left:30px}
+.week-overview strong{font-size:24px;font-weight:500;display:block;font-variant-numeric:tabular-nums;line-height:1.3}
+.week-overview span{font-size:8px;letter-spacing:.12em;display:block;color:var(--muted);margin-top:6px;font-weight:600}
+.week-overview p{margin:0 0 0 auto;font-size:11px;color:var(--muted);line-height:1.6;text-align:right}
+.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.day{min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:9px;background:#eeece5;min-height:360px}
+.day.today{border-color:#a5bd6e;background:#f1f5e5}
+.day-heading{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:14px 10px 12px;flex-wrap:wrap}
+.day-heading .weekday{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.day-heading .date-number{font-size:22px;font-weight:500;display:grid;place-items:center;width:30px;height:30px}
+.today .date-number{border-radius:50%;background:var(--accent);color:var(--ink)}
+.day-content{padding:0 7px;flex:1;min-height:120px}
+.session-card{background:white;border:1px solid #dce3d3;border-radius:7px;margin-bottom:8px;padding:11px 10px 10px;box-shadow:0 2px 3px #3c471b04;position:relative;min-width:0}
+.session-card:hover{border-color:#a4b395}
+.session-top{display:flex;align-items:center;justify-content:space-between;gap:3px}
+.sport-tag{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;display:flex;gap:4px;align-items:center}
+.sport-tag[data-sport=running]{color:#466b3e}
+.sport-tag[data-sport=boxing]{color:#775431}
+.sport-tag[data-sport=strength]{color:#59538e}
+.sport-tag[data-sport=mobility]{color:#447379}
+.drag-handle{border:0;background:transparent;color:#929b8b;cursor:grab;touch-action:none;padding:4px 1px;font-size:17px;line-height:1}
+.session-title{display:block;border:0;background:transparent;text-align:left;width:100%;padding:10px 0 5px;font-size:12px;line-height:1.4;font-weight:650;overflow-wrap:anywhere}
+.session-meta{font-size:9px;color:var(--muted);line-height:1.6}
+.session-author{font-size:8px;color:#747d6d;margin:8px 0 0;padding-top:7px;border-top:1px solid #f0f2ed;overflow-wrap:anywhere}
+.feedback-pill{margin-top:8px;padding:5px 6px;border-radius:4px;background:#edf3e3;font-size:9px;font-weight:600}
+.event-card{background:#e6ecef;border:1px dashed #b9c8cf;border-radius:6px;padding:10px;margin:0 7px 8px;color:#445865;cursor:pointer;display:block;text-align:left;font-size:10px;line-height:1.5;width:calc(100% - 14px);overflow-wrap:anywhere}
+.event-card strong{display:block}
+.event-label{font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:#627582}
+.add-day{margin:9px 8px 10px;background:transparent;color:#7f8c70;border:1px dashed #cdd6c0;border-radius:6px;font-size:11px;min-height:34px}
+.empty-day{font-size:10px;color:#87917d;text-align:center;padding:35px 0 10px;line-height:1.6;pointer-events:none}
+.day-content:has(.session-card) .empty-day{display:none}
+.sortable-ghost{opacity:.25}
+.sortable-chosen{box-shadow:0 8px 20px #1c321226}
+.calendar.month{gap:1px;border:1px solid var(--line);background:var(--line);border-radius:9px;overflow:hidden}
+.month .day{min-height:130px;border:0;border-radius:0;background:#fafbf5}
+.month .day.outside-month{background:#eef0e8}
+.month .day.today{background:#f0f6df}
+.month .day-heading{padding:8px}
+.month .date-number{font-size:14px;width:23px;height:23px}
+.month .day-content{padding:0 4px;min-height:40px}
+.month .session-card{padding:6px;margin-bottom:4px}
+.month .session-title{font-size:10px;padding:5px 0 2px}
+.month .session-author,.month .session-meta,.month .empty-day{display:none}
+.month .sport-tag{font-size:7px}
+.month .event-card{padding:5px;margin:0 4px 4px;width:calc(100% - 8px);font-size:9px}
+.month .add-day{margin:5px;font-size:10px;min-height:25px}
+.calendar.today-view{grid-template-columns:minmax(0,740px);justify-content:start}
+.today-view .day{min-height:200px}
+.today-view .session-card{padding:20px;margin:0 6px 12px}
+.today-view .session-title{font-size:20px}
+.today-view .sport-tag{font-size:10px}
+.today-view .session-meta,.today-view .session-author{font-size:12px}
+.today-view .feedback-pill{font-size:12px}
+.today-view .day-heading{padding:16px 20px}
+.today-view .event-card{font-size:13px;padding:15px;width:calc(100% - 28px);margin:0 14px 12px}
+.today-view .day-heading .weekday{font-size:12px}
+.calendar-footnote{font-size:10px;color:var(--muted);margin:16px 0}
+.calendar-status{font-size:12px;line-height:1.6;color:var(--muted)}
+.calendar-status:empty{display:none}
+.welcome-empty{padding:65px 25px;border:1px dashed #bdc8ac;border-radius:12px;max-width:900px;text-align:center}
+.welcome-empty h2{font-size:25px;font-weight:500}
+.welcome-empty p{color:var(--muted);max-width:490px;margin:0 auto 24px;line-height:1.8;font-size:14px}
+.empty-symbol{background:var(--accent);border-radius:50%;display:inline-grid;width:60px;height:60px;place-items:center;font-size:30px}
+.loading-state{min-height:300px;display:flex;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-size:14px}
+.loading-dot{width:10px;height:10px;background:#89a948;border-radius:50%;animation:pulse 1s alternate infinite}
+@keyframes pulse{to{opacity:.25}
+}
+.banner{padding:15px 28px;background:#e9f1d9;font-size:13px;line-height:1.5;border-bottom:1px solid #bdcca5}
+.error-banner{background:#fff0ee;color:#912b22}
+.app-dialog{border:1px solid var(--line);border-radius:14px;background:#f8f9f4;color:var(--ink);padding:0;width:min(620px,calc(100% - 32px));max-height:calc(100dvh - 40px);overflow:auto;box-shadow:0 24px 80px #111b1938}
+.app-dialog::backdrop{background:#101b13a6;backdrop-filter:blur(3px)}
+.wide-dialog{width:min(1050px,calc(100% - 32px))}
+.detail-dialog{width:min(780px,calc(100% - 32px))}
+.small-dialog{width:min(450px,calc(100% - 32px))}
+.dialog-heading{padding:24px 28px 20px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:#fff}
+.dialog-heading h2{font-family:Impact,Arial Black,Arial Narrow,sans-serif;font-size:32px;line-height:1.1;margin:0;overflow-wrap:anywhere}
+.dialog-heading .eyebrow{font-size:9px}
+.close-button{border:1px solid var(--line);background:transparent;border-radius:50%;font-size:22px;width:33px;height:33px;line-height:1;flex-shrink:0}
+.dialog-body{padding:23px 28px;line-height:1.65;font-size:13px}
+.dialog-body>p:first-child{margin-top:0}
+.dialog-actions{padding:18px 28px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap;background:#eef1e6}
+.dialog-actions .left-action{margin-right:auto}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-grid.three{grid-template-columns:2fr 1fr 1fr}
+.form-field{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;min-width:0}
+.form-field>span{font-size:11px;font-weight:650}
+.form-field input,.form-field select,.form-field textarea{min-width:0;width:100%;background:white;border:1px solid #cad2bf;border-radius:6px;padding:11px 12px;min-height:43px}
+.form-field small{font-size:11px}
+.form-field textarea{resize:vertical}
+.form-error{border:1px solid #e1b3ac;background:#fff0ed;padding:12px;color:#912b22;border-radius:6px;white-space:pre-line;font-size:12px;line-height:1.6}
+.session-form-details{margin:3px 0 20px}
+.session-form-details summary{cursor:pointer;font-size:12px;padding:8px 0;color:var(--muted)}
+.session-form-details[open] summary{margin-bottom:10px}
+.workout-area{padding:23px 28px}
+.workout-area h3{font-size:15px;font-weight:650}
+.session-intro{white-space:pre-wrap;overflow-wrap:anywhere;color:#4e5949;margin:0 0 20px;font-size:14px;line-height:1.7}
+.detail-meta{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;font-size:12px;color:var(--muted)}
+.detail-meta span{background:var(--soft);padding:7px 10px;border-radius:5px}
+.note-box{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:#edf1e5;border-left:3px solid #9caf7c;font-size:13px;line-height:1.7}
+.feedback-section{padding:23px 28px;border-top:1px solid var(--line)}
+.feedback-section h3{font-size:17px;margin-top:0}
+.feeling-options{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 20px}
+.feeling-choice{flex:1;min-width:48px;position:relative;cursor:pointer}
+.feeling-choice input{position:absolute;opacity:0;width:1px;height:1px}
+.feeling-choice span{display:flex;flex-direction:column;align-items:center;gap:7px;border:1px solid var(--line);padding:12px 5px;border-radius:7px;background:#fff;font-size:24px}
+.feeling-choice small{font-size:9px;color:var(--muted)}
+.feeling-choice input:checked+span{background:#eaf4d5;border-color:#8faa57}
+.feeling-choice input:focus-visible+span{outline:3px solid #79932d}
+.feedback-read{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;font-size:13px}
+.feedback-score{display:inline-block;background:#e9efdb;border-radius:6px;padding:8px 12px;margin:0 8px 12px 0;font-size:13px}
+.connection-card,.template-card{padding:17px;border:1px solid var(--line);background:white;border-radius:9px;margin-bottom:12px}
+.connection-card h3,.template-card h3{font-size:15px;margin:0 0 7px}
+.connection-card p,.template-card p{font-size:12px;color:var(--muted);line-height:1.7;margin:0 0 12px}
+.connection-card .button,.template-card .button{font-size:11px;padding:8px 12px;min-height:35px}
+.connection-status{font-size:10px;padding:4px 7px;background:#edf2e3;border-radius:4px;margin-left:8px}
+.code-box{display:flex;align-items:center;gap:8px;padding:12px;background:#e9efdf;border-radius:8px;margin:13px 0 22px}
+.code-box code{font-size:12px;overflow-wrap:anywhere;min-width:0;flex:1}
+.code-box .button{flex-shrink:0}
+.permission-list{display:grid;gap:10px;font-size:12px;margin:15px 0}
+.permission-list label{display:flex;align-items:center;gap:9px}
+.permission-list input{width:17px;height:17px;accent-color:var(--ink)}
+.template-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.template-card{margin:0}
+.template-card .template-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:15px}
+.empty-message{padding:24px 0;text-align:center;color:var(--muted);font-size:13px;line-height:1.8}
+.app-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:100;background:var(--ink);color:#eff8df;padding:14px 22px;box-shadow:0 8px 30px #0b1f2633;border-radius:8px;font-size:12px;max-width:calc(100% - 24px);text-align:center}
+.library-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:20px}
+.library-toolbar input{width:100%;border:1px solid var(--line);border-radius:6px;padding:11px;background:#fff}
+.template-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.link-text{color:#4d6c25;text-underline-offset:3px}
+.feedback-label{font-size:12px}
+.permission-help{font-size:11px;color:var(--muted);line-height:1.6}
+
+@media(min-width:1500px){.planner-main{padding:42px 48px}
+.day-content{padding:0 10px}
+.session-card{padding:14px}
+.session-title{font-size:14px}
+.session-meta{font-size:10px}
+.sport-tag{font-size:9px}
+.day{min-height:410px}
+}
+
+@media(max-width:1180px){.workspace{grid-template-columns:205px minmax(0,1fr)}
+.planner-main{padding:28px 20px}
+.app-header{gap:22px;padding:14px 24px}
+.planner-intro{align-items:flex-start}
+.intro-actions{max-width:230px}
+.day-heading{padding:12px 7px}
+.session-card{padding:8px 6px}
+.session-title{font-size:11px}
+.calendar{gap:5px}
+.week-overview>div{padding-right:22px;min-width:90px}
+.week-overview>div+div{padding-left:20px}
+.week-overview p{font-size:10px}
+.account-name{display:none}
+}
+
+@media(max-width:950px){.workspace{grid-template-columns:1fr}
+.athlete-sidebar{padding:17px 22px;border-right:0;border-bottom:1px solid var(--line);gap:10px}
+.sidebar-heading,.sidebar-footer{display:none}
+.search-box{max-width:280px}
+.athlete-list{flex-direction:row;overflow-x:auto;padding-bottom:3px}
+.athlete-item{width:auto;min-width:165px;flex-shrink:0}
+.calendar-toolbar{flex-wrap:wrap}
+.planner-intro h1{font-size:43px}
+.planner-main{padding:28px 22px}
+.day{min-height:300px}
+}
+
+@media(max-width:680px){.app-header{height:auto;min-height:72px;padding:12px 17px;gap:18px;flex-wrap:wrap}
+.gym-name{font-size:20px}
+.gym-identity{flex:1;min-width:150px}
+.account-nav{gap:12px}
+.account-nav .quiet-button{font-size:10px}
+.main-nav{order:3;width:100%;gap:25px;min-height:36px;margin-bottom:-12px}
+.main-nav a,.main-nav button{font-size:12px;padding-bottom:12px}
+.app-header .icon-button{width:29px;height:29px}
+.planner-main{padding:24px 15px}
+.athlete-sidebar{padding:12px 15px}
+.planner-intro{margin-bottom:24px;flex-direction:column;gap:18px}
+.planner-intro h1{font-size:43px}
+.planner-intro .muted{font-size:12px}
+.intro-actions{max-width:none;width:100%;justify-content:flex-start}
+.intro-actions .button{flex:1;font-size:11px;min-width:140px}
+.calendar-toolbar{padding:18px 0 8px;gap:16px}
+.date-navigation{width:100%;gap:8px}
+.date-navigation h2{font-size:16px;min-width:0;flex:1}
+.today-button{font-size:10px}
+.segmented{width:100%;justify-content:space-between}
+.segmented button{flex:1}
+.week-overview{padding:16px 0;margin-bottom:20px}
+.week-overview>div{min-width:0;flex:1;padding-right:9px}
+.week-overview>div+div{padding-left:15px}
+.week-overview strong{font-size:22px}
+.week-overview span{font-size:7px;letter-spacing:.08em}
+.week-overview p{display:none}
+.calendar{grid-template-columns:1fr;gap:16px}
+.day{min-height:120px;background:#eeece5;display:block}
+.day-heading{padding:12px 14px;border-bottom:1px solid var(--line);margin-bottom:12px;justify-content:flex-start;gap:10px}
+.day-heading .weekday{font-size:11px}
+.day-heading .date-number{font-size:20px}
+.day-content{min-height:40px;padding:0 10px}
+.session-card{padding:14px;margin-bottom:10px}
+.session-title{font-size:16px;padding:9px 0}
+.sport-tag{font-size:10px}
+.session-meta{font-size:12px}
+.session-author{font-size:10px}
+.feedback-pill{font-size:11px}
+.drag-handle{padding:8px;min-width:34px;min-height:34px;font-size:21px}
+.event-card{padding:12px;margin:0 10px 10px;width:calc(100% - 20px);font-size:12px}
+.empty-day{padding:8px 0 18px;font-size:11px}
+.add-day{width:calc(100% - 20px);margin:0 10px 12px;min-height:38px}
+.calendar.month{grid-template-columns:repeat(7,minmax(0,1fr));gap:1px}
+.month .day{min-height:108px}
+.month .day-heading{padding:5px 2px;margin:0 0 5px;justify-content:center;gap:0;border:0}
+.month .weekday{display:none}
+.month .session-card{padding:4px 2px;box-shadow:none;border:0;border-left:2px solid #9baa7f;border-radius:2px}
+.month .session-title{font-size:9px;line-height:1.3;font-weight:500;padding:1px 0;overflow-wrap:anywhere}
+.month .sport-tag,.month .drag-handle,.month .feedback-pill{display:none}
+.month .day-content{padding:0 2px}
+.month .event-card{font-size:8px;padding:3px 2px;width:calc(100% - 4px);margin:0 2px 3px;border-radius:2px}
+.month .event-label{display:none}
+.month .event-card strong{font-weight:500}
+.month .add-day{width:calc(100% - 6px);margin:3px;min-height:25px;font-size:11px}
+.calendar-footnote{line-height:1.7}
+.app-dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px);border-radius:10px}
+.dialog-heading{padding:20px 18px 16px}
+.dialog-heading h2{font-size:29px}
+.dialog-body,.workout-area,.feedback-section{padding:20px 18px}
+.dialog-actions{padding:15px 18px}
+.dialog-actions .button{flex:1;min-width:120px}
+.dialog-actions .left-action{margin:0}
+.form-grid,.form-grid.three{grid-template-columns:1fr;gap:0}
+.template-grid{grid-template-columns:1fr}
+.feeling-choice span{font-size:23px}
+.code-box{flex-wrap:wrap}
+.code-box code{flex-basis:100%}
+.today-view .session-card{padding:17px;margin:0 0 12px}
+.today-view .session-title{font-size:18px}
+.today-view .day-heading{padding:12px 15px}
+.app-toast{bottom:14px}
+.library-toolbar{flex-direction:column;align-items:stretch}
+.empty-message{font-size:12px}
+.week-overview strong{overflow-wrap:anywhere}
+}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* Let long discipline labels wrap in narrow week columns. */
+.session-top{flex-wrap:wrap}
+.sport-tag{min-width:0;overflow-wrap:anywhere}
+
+@media(max-width:680px){.month .session-title{min-height:24px}
+}
+
+
+.activation-state{max-width:760px;margin:56px auto;padding:32px;background:var(--paper);border:2px solid var(--ink);box-shadow:9px 9px 0 #0002}
+.activation-state h1{font-family:Impact,Arial Black,sans-serif;font-size:clamp(26px,5vw,40px);font-weight:900;text-transform:uppercase;margin:0 0 18px;overflow-wrap:anywhere}
+.activation-state p{line-height:1.7;margin:0 0 24px}
+.account-nav{flex-shrink:0}
+
+@media(max-width:950px){.app-header{flex-wrap:wrap}
+.gym-identity{max-width:calc(100% - 140px)}
+.main-nav{order:3;width:100%;min-height:36px}
+.main-nav a,.main-nav button{padding-bottom:10px}
+.activation-state{margin:28px 20px;padding:24px}
+.sidebar-footer{display:block;padding:8px 0 0}
+.roster-shortcut{display:inline-block;margin:0 20px 0 0}
+.sidebar-footer .quiet-button{font-size:11px}
+}
+
+@media(max-width:420px){.gym-identity{max-width:100%;flex-basis:100%}
+.account-nav{margin-left:0}
+.main-nav{gap:18px;flex-wrap:wrap}
+}

@@ -1,0 +1,87 @@
+name: Publier le site sur GitHub Pages
+
+# Before the first push of Vite sources to main, change Settings > Pages >
+# Source from the legacy branch deployment to GitHub Actions.
+# This workflow never migrates Supabase or publishes automatically on push.
+on:
+  workflow_dispatch:
+    inputs:
+      backend_ready:
+        description: 'Migrations Supabase appliquées et vérifiées, fonction admin-users déployée, URL Auth configurées'
+        type: boolean
+        required: true
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: github-pages-production
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Vérifier la préparation du serveur
+        env:
+          BACKEND_READY: ${{ inputs.backend_ready }}
+        run: |
+          if [ "$BACKEND_READY" != "true" ]; then
+            echo "::error::Appliquer et vérifier les migrations, déployer admin-users et configurer les URL Auth avant cette publication."
+            exit 1
+          fi
+
+      - name: Récupérer les sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Installer Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Installer les dépendances verrouillées
+        run: npm ci
+
+      - name: Vérifier les sources
+        run: npm run check
+
+      - name: Exécuter les tests isolés
+        run: npm test
+
+      - name: Construire le site
+        env:
+          # Public browser configuration only. Never use a service_role key here.
+          # Empty repository variables keep the existing public project defaults.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Préparer uniquement le site construit
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Vérifier la configuration GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Publier le site construit
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
