@@ -185,3 +185,10 @@
 #contactEmailHelp {font-size:12px;line-height:1.6;margin:0 0 18px;}
 #accountEmail {overflow-wrap:anywhere;}
 @media(max-width:620px){.profile-security-actions {padding:0 18px 23px;} .profile-security-actions .button {width:100%;white-space:normal;}}
+
+.nav-logo {display:block;width:104px;height:104px;object-fit:contain;}
+.mobile-brand-logo {display:none;}
+@media(max-width:800px) {
+ .has-navigation .has-mobile-logo {position:relative;padding-left:58px;min-height:48px;display:flex;flex-direction:column;justify-content:center;}
+ .has-mobile-logo > .mobile-brand-logo {display:block;position:absolute;left:0;top:50%;transform:translateY(-50%);width:48px;height:48px;object-fit:contain;}
+}

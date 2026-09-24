@@ -41,7 +41,8 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   const identity = document.createElement('a');
   identity.className = 'nav-identity';
   identity.href = route('planning.html');
-  identity.innerHTML = '<span class="nav-track" aria-hidden="true"></span><span class="nav-role"></span>';
+  identity.innerHTML = '<img class="nav-logo" alt="" width="104" height="104"><span class="nav-role"></span>';
+  identity.querySelector('img').src = base + 'images/boxing-logo.png';
   identity.querySelector('.nav-role').textContent = athlete ? 'Mon compte' : 'Fonctions coach';
   nav.append(identity);
   const items = athlete
@@ -76,6 +77,11 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
+  const brand=document.querySelector('.app-header .gym-identity, .topbar .brand');
+  if(brand&&!brand.querySelector('.mobile-brand-logo')) {
+    const logo=document.createElement('img');logo.className='mobile-brand-logo';logo.src=base+'images/boxing-logo.png';logo.alt='';logo.width=48;logo.height=48;
+    brand.classList.add('has-mobile-logo');brand.prepend(logo);
+  }
   if (!athlete && onPlanning && location.hash === '#bibliotheque') {
     const clean = new URL(location.href); clean.hash = ''; history.replaceState(history.state, '', clean.href);
     requestAnimationFrame(() => { const library = document.getElementById('libraryButton'); if (library && !library.hidden) library.click(); });

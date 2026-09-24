@@ -185,3 +185,8 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Validation : 295 tests réussis, dont indépendance des sauvegardes, coach sans date de naissance, conservation des données sportives et du courriel Auth, récupération à l’adresse du compte, erreur/reprise et contact propre au coach. Build et structure vérifiés; contrôle visuel fictif à 375 et 1280 px sans débordement.
 - Migration appliquée et autorisations vérifiées : écriture anonyme impossible, mise à jour limitée à son identité. Aucun nouvel avis Supabase; l’ancienne fonction publique privilégiée a été déplacée derrière une entrée sans privilèges élevés (18 avis historiques restants, contre 19). Références de sécurité déjà consignées ci-dessus.
 - Publication réussie : application `f7b09f2`, workflow `36046038472`; les 19 fichiers publics correspondent à l’artefact. Profil connecté vérifié : six champs personnels, section sportive repliée, coordonnées et récupération visibles, aucune erreur. Aucun profil réel modifié et aucun lien de réinitialisation réel envoyé.
+
+## 24 septembre 2026 — Logo fourni
+
+- Remplacement de l’ancien symbole du menu par le PNG fourni, conservé sans retouche. Logo également visible en haut à gauche de l’en-tête mobile, avec dimensions fixes pour préserver la mise en page. Chemin adapté aux pages et à l’administration.
+- Validation : 295 tests réussis, structure et build vérifiés. Contrôle visuel à 1280 et 375 px, thèmes sombre et clair; aucun changement aux profils ou aux données.
