@@ -21,21 +21,23 @@
           <label class="field"><span>Genre</span><select id="sex"><option value="">À compléter</option><option value="M">M — Masculin</option><option value="F">F — Féminin</option></select></label>
         </div>
       </div>
-      <label class="field signup-only hidden"><span>Téléphone</span><input id="phone" type="tel" autocomplete="tel" maxlength="60"></label>
+      <label class="field signup-only hidden"><span>Téléphone (facultatif)</span><input id="phone" type="tel" autocomplete="tel" maxlength="60"></label>
       <details id="signupSports" class="signup-only signup-sports hidden">
         <summary>Données sportives <small>Facultatif · pour les athlètes</small></summary>
         <div class="form-grid">
           <label class="field"><span>Poids</span><input id="weight" type="number" min="0.1" max="1500" step="0.1" inputmode="decimal"></label>
           <label class="field"><span>Unité du poids</span><select id="weightUnit"><option value="kg">KG</option><option value="lb">LBS</option></select></label>
-          <label class="field"><span>Combats</span><input id="fights" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
-          <label class="field"><span>Victoires</span><input id="wins" type="number" min="0" step="1" inputmode="numeric"></label>
-          <label class="field"><span>Défaites</span><input id="losses" type="number" min="0" step="1" inputmode="numeric"></label>
+          <label class="field"><span>Combats (facultatif)</span><input id="fights" type="number" min="0" step="1" inputmode="numeric" value="0"></label>
+          <label class="field"><span>Victoires (facultatif)</span><input id="wins" type="number" min="0" step="1" inputmode="numeric"></label>
+          <label class="field"><span>Défaites (facultatif)</span><input id="losses" type="number" min="0" step="1" inputmode="numeric"></label>
         </div>
       </details>
-      <label class="field" id="emailField"><span>Courriel</span><input id="email" type="email" required autocomplete="email"></label>
+      <label class="field" id="emailField"><span id="emailLabel">Courriel</span><input id="email" type="email" required autocomplete="email"></label>
       <label class="field signup-only hidden"><span>Courriel de contact</span><input id="contactEmail" type="email" autocomplete="email" maxlength="320" aria-describedby="contactEmailHint"><small id="contactEmailHint" class="muted">Même courriel que le compte si laissé vide.</small></label>
       <label class="field" id="passwordField"><span id="passwordLabel">Mot de passe</span><input id="password" type="password" required minlength="6" autocomplete="current-password"></label>
-      <label class="field hidden" id="confirmPasswordField"><span>Confirmer le nouveau mot de passe</span><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></label>
+      <div id="passwordStrength" class="password-strength hidden" aria-live="polite"><span id="passwordStrengthText"></span><div class="password-strength-track" aria-hidden="true"><span id="passwordStrengthBar"></span></div></div>
+      <label class="field hidden" id="confirmPasswordField"><span id="confirmPasswordLabel">Confirmer le mot de passe</span><input id="confirmPassword" aria-describedby="passwordMatch" type="password" minlength="6" autocomplete="new-password"></label>
+      <p id="passwordMatch" class="password-match hidden" aria-live="polite"></p>
       <p class="form-error hidden" id="authError" role="alert"></p>
       <p class="success hidden" id="authSuccess" role="status"></p>
       <button class="button button-dark full" id="authSubmit" type="submit">Se connecter</button>

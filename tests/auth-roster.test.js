@@ -54,7 +54,7 @@ test('athlete signup preserves invitation across confirmation and omits coach gy
     assert.equal(ui.window.sessionStorage.getItem('pendingInvite'), 'opaque-token');
     ui.$('authToggle').click();
     assert.equal(ui.$('accountType'), null);
-    ui.$('fullName').value = 'Martin'; ui.$('birthDate').value = '2000-05-12'; ui.$('email').value = 'martin@example.test'; ui.$('password').value = 'motdepasse';
+    ui.$('fullName').value = 'Martin'; ui.$('birthDate').value = '2000-05-12'; ui.$('email').value = 'martin@example.test'; ui.$('password').value = 'motdepasse';ui.$('confirmPassword').value='motdepasse';
     submit(ui, 'authForm'); await settle();
     const payload = mock.calls[0][1];
     assert.equal(payload.options.data.account_type, 'athlete');
@@ -84,7 +84,7 @@ test('signup defaults to athlete and rejects missing date of birth before contac
   try{
     ui.$('authToggle').click();
     assert.equal(ui.$('accountType'),null);assert.equal(ui.$('birthDate').required,true);
-    ui.$('fullName').value='Alex Test';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';
+    ui.$('fullName').value='Alex Test';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';
     submit(ui,'authForm');await settle();assert.equal(mock.calls.length,0);assert.match(ui.$('authError').textContent,/naissance/);
     ui.$('birthDate').value='2000-03-12';
     submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.account_type,'athlete');
@@ -96,7 +96,7 @@ test('athlete signup has no gym directory and stores pounds as normalized kilogr
   const ui=await surface('login.html','auth.js',mock.client);
   try{
     ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2001-02-03';ui.$('weight').value='154.3';ui.$('weightUnit').value='lb';ui.$('fights').value='4';ui.$('wins').value='3';ui.$('losses').value='1';
-    ui.$('email').value='alex@example.test';ui.$('password').value='secret123';submit(ui,'authForm');await settle();
+    ui.$('email').value='alex@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';submit(ui,'authForm');await settle();
     const payload=mock.calls[0][1].options.data;assert.equal(payload.gym_id,null);assert.equal(payload.weight_unit,'lb');assert.ok(Math.abs(payload.weight_kg-70)<0.1);assert.equal(payload.first_name,'Alex');assert.equal(payload.last_name,'Test');
     assert.equal(payload.fights,4);assert.equal(payload.wins,3);assert.equal(payload.losses,1);assert.equal(payload.is_admin,undefined);
   }finally{await ui.close();}
@@ -107,7 +107,7 @@ test('athlete signup no longer depends on gym directory availability',async()=>{
     const mock=authMock();mock.client.from=()=>({select(){return this;},async order(){return {data:null,error};}});
     const ui=await surface('login.html','auth.js',mock.client);
     try{
-      ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-02-03';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';
+      ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-02-03';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';
       submit(ui,'authForm');await settle();assert.equal(mock.calls.length,1);assert.equal(mock.calls[0][1].options.data.account_type,'athlete');assert.equal(mock.calls[0][1].options.data.gym_id,null);assert.equal(ui.$('athleteGym'),null);
     }finally{await ui.close();}
   }
@@ -523,11 +523,28 @@ test('signing in continues to the personal calendar by default',async()=>{
 test('signup saves separate contact details and falls back to the account email', async () => {
  const mock=authMock(),ui=await surface('login.html','auth.js',mock.client);
  try {
-  ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='account@example.test';ui.$('password').value='secret123';ui.$('phone').value='514 555 0100';
+  ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='account@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';ui.$('phone').value='514 555 0100';
   assert.equal(ui.$('signupSports').open,false);
   submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.contact_email,'account@example.test');assert.equal(mock.calls[0][1].options.data.phone,'514 555 0100');
   ui.$('contactEmail').value='contact@example.test';submit(ui,'authForm');await settle();assert.equal(mock.calls[1][1].email,'account@example.test');assert.equal(mock.calls[1][1].options.data.contact_email,'contact@example.test');
   ui.$('contactEmail').value='invalid';submit(ui,'authForm');await settle();assert.equal(mock.calls.length,2);
   ui.$('authToggle').click();assert.equal(ui.$('contactEmail').disabled,true);
+ } finally {await ui.close();}
+});
+
+test('signup blocks mismatched passwords and updates strength and match feedback locally',async()=>{
+ const mock=authMock(),ui=await surface('login.html','auth.js',mock.client);
+ const type=(id,value)=>{ui.$(id).value=value;ui.$(id).dispatchEvent(new ui.window.Event('input',{bubbles:true}));};
+ try {
+  ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='alex@example.test';
+  assert.equal(ui.$('confirmPassword').required,true);
+  type('password','123456');assert.match(ui.$('passwordStrengthText').textContent,/Faible/);
+  type('password','UnePhrase!42Longue');assert.match(ui.$('passwordStrengthText').textContent,/Forte/);
+  type('confirmPassword','different');assert.equal(ui.$('confirmPassword').getAttribute('aria-invalid'),'true');
+  submit(ui,'authForm');await settle();assert.equal(mock.calls.length,0);
+  type('confirmPassword','UnePhrase!42Longue');assert.match(ui.$('passwordMatch').textContent,/correspondent/);
+  type('password','UnePhrase!42Longue2');assert.match(ui.$('passwordMatch').textContent,/différents/);
+  type('confirmPassword','UnePhrase!42Longue2');submit(ui,'authForm');await settle();assert.equal(mock.calls.length,1);assert.equal('confirmPassword' in mock.calls[0][1],false);
+  ui.$('authToggle').click();assert.equal(ui.$('confirmPassword').disabled,true);assert.equal(ui.$('passwordStrength').classList.contains('hidden'),true);
  } finally {await ui.close();}
 });

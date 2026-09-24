@@ -220,3 +220,12 @@
  .journal-filters{grid-template-columns:minmax(0,1fr)}
  .journal-archive-switch{display:grid;grid-template-columns:1fr 1fr;width:100%}
 }
+.password-strength{margin:-6px 0 18px;font-size:12px;color:var(--muted)}
+.password-strength-track{height:5px;margin-top:8px;border-radius:8px;background:var(--soft);overflow:hidden}
+.password-strength-track>span{display:block;height:100%;border-radius:inherit;background:var(--muted);transition:width .15s}
+.password-strength[data-strength="1"] .password-strength-track>span{background:#d58d83}
+.password-strength[data-strength="2"] .password-strength-track>span{background:#bd9b5b}
+.password-strength[data-strength="3"] .password-strength-track>span{background:#75a68b}
+.password-match{margin:-6px 0 18px;font-size:12px;color:var(--ink)}
+.password-match[data-match="false"]{font-weight:650}
+#confirmPassword[aria-invalid="true"]{border-color:#b87369}

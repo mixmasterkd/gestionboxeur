@@ -43,6 +43,29 @@ const today = new Date();
 const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 $('birthDate').max = localDate;
 $('signupSports').addEventListener('invalid', () => { $('signupSports').open = true; }, true);
+// Local estimate only: no password is sent to a scoring service.
+function updatePasswordFeedback() {
+  const active = mode === 'signup' || mode === 'recovery';
+  const password = $('password').value, confirmation = $('confirmPassword').value;
+  $('passwordStrength').classList.toggle('hidden', !active);
+  let strength = 0;
+  if (password) {
+    const variety = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter(re => re.test(password)).length;
+    strength = password.length >= 16 || password.length >= 12 && variety >= 3 ? 3 : password.length >= 10 && variety >= 2 ? 2 : 1;
+    if (/^(.)\1+$/.test(password) || /password|motdepasse|123456|qwerty|azerty/i.test(password)) strength = 1;
+  }
+  $('passwordStrengthText').textContent = strength ? 'Force estimée : ' + ['','Faible','Moyenne','Forte'][strength] : 'Au moins 6 caractères.';
+  $('passwordStrength').dataset.strength = String(strength);
+  $('passwordStrengthBar').style.width = `${strength / 3 * 100}%`;
+  const match = password === confirmation;
+  $('passwordMatch').classList.toggle('hidden', !active || !confirmation);
+  $('passwordMatch').textContent = confirmation ? match ? 'Les mots de passe correspondent.' : 'Les mots de passe sont différents.' : '';
+  $('passwordMatch').dataset.match = String(match);
+  $('confirmPassword').setAttribute('aria-invalid', String(active && !!confirmation && !match));
+  $('confirmPassword').setCustomValidity(active && confirmation && !match ? 'Les deux mots de passe ne correspondent pas.' : '');
+}
+$('password').addEventListener('input', updatePasswordFeedback);
+$('confirmPassword').addEventListener('input', updatePasswordFeedback);
 function setMode(next) {
   mode = next;
   clearMessages();
@@ -53,12 +76,15 @@ function setMode(next) {
   $('fullName').required = signup;
   $('emailField').classList.toggle('hidden', recovery);
   $('email').required = !recovery;
+  $('emailLabel').textContent = signup ? 'Courriel (identifiant de connexion)' : 'Courriel';
   $('passwordField').classList.toggle('hidden', forgot);
   $('password').required = !forgot;
   $('password').autocomplete = signup || recovery ? 'new-password' : 'current-password';
   $('passwordLabel').textContent = recovery ? 'Nouveau mot de passe' : 'Mot de passe';
-  $('confirmPasswordField').classList.toggle('hidden', !recovery);
-  $('confirmPassword').required = recovery;
+  $('confirmPasswordField').classList.toggle('hidden', !(signup || recovery));
+  $('confirmPassword').required = signup || recovery;
+  $('confirmPassword').disabled = !(signup || recovery);
+  $('confirmPasswordLabel').textContent = recovery ? 'Confirmer le nouveau mot de passe' : 'Confirmer le mot de passe';
   $('authTitle').textContent = signup ? 'Créer un compte' : recovery ? 'Nouveau mot de passe' : forgot ? 'Mot de passe oublié' : 'Connexion';
   $('authIntro').textContent = signup ? 'Crée ton compte. Les fonctions coach s’activent ensuite dans ton profil.' : recovery ? 'Choisis un mot de passe d’au moins 6 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : '';
   $('authIntro').hidden = !$('authIntro').textContent;
@@ -68,6 +94,7 @@ function setMode(next) {
   $('forgotPassword').classList.toggle('hidden', mode !== 'login');
   $('continueButton').classList.add('hidden');
   updateAccountType();
+  updatePasswordFeedback();
 }
 
 if (pendingInvite) {
@@ -129,10 +156,14 @@ $('authForm').addEventListener('submit', async event => {
       if (error) throw error;
       $('password').value = '';
       $('confirmPassword').value = '';
+      updatePasswordFeedback();
       message('Ton mot de passe a été mis à jour.', 'success');
       $('continueButton').classList.remove('hidden');
       history.replaceState(null, '', location.pathname);
     } else if (mode === 'signup') {
+      updatePasswordFeedback();
+      if (password.length < 6) throw new Error('Choisis un mot de passe d’au moins 6 caractères.');
+      if (password !== $('confirmPassword').value) throw new Error('Les deux mots de passe ne correspondent pas.');
       const contactEmail = $('contactEmail').value.trim() || email;
       if (!$('contactEmail').checkValidity()) throw new Error('Indique un courriel de contact valide.');
       const accountType = 'athlete';

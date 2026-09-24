@@ -199,3 +199,9 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Journal : bascule exclusive Actifs / Archives et recherche alignée, conservant les vues Kanban et Chronologie et les restrictions de déplacement des archives.
 - Validation : suite de 296 tests réussie, puis test supplémentaire serveur réussi (297 au total); structure et build contrôlés. Vérification mobile au navigateur, sans inscription réelle ni envoi de courriel. Migration signup_contact_details appliquée; avis de sécurité historiques inchangés.
 - Publication réussie : application `d8da76b`, workflow `36056248915`; 297 tests validés par la publication. Contrôle visuel complémentaire à 1280 px dans les deux thèmes; inscription et en-tête à 375 px sans débordement.
+
+## 24 septembre 2026 — Précisions d’inscription et confirmation du mot de passe
+
+- Courriel identifié comme identifiant de connexion à l’inscription; téléphone, combats, victoires et défaites explicitement facultatifs.
+- Double saisie du mot de passe, estimation locale de force et indication textuelle de concordance en direct. Une différence bloque la création avant tout appel Auth; la confirmation n’est jamais transmise. Parcours de connexion et de récupération préservés.
+- Vérification : suite existante de 297 tests réussie, puis test de concordance supplémentaire et tests Auth réussis (298 au total), build et contrôles de structure réussis. Formulaire vérifié à 375 px, sans création de compte réel ni envoi de courriel.
