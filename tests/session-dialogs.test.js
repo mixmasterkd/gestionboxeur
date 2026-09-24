@@ -392,3 +392,54 @@ test('athletes may create their own reusable document without calendar access',a
  submit('sessionDialog');await tick();
  assert.equal(payload.coach_id,'athlete1');assert.equal(payload.workout_document.text,'Consignes personnelles');assert.equal(payload.athlete_id,undefined);
 });
+
+test('calendar note privacy and edit lock are independent accessible icon controls', async () => {
+  let payload;
+  const {ui}=fixture({api:{saveEvent:async p=>{payload=p;}}});
+  ui.editEvent();
+  const privateControl=document.querySelector('[name=is_private]'),lock=document.querySelector('[name=is_locked]');
+  assert.equal(privateControl.checked,false);assert.equal(lock.checked,false);
+  assert.match(privateControl.getAttribute('aria-label'),/Privé/);
+  assert.ok(privateControl.closest('label').querySelector('svg'));
+  assert.ok(lock.closest('label').querySelector('svg'));
+  assert.equal(lock.closest('label').textContent,'');
+  document.querySelector('#eventDialog [name=title]').value='Suivi technique';
+  document.querySelector('#eventDialog [name=notes]').value='À revoir ensemble';
+  privateControl.checked=true;privateControl.dispatchEvent(new window.Event('change',{bubbles:true}));
+  assert.match(document.querySelector('.event-visibility').textContent,/visible seulement par toi/);
+  assert.equal(lock.checked,false);
+  submit('eventDialog');await tick();
+  assert.equal(payload.is_private,true);assert.equal(payload.is_locked,false);assert.equal(payload.created_by,'coach1');
+});
+
+test('only the author may change privacy and a private event never opens for another viewer', async () => {
+  let payload;
+  const {ui}=fixture({api:{saveEvent:async p=>{payload=p;}}});
+  const event={id:'e1',athlete_id:'a1',created_by:'athlete1',title:'Disponibilité',category:'note',date:'2026-09-22',is_private:false,is_locked:false,notes:'',updated_at:'v1'};
+  ui.editEvent(event);const privacy=document.querySelector('[name=is_private]');assert.equal(privacy.disabled,true);
+  privacy.checked=true;submit('eventDialog');await tick();
+  assert.equal(Object.hasOwn(payload,'is_private'),false);
+  ui.showEvent({...event,is_private:true,notes:'NEVER_RENDER_THIS'});
+  assert.equal(document.getElementById('detailDialog').open,false);
+  assert.ok(!document.body.textContent.includes('NEVER_RENDER_THIS'));
+  ui.editEvent({...event,is_private:true});assert.equal(document.getElementById('eventDialog').open,false);
+});
+
+test('author can make a private note public without changing its lock or identity', async () => {
+  let payload;
+  const {ui}=fixture({api:{saveEvent:async p=>{payload=p;}}});
+  const event={id:'e1',athlete_id:'a1',created_by:'coach1',title:'Suivi',category:'note',date:'2026-09-22',end_date:'2026-09-25',is_private:true,is_locked:true,notes:'Texte conservé',updated_at:'v1'};
+  ui.editEvent(event);document.querySelector('[name=is_private]').checked=false;
+  document.querySelector('[name=is_private]').dispatchEvent(new window.Event('change',{bubbles:true}));
+  assert.match(document.querySelector('.event-visibility').textContent,/Partagé/);
+  submit('eventDialog');await tick();assert.equal(payload.is_private,false);
+  assert.equal(Object.hasOwn(payload,'is_locked'),false);assert.equal(Object.hasOwn(payload,'created_by'),false);
+  assert.equal(payload.end_date,'2026-09-25');assert.equal(payload.notes,'Texte conservé');
+});
+
+test('an event draft cannot be saved under a replacement account', async () => {
+  let writes=0;
+  const {ui,state}=fixture({api:{saveEvent:async()=>{writes++;}}});
+  ui.editEvent();document.querySelector('#eventDialog [name=title]').value='Mon brouillon';
+  state.user={id:'other-account'};submit('eventDialog');await tick();assert.equal(writes,0);
+});

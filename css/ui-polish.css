@@ -238,3 +238,16 @@
  .has-navigation #connectionsButton{width:auto;padding:0 12px;font-size:12px;font-weight:600;white-space:nowrap}
  .connections-label{display:inline}
 }
+
+/* Compact access controls share the same drawings on sessions and notes. */
+:root .access-control,:root .session-basics .access-control{position:relative;display:inline-grid;place-items:center;align-self:end;width:44px;height:44px;min-width:44px;min-height:44px;margin:0;padding:0;border:1px solid var(--line);border-radius:11px;background:var(--white);color:var(--muted);cursor:pointer;flex-shrink:0}
+:root .access-control input[type="checkbox"],:root .session-basics .access-control input[type="checkbox"]{position:absolute;inset:0;width:100%;height:100%;min-height:0;margin:0;opacity:0;cursor:inherit}
+:root .access-control .access-drawing{display:grid;place-items:center;margin:0;pointer-events:none}
+:root .access-control[data-active="true"]{background:var(--accent-soft);border-color:var(--accent-line);color:var(--ink);box-shadow:inset 0 0 0 1px currentColor}
+:root .access-control:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:3px}
+:root .access-control[data-disabled="true"]{opacity:.5;cursor:default}
+.access-controls,.access-status{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}
+.event-access-row{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px}
+.event-visibility{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.detail-meta .access-status{padding:0;background:none}
+.access-badge{display:inline-grid;place-items:center;min-width:28px;min-height:28px;color:var(--muted)}

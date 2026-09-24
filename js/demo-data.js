@@ -17,7 +17,11 @@ let sessions=[
   workout('preview-distance','Intervalles · 400 mètres','running',addDays(start,5),[{...makeBlock('repeat'),title:'Piste',repeat_count:5,children:[{...makeBlock('interval'),title:'400 m soutenus',distance_m:400,zone:4},{...makeBlock('recovery'),title:'200 m faciles',distance_m:200,zone:1}]}],false,'preview-other-coach'),
   workout('preview-own','Mobilité du soir','mobility',addDays(start,4),[step('mobility','Hanches et épaules',900,null)],false,athlete.user_id),
 ];
-let events=[{id:'preview-event',athlete_id:athlete.id,created_by:athlete.user_id,author_name:'Alex Morin',title:'Disponible après 17 h',category:'note',date:todayLocal(),end_date:null,notes:'Cours en journée. Je peux m’entraîner en fin d’après-midi.',is_locked:false,sort_order:1024,updated_at:stamp()}];
+let events=[{id:'preview-event',athlete_id:athlete.id,created_by:athlete.user_id,author_name:'Alex Morin',title:'Disponible après 17 h',category:'note',date:todayLocal(),end_date:null,notes:'Cours en journée. Je peux m’entraîner en fin d’après-midi.',is_locked:false,is_private:false,sort_order:1024,updated_at:stamp()}];
+events.push(
+ {id:'preview-range',athlete_id:athlete.id,created_by:'preview-coach',author_name:'Camille · Coach',title:'Suivi des déplacements',category:'note',date:addDays(todayLocal(),-1),end_date:addDays(todayLocal(),2),notes:'Observer les appuis et les sorties d’axe pendant les séances.',color:'blue',is_locked:false,is_private:false,sort_order:2048,updated_at:stamp()},
+ {id:'preview-private-range',athlete_id:athlete.id,created_by:'preview-coach',author_name:'Camille · Coach',title:'Observations techniques',category:'note',date:todayLocal(),end_date:addDays(todayLocal(),1),notes:'Note privée de démonstration, visible seulement dans l’aperçu coach.',color:'lavender',is_locked:true,is_private:true,sort_order:3072,updated_at:stamp()},
+);
 let feedback=[];
 let templates=[{id:'preview-template',coach_id:'preview-coach',title:'Intervalles · 6 × 2 min',sport:'running',description:'Une séance de course à adapter.',notes:'',blocks:intervals,kind:'session'}];
 const clone=value=>structuredClone(value);
@@ -31,16 +35,22 @@ export async function loadAccount() {
   return clone({profile:{id:user.id,full_name:role==='athlete'?'Alex Morin':'Camille',account_type:role,is_admin:false},gym:role==='coach'?{gym_name:'Le Crew',address:''}:null,planningAvailable:true,coach:role==='coach'?{user_id:user.id,join_code:'apercu-local'}:null,relations:role==='coach'?relations:[],athletes:[athlete]});
 }
 export async function loadCalendar(athleteId,begin,end) {
-  return clone({sessions:sessions.filter(s=>s.athlete_id===athleteId&&s.date>=begin&&s.date<=end),events:events.filter(e=>e.athlete_id===athleteId&&e.date<=end&&(e.end_date||e.date)>=begin),feedback});
+  return clone({sessions:sessions.filter(s=>s.athlete_id===athleteId&&s.date>=begin&&s.date<=end),events:events.filter(e=>e.athlete_id===athleteId&&e.date<=end&&(e.end_date||e.date)>=begin&&(!e.is_private||e.created_by===user.id)),feedback});
 }
 function save(list,payload,existing) {
   if(existing){const index=list.findIndex(item=>item.id===existing.id);if(index<0||list[index].updated_at!==existing.updated_at)throw new Error('Cet élément a changé. Actualise le calendrier.');list[index]={...list[index],...clone(payload),updated_at:stamp()};return clone(list[index]);}
   const item={...clone(payload),id:crypto.randomUUID(),author_name:role==='coach'?'Camille · Coach':'Alex Morin',updated_at:stamp()};list.push(item);return clone(item);
 }
 export async function saveSession(payload,existing){return save(sessions,existing?payload:{...payload,completed_at:null},existing);}
-export async function saveEvent(payload,existing){return save(events,payload,existing);}
+export async function saveEvent(payload,existing){
+ const stored=existing?events.find(event=>event.id===existing.id):null;
+ if(stored?.is_private&&stored.created_by!==user.id)throw new Error('Cet événement n’est plus accessible.');
+ if(stored&&'is_private' in payload&&payload.is_private!==stored.is_private&&stored.created_by!==user.id)throw new Error('Seul l’auteur peut changer la confidentialité de cette note.');
+ if(!stored&&payload.is_private&&payload.created_by!==user.id)throw new Error('La note privée doit appartenir à son auteur.');
+ return save(events,existing?payload:{is_private:false,...payload},existing);
+}
 export async function deleteSession(item){sessions=sessions.filter(s=>s.id!==item.id);feedback=feedback.filter(f=>f.session_id!==item.id);}
-export async function deleteEvent(item){events=events.filter(e=>e.id!==item.id);}
+export async function deleteEvent(item){const event=events.find(e=>e.id===item.id);if(event?.is_private&&event.created_by!==user.id)throw new Error('Cet événement n’est plus accessible.');events=events.filter(e=>e.id!==item.id);}
 export async function getTemplates(){return clone(templates);}
 export async function saveTemplate(item){return save(templates,item);}
 export async function deleteTemplate(id){templates=templates.filter(t=>t.id!==id);}

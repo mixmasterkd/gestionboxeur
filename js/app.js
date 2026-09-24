@@ -1,10 +1,11 @@
 import { createJournalUI } from './journal.js';
 import { applyEventColor } from './event-colors.js';
+import { accessIcon } from './access-icons.js';
 import Sortable from 'sortablejs';
 import { client, loadAccount, loadCalendar, rpc, saveSession } from './data.js';
 import * as dataApi from './data.js';
 import { SPORTS, summarizeBlocks, formatDuration } from './domain.js';
-import { todayLocal, datesForView, shiftPeriod, orderedSessions, positionBetween, eventOnDate, dateLabel, periodLabel } from './calendar.js';
+import { todayLocal, datesForView, shiftPeriod, orderedSessions, positionBetween, eventOnDate, dateLabel, periodLabel, orderedEvents, eventSpans, moveEventDates } from './calendar.js';
 import { $, el, button, displayName, initials, toast, showError } from './ui.js';
 import { createSessionUI } from './session-dialogs.js';
 import { createConnectionsUI } from './connections.js';
@@ -18,7 +19,7 @@ const isCoach=()=>state.profile?.account_type==='coach';
 const ownsCalendar=()=>!!state.user?.id && state.selectedAthlete?.user_id===state.user.id;
 const canView=()=>state.planningAvailable && !!state.selectedAthlete?.user_id && (ownsCalendar() || isCoach() && state.relation?.status==='accepted' && state.relation.can_view_calendar);
 const canAdd=()=>canView() && (ownsCalendar() || !!state.relation?.can_add_sessions);
-const canEdit=session=>canView() && session.athlete_id===state.selectedAthlete.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (session.created_by===state.user?.id || session.is_locked===false);
+const canEdit=session=>canView() && session.athlete_id===state.selectedAthlete.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (!session.is_private || session.created_by===state.user?.id) && (session.created_by===state.user?.id || session.is_locked===false);
 const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi});
 const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:()=>sessionUI.editTemplate(),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
 const connectionsUI=createConnectionsUI({getState:()=>state,refreshAccount,refreshCalendar});
@@ -155,7 +156,7 @@ async function refreshCalendar({throwOnError=false}={}) {
 function renderPeriod() {
   $('periodTitle').textContent=periodLabel(state.anchor,state.view);
   document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===state.view)));
-  $('calendarFootnote').textContent=canAdd()?'Glisse tes séances par leur poignée, ou utilise « Modifier » pour changer la date. Aucune heure n’est imposée.':'Les séances sont organisées par date. Ouvre une fiche pour lire les instructions et les retours.';
+  $('calendarFootnote').textContent=canAdd()?'Glisse tes séances et notes par leur poignée, ou utilise « Modifier » pour changer la date. Aucune heure n’est imposée.':'Les séances sont organisées par date. Ouvre une fiche pour lire les instructions et les retours.';
 }
 function periodSessions() {return state.view==='month'?state.sessions.filter(s=>s.date.slice(0,7)===state.anchor.slice(0,7)):state.sessions;}
 function renderTotals() {
@@ -192,7 +193,7 @@ function sessionCard(session) {
   const card=el('article',{class:`session-card${completed?' is-completed':''}`,dataset:{sessionId:session.id}});
   const top=el('div',{class:'session-top'},el('span',{class:'sport-tag',dataset:{sport:session.sport}},`${sport.icon} ${sport.label}`));
   if(canEdit(session))top.append(button('⠿',()=>{},'drag-handle',{'aria-label':`Déplacer ${session.title} par glisser-déposer`,title:'Glisser pour déplacer. Pour changer la date au clavier, ouvre la séance puis Modifier.'}));
-  top.append(el('span',{class:`lock-badge ${session.is_locked===false?'unlocked':'locked'}`,title:session.is_locked===false?'Modifiable par l’athlète et ses coachs autorisés':'Modifiable uniquement par son créateur'},session.is_locked===false?'Partagée':'Verrouillée'));
+  top.append(calendarAccessBadge(session.is_locked===false?'unlocked':'locked',session.is_locked===false?'Modifiable par l’athlète et ses coachs autorisés':'Verrouillée · modifiable uniquement par son créateur'));
   const titleRow=el('div',{class:'session-title-row'},button(session.title,()=>sessionUI.showSession(session),'session-title'));
   if(state.view==='month')titleRow.querySelector('button').setAttribute('aria-label',`${session.title} · ${completed?'Faite':'À faire'} · Ouvrir la séance`);
   card.append(top,titleRow);
@@ -216,23 +217,79 @@ function sessionCard(session) {
   if(completed&&feedback&&(!isCoach()||state.relation?.can_view_feedback!==false))card.append(el('div',{class:'feedback-pill'},`${feedback.feeling?feelings[feedback.feeling]+' ':''}${feedback.rpe?'RPE '+feedback.rpe+'/10':'Retour reçu'}${feedback.comment?' · commentaire':''}`));
   return card;
 }
+function calendarAccessBadge(name,label) {
+  return el('span',{class:`lock-badge calendar-access-icon ${name}`,role:'img','aria-label':label,title:label},accessIcon(name));
+}
+function eventCard(event,{span=null,mobile=false}={}) {
+  const end=event.end_date||event.date,multiple=end!==event.date;
+  const range=multiple?`${dateLabel(event.date,{day:'numeric',month:'short'})} – ${dateLabel(end,{day:'numeric',month:'short'})}`:dateLabel(event.date,{day:'numeric',month:'short'});
+  const card=el('article',{class:`event-card${span?' event-span':''}${mobile?' event-mobile-span':span?' event-desktop-span':''}`,dataset:{eventId:event.id,anchorDate:span?.start||event.date},'aria-label':`${event.title} · ${range}`});
+  applyEventColor(card,event.color);
+  const open=button('',()=>sessionUI.showEvent(event),'event-open',{'aria-label':`${event.title} · ${range} · Ouvrir la note`});
+  open.append(el('strong',{},event.title));if(multiple)open.append(el('span',{class:'event-date-range'},range));
+  const controls=el('div',{class:'event-controls'});
+  controls.append(calendarAccessBadge(event.is_locked===false?'unlocked':'locked',event.is_locked===false?'Modifiable par l’athlète et ses coachs autorisés':'Verrouillée · modifiable uniquement par son créateur'));
+  if(event.is_private)controls.append(calendarAccessBadge('private','Privée · visible uniquement par son auteur'));
+  if(canEdit(event))controls.append(button('⠿',event=>{event.preventDefault();event.stopPropagation();},'event-drag-handle',{'aria-label':`Déplacer ${event.title} par glisser-déposer`,title:'Glisser pour déplacer toute la plage. Au clavier, ouvre la note puis Modifier.'}));
+  card.append(open,controls);
+  if(span){card.classList.toggle('continues-before',span.continuesBefore);card.classList.toggle('continues-after',span.continuesAfter);if(!mobile){card.style.gridColumn=`${span.startIndex+1} / ${span.endIndex+2}`;card.style.gridRow=String(span.lane+1);}}
+  return card;
+}
+function calendarSortable(content,{bands=false}={}) {
+  if(!canView())return;
+  sortables.push(new Sortable(content,{
+    group:{name:'training-calendar',pull:true,put:!bands},sort:!bands,animation:150,
+    handle:'.drag-handle, .event-drag-handle',draggable:'.session-card, .event-card',ghostClass:'sortable-ghost',
+    delay:170,delayOnTouchOnly:true,touchStartThreshold:5,fallbackOnBody:true,
+    filter:(_event,target)=>{const card=target.closest('.session-card, .event-card');return !canEdit(card?.dataset.eventId?state.events.find(e=>e.id===card.dataset.eventId)||{}:state.sessions.find(s=>s.id===card?.dataset.sessionId)||{});},
+    onMove:()=>!dragSaving,
+    onEnd:event=>event.item.dataset.eventId?handleEventDrop(event):handleDrop(event),
+  }));
+}
 function renderCalendar() {
-  clearCalendar();const calendar=$('calendar');calendar.className=`calendar${state.view==='month'?' month':state.view==='today'?' today-view':''}`;
-  for(const date of datesForView(state.anchor,state.view)) {
-    const day=el('section',{class:`day${date===todayLocal()?' today':''}${date.slice(0,7)!==state.anchor.slice(0,7)?' outside-month':''}`,dataset:{date},'aria-label':dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})});
-    day.append(el('header',{class:'day-heading'},el('span',{class:'weekday'},dateLabel(date,{weekday:'short'})),el('span',{class:'date-number','aria-label':date===todayLocal()?'Aujourd’hui':undefined},String(Number(date.slice(8))))));
-    for(const event of state.events.filter(e=>eventOnDate(e,date))){ const card=button('',()=>sessionUI.showEvent(event),'event-card');applyEventColor(card,event.color);card.append(el('span',{class:'event-label'},event.is_locked===false?'Événement partagé':'Événement · verrouillé'),el('strong',{},event.title));day.append(card); }
-    const content=el('div',{class:'day-content',dataset:{date}});
-    const sessions=orderedSessions(state.sessions.filter(s=>s.date===date));sessions.forEach(s=>content.append(sessionCard(s)));
-    content.append(el('div',{class:'empty-day'},'Aucune séance prévue'));
-    day.append(content);
-    if(canAdd())day.append(button(state.view==='month'?'＋':'＋ Séance',()=>sessionUI.editSession(null,date),'add-day',{'aria-label':`Planifier une séance le ${dateLabel(date)}`}));
-    if(canAdd())day.append(button(state.view==='month'?'＋ Note':'＋ Événement',()=>sessionUI.editEvent(null,date),'add-day',{'aria-label':`Ajouter un événement le ${dateLabel(date)}`}));
-    calendar.append(day);
-    if(canView()) {
-      sortables.push(new Sortable(content,{group:'training-calendar',animation:150,handle:'.drag-handle',draggable:'.session-card',ghostClass:'sortable-ghost',delay:170,delayOnTouchOnly:true,touchStartThreshold:5,fallbackOnBody:true,filter:(_event,target)=>!canEdit(state.sessions.find(s=>s.id===target.closest('.session-card')?.dataset.sessionId)||{}),onMove:()=>!dragSaving,onEnd:handleDrop}));
+  clearCalendar();const calendar=$('calendar');calendar.className=`calendar calendar-spanning${state.view==='month'?' month':state.view==='today'?' today-view':''}`;
+  const dates=datesForView(state.anchor,state.view),events=orderedEvents(state.events.filter(event=>!event.is_private||event.created_by===state.user?.id));
+  for(let offset=0;offset<dates.length;offset+=7){
+    const weekDates=dates.slice(offset,offset+7),week=el('div',{class:'calendar-week',dataset:{weekStart:weekDates[0]}});
+    const layout=state.view==='today'?{spans:[],lanes:0}:eventSpans(events,weekDates);
+    const lanes=el('div',{class:'calendar-event-lanes','aria-label':'Notes sur plusieurs jours'});lanes.hidden=!layout.spans.length;
+    for(const span of layout.spans)lanes.append(eventCard(span.event,{span}));
+    for(const [index,date] of weekDates.entries()) {
+      const day=el('section',{class:`day${date===todayLocal()?' today':''}${date.slice(0,7)!==state.anchor.slice(0,7)?' outside-month':''}`,dataset:{date},'aria-label':dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})});
+      day.style.gridColumn=String(index+1);
+      day.append(el('header',{class:'day-heading'},el('span',{class:'weekday'},dateLabel(date,{weekday:'short'})),el('span',{class:'date-number','aria-label':date===todayLocal()?'Aujourd’hui':undefined},String(Number(date.slice(8))))));
+      const content=el('div',{class:'day-content',dataset:{date}});
+      for(const event of events.filter(event=>eventOnDate(event,date)&&(state.view==='today'||!event.end_date||event.end_date===event.date)))content.append(eventCard(event));
+      for(const span of layout.spans.filter(span=>span.start===date))content.append(eventCard(span.event,{span,mobile:true}));
+      const sessions=orderedSessions(state.sessions.filter(s=>s.date===date));sessions.forEach(s=>content.append(sessionCard(s)));
+      content.append(el('div',{class:'empty-day'},'Aucune séance prévue'));day.append(content);
+      const actions=el('footer',{class:'day-actions'});
+      if(canAdd())actions.append(button(state.view==='month'?'＋':'＋ Séance',()=>sessionUI.editSession(null,date),'add-day',{'aria-label':`Planifier une séance le ${dateLabel(date)}`}),button(state.view==='month'?'＋ Note':'＋ Événement',()=>sessionUI.editEvent(null,date),'add-day',{'aria-label':`Ajouter un événement le ${dateLabel(date)}`}));
+      day.append(actions);week.append(day);calendarSortable(content);
     }
+    week.append(lanes);calendar.append(week);calendarSortable(lanes,{bands:true});
   }
+}
+async function handleEventDrop(event) {
+  const note=state.events.find(note=>note.id===event.item.dataset.eventId),targetDate=event.to.dataset.date;
+  if(!note||!targetDate||!canEdit(note)||dragSaving){renderCalendar();return;}
+  const anchor=event.item.dataset.anchorDate||note.date;
+  if(event.from===event.to&&event.oldDraggableIndex===event.newDraggableIndex){renderCalendar();return;}
+  const context={athleteId:state.selectedAthlete.id,userId:state.user.id,ticket:calendarTicket};
+  dragSaving=true;$('calendarStatus').textContent='Enregistrement du déplacement…';
+  try{
+    const dates=moveEventDates(note,targetDate,anchor),cards=[...event.to.querySelectorAll(':scope > .event-card')].filter(card=>card===event.item||card.dataset.eventId!==note.id),index=cards.indexOf(event.item);
+    const before=index>0?state.events.find(note=>note.id===cards[index-1].dataset.eventId):null;
+    const after=index>=0&&index<cards.length-1?state.events.find(note=>note.id===cards[index+1].dataset.eventId):null;
+    const payload={...dates,sort_order:positionBetween(before,after)};
+    const saved=await dataApi.saveEvent(payload,note);
+    if(state.selectedAthlete?.id===context.athleteId&&state.user?.id===context.userId){
+      if(calendarTicket===context.ticket){state.events=state.events.map(item=>item.id===note.id?{...note,...payload,...saved}:item);renderCalendar();$('calendarStatus').textContent='';}
+      else await refreshCalendar();
+    }
+    toast('Note déplacée.');
+  }catch(error){if(state.selectedAthlete?.id===context.athleteId&&state.user?.id===context.userId&&calendarTicket===context.ticket){renderCalendar();$('calendarStatus').textContent='';}toast(error.message||'Le déplacement n’a pas été enregistré.');}
+  finally{dragSaving=false;}
 }
 async function handleDrop(event) {
   if(event.from===event.to && event.oldDraggableIndex===event.newDraggableIndex)return;

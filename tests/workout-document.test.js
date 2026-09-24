@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBlock, summarizeBlocks } from '../js/domain.js';
 import { parseTrainingText, serializeTrainingDocument, serializeTrainingBlocks, reconcileTrainingBlocks } from '../js/workout-document.js';
+import { sessionChartData } from '../js/session-chart.js';
 
 const step = values => ({ ...makeBlock('bag'), title: 'Sac', ...values });
 const repeat = (count, children, values = {}) => ({ ...makeBlock('repeat'), repeat_count: count, children, ...values });
@@ -40,6 +41,119 @@ test('one-level repeat groups end only at a blank line and include their final r
   assert.equal(parse('2 x\n- Shadow 1min').blocks[0].repeat_count, 2);
   assert.ok(parseTrainingText('2x\n- Sac 1min\n3x\n- Shadow 1min').errors.length);
   assert.ok(parseTrainingText('2x\nUne note').errors.length);
+});
+
+test('round headers accept an activity before or after the count, including the Shadow Boxing alias', () => {
+  for (const heading of ['Shadow Boxing 3 rounds', '3 rounds de Shadow', '3rounds de SHADOW BOXING', 'shadow  boxing 3ROUNDS']) {
+    const text = `${heading}\r\n- 2min - Jab et déplacements\r\n- 1min @ repos\r\n\r\nFin de séance`;
+    const result = parse(text, { sport: 'running' }), group = result.blocks[0];
+    assert.equal(result.blocks.length, 1); assert.equal(group.repeat_count, 3); assert.equal(group.repeat_unit, 'rounds');
+    assert.deepEqual(group.children.map(block => [block.type, block.duration_seconds]), [['shadow', 120], ['shadow', 60]]);
+    assert.equal(group.children[0].description, 'Jab et déplacements'); assert.equal(group.children[1].effort.label, 'Repos');
+    assert.equal(summarizeBlocks(result.blocks).duration_seconds, 540);
+    assert.equal(result.lines[0].blockId, group.id); assert.equal(result.lines[0].kind, 'repeat');
+    assert.equal(text.slice(result.lines[1].start, result.lines[1].end), '- 2min - Jab et déplacements');
+  }
+  assert.equal(parse('- Shadow Boxing 2min').blocks[0].type, 'shadow');
+});
+
+test('Jog repetitions inherit their activity and timed steps without a target stay neutral on the graph', () => {
+  for (const heading of ['Jog 3x', '3x de Jog', 'Jog 3 x', '3 x de Jog', '3× de Jog']) {
+    const result = parse(`${heading}\n- 2min\n- 30s`, { sport: 'boxing' });
+    const group = result.blocks[0]; assert.equal(group.repeat_count, 3); assert.notEqual(group.repeat_unit, 'rounds');
+    assert.ok(group.children.every(block => block.type === 'jog' && block.effort === null && block.zone === null));
+    const chart = sessionChartData({ sport: 'running', blocks: result.blocks });
+    assert.equal(chart.total, 450); assert.equal(chart.bars.length, 6); assert.equal(chart.partial, false);
+    assert.ok(chart.bars.every(bar => bar.name === 'Effort non précisé' && !bar.scaled && !bar.conventional && bar.lowHeight === bar.highHeight));
+  }
+});
+
+test('explicit activities override inheritance for one line and blank lines end the inherited scope', () => {
+  const result = parse('Shadow Boxing 3 rounds\n- 2min\nBurpees\n- Burpees 30s - Mains au sol\n- 1min @ repos\n\nShadow Boxing\n- 45s', { sport: 'running' });
+  assert.deepEqual(result.blocks[0].children.map(block => block.type), ['shadow', 'burpees', 'shadow']);
+  assert.equal(result.blocks[0].children[1].description, 'Mains au sol'); assert.equal(result.blocks[1].type, 'run');
+  assert.equal(result.lines[2].kind, 'text'); assert.equal(result.lines[6].kind, 'text');
+  assert.equal(parse('Shadow Boxing\n- 2min', { sport: 'boxing' }).blocks[0].title, 'Boxe');
+  assert.equal(parse('Mon circuit 2x\n- 1min').blocks[0].children[0].title, 'Mon circuit');
+});
+
+test('known activities may follow a duration or distance while instructions remain after a dash', () => {
+  for (const [before, after, type, duration, distance] of [
+    ['Shadow 30s', '30s Shadow', 'shadow', 30, null],
+    ['Burpees 30 secondes', '30 secondes Burpees', 'burpees', 30, null],
+    ['Shadow Boxing 1’30″', '1’30″ Shadow Boxing', 'shadow', 90, null],
+    ['Repos 30 secondes', '30 secondes Repos', 'recovery', 30, null],
+    ['Corde à danser 1min', '1min Corde à danser', 'jump_rope', 60, null],
+    ['Jog 400mtr', '400mtr Jog', 'jog', null, 400],
+    ['Jog 2min + 400mtr', '2min + 400mtr Jog', 'jog', 120, 400],
+  ]) {
+    const first = parse(`- ${before} - Consigne conservée`).blocks[0], second = parse(`- ${after} - Consigne conservée`).blocks[0];
+    for (const block of [first, second]) {
+      assert.deepEqual([block.type, block.duration_seconds, block.distance_m], [type, duration, distance]);
+      assert.equal(block.description, 'Consigne conservée');
+    }
+    assert.deepEqual(second.effort, first.effort);
+  }
+  const block = parse('- 30s Shadow @ Z2 - Z4 - Garder les mains hautes').blocks[0];
+  assert.equal(block.type, 'shadow'); assert.equal(block.effort.max, 4); assert.equal(block.description, 'Garder les mains hautes');
+});
+
+test('activities after the dose override a mixed group only on their own line', () => {
+  const result = parse('3 rounds de Shadow\n- 2min\n- 30 secondes Burpees - Mains au sol\n- 30s Shadow Boxing\n- Repos 30 secondes\n- 1min @ repos\n\n- 30s Jog', { sport: 'boxing' });
+  assert.deepEqual(result.blocks[0].children.map(block => block.type), ['shadow', 'burpees', 'shadow', 'recovery', 'shadow']);
+  assert.equal(result.blocks[0].children[1].description, 'Mains au sol'); assert.equal(result.blocks[1].type, 'jog');
+  assert.equal(summarizeBlocks(result.blocks).duration_seconds, 840);
+  assert.equal(result.lines[2].kind, 'step'); assert.equal(result.lines[2].blockId, result.blocks[0].children[1].id);
+});
+
+test('unknown trailing prose is never made into a custom activity or an implicit instruction', () => {
+  for (const source of ['- 30s garder les mains hautes', '- 30s Mon exercice', '- 30s Autre', '- Sac 30s Burpees']) {
+    const result = parseTrainingText(source);
+    assert.equal(result.blocks.length, 0, source); assert.equal(result.errors.length, 1, source);
+  }
+  const custom = parse('- Mon exercice 30s - Garder les mains hautes').blocks[0];
+  assert.equal(custom.type, 'other'); assert.equal(custom.title, 'Mon exercice'); assert.equal(custom.description, 'Garder les mains hautes');
+  assert.equal(parse('- 30s - Garder les mains hautes', { sport: 'running' }).blocks[0].type, 'run');
+});
+
+test('changing the order of an explicit activity and its measurement keeps matching IDs and extra fields', () => {
+  const previousText = '3 rounds de Shadow\n- Burpees 30 secondes - Mains au sol\n- 1min';
+  const previous = parse(previousText).blocks; previous[0].children[0].future = { keep: true };
+  const source = previousText.replace('Burpees 30 secondes', '30 secondes Burpees');
+  const result = reconcileTrainingBlocks(parse(source), previous, previousText);
+  assert.equal(result.blocks[0].children[0].id, previous[0].children[0].id);
+  assert.deepEqual(result.blocks[0].children[0].future, { keep: true });
+  assert.deepEqual(result.blocks[0].children.map(block => block.type), ['burpees', 'shadow']);
+});
+
+test('contextual groups keep the existing single-level and count limits', () => {
+  assert.ok(parseTrainingText('Shadow Boxing 101 rounds\n- 1min').errors.some(error => error.line === 1));
+  assert.ok(parseTrainingText('3 rounds de Shadow\n- 1min\nJog 2x\n- 30s').errors.some(error => /imbriqués/.test(error.message)));
+  assert.ok(parseTrainingText('Shadow Boxing 3 rounds\nUne consigne libre').errors.some(error => /au moins une étape/.test(error.message)));
+});
+
+test('changing a group activity updates inherited steps without restoring the previous type or losing IDs', () => {
+  const previousText = 'Shadow Boxing 3 rounds\n- 2min\n- Burpees 30s\n- 1min @ repos';
+  const original = parse(previousText).blocks;
+  original[0].children[0].future = { preserve: true }; original[0].children[0].notes = 'Conserver';
+  const result = reconcileTrainingBlocks(parse(previousText.replace('Shadow Boxing', 'Sac')), original, previousText);
+  assert.deepEqual(result.blocks[0].children.map(block => block.type), ['bag', 'burpees', 'bag']);
+  assert.equal(result.blocks[0].id, original[0].id);
+  assert.deepEqual(result.blocks[0].children.map(block => block.id), original[0].children.map(block => block.id));
+  assert.deepEqual(result.blocks[0].children[0].future, { preserve: true }); assert.equal(result.blocks[0].children[0].notes, 'Conserver');
+  const source = 'Shadow Boxing 3 rounds\n- 2min\n- 1min', before = parse(source, { sport: 'running' }).blocks;
+  const after = reconcileTrainingBlocks(parse(source.replace('\n- 1min', '\n\n- 1min'), { sport: 'running' }), before, source);
+  assert.equal(after.blocks[0].children.length, 1); assert.equal(after.blocks[1].type, 'run'); assert.equal(after.blocks[1].id, before[0].children[1].id);
+});
+
+test('contextual groups serialize to explicit activities with the same durations, instructions and rest targets', () => {
+  const result = parse('3 rounds de Shadow\n- 2min - Garder les mains hautes\n- Burpees 30s\n- 1min @ repos');
+  const serialized = serializeTrainingDocument(result.blocks), restored = parse(serialized.text);
+  const semantic = blocks => summarizeBlocks(blocks).segments.map(block => [block.type, block.duration_seconds, block.description, block.effort]);
+  assert.deepEqual(semantic(restored.blocks), semantic(result.blocks));
+  assert.ok(serialized.text.includes('- Shadow 2min')); assert.equal(serialized.lines[0].blockId, result.blocks[0].id);
+  const reconciled = reconcileTrainingBlocks(parse(`Titre libre\n${serialized.text}`), serialized.blocks, serialized.text);
+  assert.deepEqual(reconciled.blocks[0].children.map(block => block.id), result.blocks[0].children.map(block => block.id));
 });
 
 test('invalid structured lines do not block later valid steps or reuse a stale graph', () => {

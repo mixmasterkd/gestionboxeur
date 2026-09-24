@@ -7,6 +7,7 @@ import * as calendar from '../js/calendar.js';
 import * as ui from '../js/ui.js';
 import {createJournalUI} from '../js/journal.js';
 import {applyEventColor} from '../js/event-colors.js';
+import {accessIcon} from '../js/access-icons.js';
 import {renderSessionChart} from '../js/session-chart.js';
 
 const settle=async()=>{for(let i=0;i<20;i++)await Promise.resolve();await new Promise(r=>setImmediate(r));};
@@ -25,20 +26,21 @@ async function surface({role='coach',sessions=[],events=[],feedback=[],url='http
   const api={client:{auth:{getSession:async()=>({data:{session:{user:{id:account.profile.id,email:'user@example.test'}}}}),onAuthStateChange:fn=>{authCallback=fn;},signOut:async()=>{authCallback('SIGNED_OUT');return {};}}},
     loadAccount:async()=>controls.account?controls.account():structuredClone(account),loadCalendar:async(...args)=>{calls.push(['load',...args]);if(controls.calendar)return controls.calendar(...args);const [athleteId,start,end]=args;return structuredClone({...source,sessions:source.sessions.filter(session=>session.athlete_id===athleteId&&session.date>=start&&session.date<=end),events:source.events.filter(event=>event.date<=end&&(event.end_date||event.date)>=start)});},
     rpc:async(name,args)=>{calls.push([name,args]);if(invitationError)throw new Error(invitationError);return 'athlete';},
-    saveSession:async(...args)=>{calls.push(['save',...args]);return args[0];}};
+    saveSession:async(...args)=>{calls.push(['save',...args]);return args[0];},
+    saveEvent:async(payload,existing)=>{calls.push(['saveEvent',payload,existing]);if(controls.saveEvent)return controls.saveEvent(payload,existing);const index=source.events.findIndex(item=>item.id===existing.id);source.events[index]={...source.events[index],...payload,updated_at:'saved-event'};return structuredClone(source.events[index]);}};
   const methods={editSession:(...args)=>calls.push(['edit',...args]),showSession:s=>calls.push(['show',s]),editEvent:(...args)=>calls.push(['event',...args]),showEvent:e=>calls.push(['showEvent',e]),setCompleted:async(s,completed)=>{calls.push(['complete',s.id,completed]);source.sessions.find(item=>item.id===s.id).completed_at=completed?'2026-09-22T12:00:00Z':null;await window.__app.refreshCalendar();}};
-  window.__bridge={createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,ui:{...ui,toast:m=>calls.push(['toast',m])},
+  window.__bridge={createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
     Sortable:class {constructor(node,options){this.node=node;this.options=options;instances.push(this);}destroy(){}},
     createSessionUI:()=>methods,createConnectionsUI:()=>({open:()=>{},inviteAthlete:()=>{}}),createLibraryUI:options=>({open:()=>{},options})};
   const code=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
-  window.eval(`const mountNavigation=()=>{};const {createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor}=window.__bridge;
+  window.eval(`const mountNavigation=()=>{};const {createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor,accessIcon}=window.__bridge;
     const dataApi=window.__bridge.api;
     const {client,loadAccount,loadCalendar,rpc,saveSession}=dataApi;
     const {SPORTS,summarizeBlocks,formatDuration}=window.__bridge.domain;
-    const {todayLocal,datesForView,shiftPeriod,orderedSessions,positionBetween,eventOnDate,dateLabel,periodLabel}=window.__bridge.calendar;
+    const {todayLocal,datesForView,shiftPeriod,orderedSessions,positionBetween,eventOnDate,dateLabel,periodLabel,orderedEvents,eventSpans,moveEventDates}=window.__bridge.calendar;
     const {$,el,button,displayName,initials,toast,showError}=window.__bridge.ui;
     ${code.replace(/^import .*;\n/gm,'')}
-    window.__app={state,refreshAccount,refreshCalendar,canEdit,canAdd,handleDrop,libraryUI};`);
+    window.__app={state,refreshAccount,refreshCalendar,canEdit,canAdd,handleDrop,handleEventDrop,libraryUI};`);
   await settle();
   return {window,$:id=>window.document.getElementById(id),app:window.__app,api,account,source,calls,instances,controls,emit:authCallback,
     close:async()=>{await window.happyDOM.abort();if(original.document===undefined)delete globalThis.document;else globalThis.document=original.document;if(original.window===undefined)delete globalThis.window;else globalThis.window=original.window;}};
@@ -392,4 +394,72 @@ test('monthly tiles open details and reserve quick completion for week and day v
     page.$('calendar').querySelector('.session-title').click();
     assert.equal(page.calls.filter(c=>c[0]==='show').length,1);
   } finally { await page.close(); }
+});
+
+const makeEvent=(id,values={})=>({id,athlete_id:'athlete',created_by:'coach',author_name:'Camille',title:`Note ${id}`,date:'2026-09-21',end_date:null,category:'note',notes:'',is_locked:true,is_private:false,sort_order:1024,updated_at:'2026-09-21T12:00:00Z',...values});
+test('multi-day notes have one desktop band per week, continuation markers and separate accessible controls',async()=>{
+ const note=makeEvent('camp',{date:'2026-09-25',end_date:'2026-09-30',is_private:true});
+ const page=await surface({events:[note]});
+ try{
+  page.app.state.anchor='2026-09-24';page.app.state.view='month';await page.app.refreshCalendar();
+  const spans=[...page.$('calendar').querySelectorAll('.event-desktop-span')];assert.equal(spans.length,2);
+  assert.equal(spans[0].style.gridColumn,'5 / 8');assert.equal(spans[1].style.gridColumn,'1 / 4');
+  assert.ok(spans[0].classList.contains('continues-after'));assert.ok(spans[1].classList.contains('continues-before'));
+  assert.equal(page.$('calendar').querySelectorAll('.event-mobile-span').length,2);
+  assert.equal(page.$('calendar').querySelectorAll('.calendar-week').length,6);
+  assert.match(spans[0].querySelector('.event-date-range').textContent,/25.*30/);
+  assert.ok(spans[0].querySelector('[aria-label*="Privée"]'));assert.ok(spans[0].querySelector('[aria-label*="Verrouillée"]'));
+  assert.doesNotMatch(spans[0].textContent,/verrouill|partag|Privée/i);
+  spans[0].querySelector('.event-drag-handle').click();assert.equal(page.calls.filter(call=>call[0]==='showEvent').length,0);
+  spans[0].querySelector('.event-open').click();assert.equal(page.calls.at(-1)[0],'showEvent');
+ }finally{await page.close();}
+});
+
+test('dragging a multi-day note moves the whole range with existing concurrency and only changes its dates and position',async()=>{
+ const note=makeEvent('camp',{date:'2026-09-21',end_date:'2026-09-23'}),next=makeEvent('next',{date:'2026-09-24',sort_order:2048});
+ const page=await surface({events:[note,next]});
+ try{
+  page.app.state.anchor='2026-09-21';await page.app.refreshCalendar();
+  const card=page.$('calendar').querySelector('.event-desktop-span'),from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-24"]');
+  to.insertBefore(card,to.firstChild);await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});
+  const save=page.calls.find(call=>call[0]==='saveEvent');assert.equal(save[2].updated_at,note.updated_at);assert.equal(save[2].id,note.id);
+  assert.deepEqual(JSON.parse(JSON.stringify(save[1])),{date:'2026-09-24',end_date:'2026-09-26',sort_order:1024});assert.equal(page.calls.filter(call=>call[0]==='saveEvent').length,1);
+  assert.equal(page.app.state.events.find(item=>item.id===note.id).updated_at,'saved-event');assert.equal(page.app.state.events.find(item=>item.id===next.id).date,'2026-09-24');
+  assert.equal(page.$('calendar').querySelector('.event-desktop-span').style.gridColumn,'4 / 7');
+ }finally{await page.close();}
+});
+
+test('locked notes of another author and private notes are never draggable by other viewers',async()=>{
+ const foreign=makeEvent('foreign',{created_by:'other-coach'}),privateNote=makeEvent('secret',{created_by:'other-coach',is_private:true,is_locked:false});
+ const page=await surface({events:[foreign,privateNote]});
+ try{
+  page.app.state.anchor='2026-09-21';await page.app.refreshCalendar();
+  assert.equal(page.$('calendar').querySelector('[data-event-id=secret]'),null);assert.equal(page.app.canEdit(privateNote),false);
+  const card=page.$('calendar').querySelector('[data-event-id=foreign]');assert.equal(card.querySelector('.event-drag-handle'),null);
+  const from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-23"]');to.append(card);
+  await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});assert.equal(page.calls.filter(call=>call[0]==='saveEvent').length,0);
+  assert.ok(page.$('calendar').querySelector('.day-content[data-date="2026-09-21"] [data-event-id=foreign]'));
+ }finally{await page.close();}
+});
+
+test('failed note movement restores the displayed range and its original position',async()=>{
+ const note=makeEvent('camp',{date:'2026-09-21',end_date:'2026-09-23'});const page=await surface({events:[note]});
+ try{
+  page.app.state.anchor='2026-09-21';await page.app.refreshCalendar();page.controls.saveEvent=async()=>{throw new Error('La note a changé.');};
+  const card=page.$('calendar').querySelector('.event-desktop-span'),from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-25"]');to.append(card);
+  await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});
+  assert.equal(page.app.state.events[0].date,'2026-09-21');assert.equal(page.app.state.events[0].end_date,'2026-09-23');
+  assert.equal(page.$('calendar').querySelector('.event-desktop-span').style.gridColumn,'1 / 4');assert.ok(page.calls.some(call=>call[0]==='toast'&&/a changé/.test(call[1])));
+ }finally{await page.close();}
+});
+
+test('dragging a continued band shifts the complete note relative to its visible week anchor',async()=>{
+ const note=makeEvent('camp',{date:'2026-09-25',end_date:'2026-10-02'});const page=await surface({events:[note]});
+ try{
+  page.app.state.anchor='2026-09-28';await page.app.refreshCalendar();
+  const card=page.$('calendar').querySelector('.event-desktop-span');assert.equal(card.dataset.anchorDate,'2026-09-28');
+  const from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-30"]');to.append(card);
+  await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});
+  const payload=page.calls.find(call=>call[0]==='saveEvent')[1];assert.equal(payload.date,'2026-09-27');assert.equal(payload.end_date,'2026-10-04');
+ }finally{await page.close();}
 });

@@ -428,11 +428,60 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       await denied(()=>db.query("insert into public.personal_events(athlete_id,title,date) values($1,'Intrus','2026-09-21')",[legacyAthlete]));
     });
 
-    await t.test('athlete permissions and revocation immediately constrain coach access',async()=>{
+    await t.test('calendar privacy hides content from athlete and other coaches independently from the edit lock',async()=>{
+      await login(coach1);
+      const shared=await scalar("insert into public.personal_events(athlete_id,title,date,notes) values($1,'Partagée','2026-09-24','Visible au calendrier') returning id",[legacyAthlete]);
+      const privateEvent=await scalar("insert into public.personal_events(athlete_id,title,date,notes,is_private,is_locked) values($1,'Suivi privé','2026-09-24','Contenu confidentiel',true,false) returning id",[legacyAthlete]);
+      assert.equal(await scalar('select is_private from public.personal_events where id=$1',[shared]),false);
+      assert.equal(await scalar('select is_locked from public.personal_events where id=$1',[privateEvent]),false);
+      assert.equal(await scalar('select notes from public.personal_events where id=$1',[privateEvent]),'Contenu confidentiel');
+      await denied(()=>db.query('update public.personal_events set created_by=$1 where id=$2',[athleteUser,privateEvent]));
+      for(const viewer of [athleteUser,coach2,outsider]) {
+        await login(viewer);
+        assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[privateEvent]),0);
+        assert.equal((await db.query("update public.personal_events set date='2026-10-01',notes='Tentative' where id=$1 returning id",[privateEvent])).rows.length,0);
+        assert.equal((await db.query('update public.personal_events set is_private=false where id=$1 returning id',[privateEvent])).rows.length,0);
+        assert.equal((await db.query('delete from public.personal_events where id=$1 returning id',[privateEvent])).rows.length,0);
+        if(viewer!==outsider) {
+          assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[shared]),1);
+          await denied(()=>db.query('update public.personal_events set is_private=true where id=$1',[shared]));
+        }
+      }
+      await denied(()=>db.query("insert into public.personal_events(athlete_id,title,date,is_private) values($1,'Accès interdit','2026-09-24',true)",[legacyAthlete]));
+      await login(coach2);
+      assert.equal((await db.query("update public.personal_events set notes='Conseil commun' where id=$1 returning id",[shared])).rows.length,1);
+      await denied(()=>db.query("insert into public.personal_events(athlete_id,created_by,title,date,is_private) values($1,$2,'Usurpation','2026-09-24',true)",[legacyAthlete,coach1]));
+      await login(coach1);await db.query('update public.personal_events set is_private=false,is_locked=true where id=$1',[privateEvent]);
+      for(const viewer of [athleteUser,coach2]) {
+        await login(viewer);assert.equal(await scalar('select notes from public.personal_events where id=$1',[privateEvent]),'Contenu confidentiel');
+        assert.equal((await db.query("update public.personal_events set notes='Bloqué par verrou' where id=$1 returning id",[privateEvent])).rows.length,0);
+      }
+      await login(coach1);await db.query('update public.personal_events set is_private=true,is_locked=false where id=$1',[privateEvent]);
+      await db.query("update public.personal_events set date='2026-09-27' where id=$1",[privateEvent]);
+      assert.equal(await scalar('select date::text from public.personal_events where id=$1',[privateEvent]),'2026-09-27');
+      await admin();await db.exec('set role anon');
+      await denied(()=>db.query('select notes from public.personal_events where id=$1',[privateEvent]));
+      await denied(()=>db.query('update public.personal_events set is_private=false where id=$1',[privateEvent]));
+      await admin();assert.equal(await scalar("select has_function_privilege('authenticated','app_private.protect_event_privacy()','EXECUTE')"),false);
+      assert.equal(await scalar("select permissive from pg_policies where schemaname='public' and tablename='personal_events' and policyname='event_private_author'"),'RESTRICTIVE');
+      await login(coach1);await db.query('delete from public.personal_events where id in ($1,$2)',[privateEvent,shared]);
+      await login(athleteUser);
+      const personal=await scalar("insert into public.personal_events(athlete_id,title,date,is_private) values($1,'Note personnelle','2026-09-24',true) returning id",[legacyAthlete]);
+      await login(coach1);assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[personal]),0);
+      await login(athleteUser);assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[personal]),1);
+      await db.query('delete from public.personal_events where id=$1',[personal]);
+    });
+
+    await t.test('athlete permissions and revocation immediately constrain coach access, including private notes',async()=>{
+      await login(coach2);
+      const privateEvent=await scalar("insert into public.personal_events(athlete_id,title,date,is_private) values($1,'Confidentiel','2026-09-24',true) returning id",[legacyAthlete]);
       await login(athleteUser);
       await db.query('select public.set_coach_permissions($1,$2,true,false,false,false)',[legacyAthlete,coach2]);
       await login(coach2);
       assert.equal(await scalar('select count(*)::int from public.session_feedback'),0);
+      assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[privateEvent]),1);
+      assert.equal((await db.query("update public.personal_events set notes='Modification interdite' where id=$1 returning id",[privateEvent])).rows.length,0);
+      assert.equal((await db.query('update public.personal_events set is_private=false where id=$1 returning id',[privateEvent])).rows.length,0);
       assert.equal((await db.query("update public.training_sessions set title='Interdit' where id=$1 returning id",[session2])).rows.length,0);
       await denied(()=>db.query("insert into public.training_sessions(athlete_id,title,date) values($1,'Interdit','2026-09-21')",[legacyAthlete]));
       await login(athleteUser);
@@ -440,6 +489,9 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       await login(coach2);
       assert.equal(await scalar('select count(*)::int from public.training_sessions'),0);
       assert.equal(await scalar('select count(*)::int from public.athletes where user_id is distinct from auth.uid()'),0);
+      assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[privateEvent]),0);
+      assert.equal((await db.query("update public.personal_events set date='2026-10-01' where id=$1 returning id",[privateEvent])).rows.length,0);
+      await admin();await db.query('delete from public.personal_events where id=$1',[privateEvent]);
     });
 
     await t.test('invalid nested blocks and template bounds are rejected by PostgreSQL',async()=>{

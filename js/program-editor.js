@@ -1,13 +1,41 @@
 import { BLOCK_TYPES, BLOCK_TYPE_GROUPS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
 import { parseTrainingText, serializeTrainingDocument, reconcileTrainingBlocks } from './workout-document.js';
-import { parseEffort } from './workout-effort.js';
+import { parseEffort, formatEffort } from './workout-effort.js';
 import { TrainingTextInput, normalizeTrainingDocument } from './workout-rich-text.js';
 import { renderSessionChart } from './session-chart.js';
 import { el, button, field, input, textarea, select, errorBox, showError } from './ui.js';
 
 const clone=value=>structuredClone(value);
 const blockIndex=blocks=>{const result=new Map();const visit=list=>list.forEach(block=>{result.set(block.id,block);if(block.kind==='repeat')visit(block.children);});visit(blocks);return result;};
-const sameShape=(left,right)=>left.length===right.length&&left.every((block,index)=>block.kind===right[index].kind&&!(block.rounds&&block.work_seconds>0)&&(block.kind!=='repeat'||sameShape(block.children,right[index].children)));
+const inline=value=>String(value||'').replace(/[\r\n]+/g,' / ').trim();
+const meaning=blocks=>blocks.map(block=>block.kind==='repeat'?{kind:'repeat',count:block.repeat_count,unit:block.repeat_unit||'repetitions',children:meaning(block.children)}:{
+  kind:block.kind,type:block.type,...(block.type==='other'?{title:inline(block.title)}:{}),description:inline(block.description),
+  duration:block.duration_seconds===''?null:block.duration_seconds??null,distance:block.distance_m===''?null:block.distance_m??null,
+  effort:formatEffort(block.effort||(block.zone?{kind:'zone',min:block.zone,max:block.zone}:null)),
+  ...(block.rounds&&block.work_seconds>0?{rounds:block.rounds,work:block.work_seconds,rest:block.rest_seconds||0}:{}),
+});
+const sameMeaning=(left,right)=>JSON.stringify(meaning(left))===JSON.stringify(meaning(right));
+function knownAliasBaseline(blocks,parsed){
+  const candidate=clone(blocks);let changed=false;
+  const visit=(old,next)=>old.length===next.length&&old.every((block,index)=>{
+    const source=next[index];if(block.kind!==source.kind)return false;
+    if(block.kind==='repeat')return visit(block.children,source.children);
+    if(block.type==='other'&&source.type!=='other'){
+      const probe=parseTrainingText(`- ${inline(block.title)} 1s`),alias=probe.blocks[0];
+      if(probe.errors.length||probe.blocks.length!==1||alias.kind!=='step'||alias.type!==source.type||alias.duration_seconds!==1||alias.distance_m||alias.description||alias.effort)return false;
+      block.type=source.type;block.title=source.title;changed=true;
+    }
+    return true;
+  });
+  return visit(candidate,parsed)&&changed&&sameMeaning(candidate,parsed)?candidate:null;
+}
+function keepSourceMeaning(blocks,source){
+  blocks.forEach((block,index)=>{const parsed=source[index];if(block.kind==='repeat'){
+    block.repeat_count=parsed.repeat_count;if(parsed.repeat_unit)block.repeat_unit=parsed.repeat_unit;else delete block.repeat_unit;keepSourceMeaning(block.children,parsed.children);
+  }else if(!sameMeaning([block],[parsed])){
+    for(const key of ['type','title','description','duration_seconds','distance_m','rounds','work_seconds','rest_seconds','zone','effort'])block[key]=clone(parsed[key]);
+  }});
+}
 const label=type=>BLOCK_TYPES.find(t=>t.id===type)?.label||({walk:'Marche'}[type])||type||'Autre';
 const choose=(name,options,value)=>select(name,options.map(([value,label])=>({value,label})),value);
 const icons={step:'<path d="M5 6h14M5 12h9M5 18h6m7-5v8m-4-4h8"/>',repeat:'<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/>',round:'<circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 0v3m0 8 3-3"/>',library:'<path d="M4 4h6v16H4zM14 4h6v16h-6zM6 8h2m8 0h2"/>'};
@@ -65,10 +93,15 @@ export class ProgramEditor {
     try{
       if(doc){
         this.document=normalizeTrainingDocument(doc);const parsed=parseTrainingText(this.document.text,{sport:this.sport});
-        // A stored document is already the source. Do not require an unrelated
-        // reserialization of legacy notes or future block properties to open it.
-        const baseline=sameShape(blocks,parsed.blocks)?{blocks:clone(blocks),text:this.document.text}:serializeTrainingDocument(blocks);
+        // Stored text is authoritative, including syntax newly understood by
+        // the parser. Matching shape alone does not imply matching activity or dose.
+        const unchanged=sameMeaning(blocks,parsed.blocks),aliases=unchanged?null:knownAliasBaseline(blocks,parsed.blocks);let baseline;
+        if(unchanged)baseline={blocks:clone(blocks),text:this.document.text};
+        else if(aliases)baseline={blocks:aliases,text:this.document.text};
+        else baseline=serializeTrainingDocument(blocks);
         this.result=reconcileTrainingBlocks(parsed,baseline.blocks,baseline.text);
+        keepSourceMeaning(this.result.blocks,parsed.blocks);
+        this.blocks=unchanged?clone(blocks):clone(this.result.blocks);
       }else{
         const converted=serializeTrainingDocument(blocks),prose=parseTrainingText(notes||'',{sport:this.sport});
         if(prose.blocks.length||prose.errors.length)throw new Error('Les anciennes notes ressemblent à des étapes.');
@@ -78,7 +111,7 @@ export class ProgramEditor {
         this.result=reconcileTrainingBlocks(parsed,converted.blocks,converted.text);
       }
       this.reconcileBlocks=clone(this.result.blocks);this.reconcileText=this.document.text;
-      // Server blocks retain legacy fields. Merely opening or formatting never rewrites them.
+      // Without a stored document, merely opening or formatting preserves the legacy model.
       this.lines=this.result.lines;this.textErrors=doc?this.result.errors:[];
       this.modelHistory.set(this.document.text,{blocks:clone(this.blocks),result:clone(this.result)});
     }catch(error){this.document=normalizeTrainingDocument(doc||{text:notes,marks:[]});this.result=null;this.lockedReason='Cette ancienne séance est trop complexe pour être convertie sans perte. Son déroulement est conservé.';this.lines=[];this.textErrors=[];}
@@ -141,9 +174,9 @@ export class ProgramEditor {
     return el('details',{class:'pe-help'},el('summary',{},'ⓘ Aide · écrire un entraînement'),
       el('p',{},'Écris librement. Les boutons insèrent des étapes dans le texte. Une ligne non reconnue reste enregistrable; le graphique indique les parties reconnues.'),
       section('Durées et distances',table([["3m · 3 min · 3 minutes · 3'",'Minutes. Le m signifie toujours minutes, avec ou sans espace.'],['30s · 30 sec · 30 secondes · 30"','Secondes.'],["1m30s · 1 min 30 sec · 1'30\"",'Durée combinée.'],['400mtr · 400 mtr · 400 mètres','Mètres. Écris MTR pour éviter toute confusion avec les minutes.'],['2km · 2 km','Kilomètres.']]),el('p',{},'Majuscules, minuscules, singulier, pluriel, mots sans accents et guillemets de téléphone sont acceptés. Une distance n’est jamais convertie en durée sans données.')),
-      section('Étapes, titres et consignes',el('p',{},'Un titre est facultatif et ne définit pas l’activité des étapes suivantes. Commence une étape par un tiret, puis indique son activité et sa durée ou sa distance. @ introduit l’effort facultatif. Un tiret après l’effort introduit la consigne; le retour à la ligne termine l’étape.'),el('pre',{},'- Sac 3\' @ RPE 6 - Jab et retour en garde\n- Course 400mtr @ Z2-Z4'),el('p',{},'Le tiret entre deux valeurs appartient à une fourchette. Une puce sans mesure reste visible, mais n’a pas de largeur dans le graphique sans durée ou distance.')),
+      section('Étapes, titres et consignes',el('p',{},'Un titre est facultatif et ne définit pas l’activité des étapes suivantes. Commence une étape par un tiret, puis indique son activité et sa durée ou sa distance. Pour une activité connue, les deux ordres fonctionnent : Shadow 30s ou 30s Shadow; Repos 30 secondes ou 30 secondes Repos. Le nom d’une activité Autre personnalisée reste avant la mesure. @ introduit l’effort facultatif. Un tiret après l’effort introduit la consigne; le retour à la ligne termine l’étape.'),el('pre',{},'- Sac 3\' @ RPE 6 - Jab et retour en garde\n- 30 secondes Burpees - Garder le dos droit\n- Course 400mtr @ Z2-Z4'),el('p',{},'Le tiret entre deux valeurs appartient à une fourchette. Écris toujours une consigne après un tiret; un texte inconnu après la mesure ne devient pas une activité. Une puce sans mesure reste visible, mais n’a pas de largeur dans le graphique sans durée ou distance.')),
       section('Efforts et fourchettes',table([['@ Z3 · @ Z2-Z4','Zones 1 à 7. Tu peux préciser FC ou Allure après la zone.'],['@ RPE 6 · @ RPE 6/10 · @ RPE 4-6','Effort demandé de 1 à 10, indépendant du bilan après séance.'],['@ Vert · @ Vert-Jaune · @ Rouge','Trois niveaux d’effort croissants.'],['@ Repos · @ Marche · @ Repos actif','Récupération ou marche.'],['@ 120-150 bpm','Fréquence cardiaque demandée.'],['@ 5:30/km · @ 5:30-6:30/km','Allure ou fourchette en minutes par kilomètre.']]),el('p',{},'@Z3 et @ Z3 sont équivalents. Un terme personnalisé reste visible sans intensité inventée. Une fourchette utilise la même échelle aux deux bornes.')),
-      section('Répétitions et rounds',el('p',{},'3x, 3 x, 3rounds et 3 rounds répètent les étapes qui suivent. Une vraie ligne vide termine le groupe. Le retour automatique à la ligne sur téléphone ne termine rien. Un seul niveau de répétition est proposé. Toutes les étapes sont répétées, y compris le dernier repos.'),el('pre',{},'Travail au sac\n\n3 rounds\n- Sac 3\' @ Vert-Jaune\n- Shadow 1\' @ Repos actif\n\n- Marche 30"'),el('p',{},'Un titre ou une consigne dans le groupe reste à sa place. Pour sortir du groupe, laisse au moins une ligne vide.')),
+      section('Répétitions et rounds',el('p',{},'3x, 3 x, 3rounds et 3 rounds répètent les étapes qui suivent. Une vraie ligne vide termine le groupe. Le retour automatique à la ligne sur téléphone ne termine rien. Un seul niveau de répétition est proposé. Toutes les étapes sont répétées, y compris le dernier repos.'),el('p',{},'Tu peux préciser l’activité dans le groupe : Shadow Boxing 3 rounds ou 3 rounds de Shadow. Les lignes sans activité utilisent alors Shadow; une activité écrite sur une ligne remplace ce choix pour cette ligne seulement. Jog 3x et 3x de Jog fonctionnent de la même façon.'),el('pre',{},'Shadow Boxing 3 rounds\n- 2min - Jab et déplacements\n- Burpees 30s\n- 1min @ Repos\n\n3x de Jog\n- 2min @ Z2\n- 1min @ Z1\n\n- Marche 30"'),el('p',{},'Un titre ordinaire, comme Shadow Boxing sans nombre de répétitions, reste du texte libre. Un titre ou une consigne dans le groupe ne change pas son activité. Une ligne vide termine le groupe et son activité implicite.')),
       section('Lire le graphique et mettre en forme',el('p',{},'La largeur suit la durée connue, ou la distance lorsque toute la séance est en distance. Une fourchette superpose ses deux bornes, sans bandes intermédiaires : Z2 devant Z4, par exemple. Les zones et le RPE ont leurs propres échelles. Les BPM et allures sans repères personnels restent indiqués sans conversion inventée.'),el('p',{},'Touche une portion du graphique pour revoir l’étape. Gras, souligné et couleurs du texte servent uniquement à la mise en forme; colorier une phrase ne change pas l’effort. Les anciennes séances conservent leur déroulement.')));
   }
   updatePreview(){

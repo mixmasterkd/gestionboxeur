@@ -4,13 +4,14 @@ import { parseEffort, formatEffort } from './workout-effort.js';
 export const TRAINING_TEXT_LIMIT = 20000;
 const sources = new WeakMap();
 const clone = value => structuredClone(value);
-const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ').toLowerCase();
 const names = new Map(BLOCK_TYPES.flatMap(type => [[normalize(type.label), { type: type.id, title: type.label }], [normalize(type.id), { type: type.id, title: type.label }]]));
 for (const [name, type, title] of [
   ['boxe', 'other', 'Boxe'], ['course à pied', 'run', 'Course'], ['corde', 'jump_rope', 'Corde à danser'], ['corde à sauter', 'jump_rope', 'Corde à danser'],
-  ['abdos', 'strength', 'Abdos'], ['musculation', 'strength', 'Renforcement'], ['sparing', 'sparring', 'Sparring'],
+  ['abdos', 'strength', 'Abdos'], ['musculation', 'strength', 'Renforcement'], ['sparing', 'sparring', 'Sparring'], ['shadow boxing', 'shadow', 'Shadow'],
   ['marche', 'walk', 'Marche'], ['marcher', 'walk', 'Marche'], ['repos', 'recovery', 'Repos'], ['repos actif', 'active_recovery', 'Repos actif'],
 ]) names.set(normalize(name), { type, title });
+const activityWordLimit = Math.max(...[...names.keys()].map(name => name.split(' ').length));
 const defaults = { running: ['run', 'Course'], boxing: ['other', 'Boxe'], sparring: ['sparring', 'Sparring'], strength: ['strength', 'Renforcement'], mobility: ['mobility', 'Mobilité'] };
 const decimal = '(?:\\d+(?:[.,]\\d+)?|[.,]\\d+)';
 const units = 'kilomètres?|kilometres?|km|mètres?|metres?|mtrs?|heures?|h|minutes?|min|m|secondes?|sec|s|\'|"';
@@ -51,6 +52,20 @@ function measurements(source) {
   return values;
 }
 
+function measuredActivity(source) {
+  let failure;
+  try { return { measures: measurements(source), activity: null }; } catch (error) { failure = error; }
+  // Only known activity names can follow a dose. Keep arbitrary trailing prose
+  // out of the activity model, and inspect a bounded number of possible suffixes.
+  const boundaries = [...source.matchAll(/\s+(?=\S)/g)].slice(-activityWordLimit);
+  for (const boundary of boundaries) {
+    const activity = names.get(normalize(source.slice(boundary.index + boundary[0].length)));
+    if (!activity || activity.type === 'other') continue;
+    try { return { measures: measurements(source.slice(0, boundary.index)), activity }; } catch {}
+  }
+  throw failure;
+}
+
 function separateInstruction(content) {
   const markers = [...content.matchAll(/\s+-\s*/g)], at = content.indexOf('@');
   const split = marker => [content.slice(0, marker.index).trim(), content.slice(marker.index + marker[0].length).trim()];
@@ -80,7 +95,7 @@ function separateInstruction(content) {
   return [content, ''];
 }
 
-function parseStep(source, sport) {
+function parseStep(source, sport, inheritedActivity = null) {
   let [content, description] = separateInstruction(source.replace(/^\s*-\s*/, '').trim());
   const target = content.indexOf('@');
   const effort = target < 0 ? null : parseEffort(content.slice(target + 1));
@@ -90,14 +105,16 @@ function parseStep(source, sport) {
   }
   const normalized = content.replace(/[’‘′]/g, "'").replace(/[“”″]/g, '"');
   const dose = quantityStart.exec(normalized);
-  let activity = content, measures = { duration_seconds: null, distance_m: null };
+  let activity = content, trailingActivity = null, measures = { duration_seconds: null, distance_m: null };
   if (dose) {
     if (dose.index && /[+-]\s*$/.test(normalized.slice(0, dose.index))) throw new Error('La durée ou la distance doit être positive.');
-    activity = content.slice(0, dose.index).trim(); measures = measurements(normalized.slice(dose.index));
+    activity = content.slice(0, dose.index).trim();
+    if (activity) measures = measurements(normalized.slice(dose.index));
+    else { const measured = measuredActivity(normalized.slice(dose.index)); measures = measured.measures; trailingActivity = measured.activity; }
   } else if (/\d/.test(content) && /(?:\b(?:min|sec|km|mtr|bpm)\b|\d\s*[:@])/.test(content)) throw new Error('Mesure non reconnue : utilise min, s, h, mtr ou km.');
   if (!activity && !dose && target < 0 && !description) return null;
   const fallback = defaults[sport] || ['other', 'Autre'];
-  const identity = activity ? names.get(normalize(activity)) || { type: 'other', title: activity } : { type: fallback[0], title: fallback[1] };
+  const identity = activity ? names.get(normalize(activity)) || { type: 'other', title: activity } : trailingActivity || inheritedActivity || { type: fallback[0], title: fallback[1] };
   if (identity.title.length > 500) throw new Error('Le nom de l’étape ne peut pas dépasser 500 caractères.');
   if (description.length > 10000) throw new Error('La consigne ne peut pas dépasser 10 000 caractères.');
   const recovery = { walk: 'Marche', recovery: 'Repos', active_recovery: 'Repos actif' }[identity.type];
@@ -111,6 +128,18 @@ function textLines(text) {
   lines.push({ line: number, start, end: text.length, raw: text.slice(start) }); return lines;
 }
 
+function repeatHeader(source) {
+  const text = source.trim();
+  if (text.startsWith('-')) return null;
+  const simple = /^(\d+)\s*(x|×|rounds?)\s*$/i.exec(text);
+  if (simple) return { count: Number(simple[1]), rounds: /^round/i.test(simple[2]), activity: null };
+  const leading = /^(\d+)\s*(x|×|rounds?)\s+de\s+(.+)$/i.exec(text);
+  const trailing = /^(.+?)\s+(\d+)\s*(x|×|rounds?)\s*$/i.exec(text);
+  const activity = (leading?.[3] || trailing?.[1] || '').trim();
+  if (!activity) return null;
+  return { count: Number(leading?.[1] || trailing[2]), rounds: /^round/i.test(leading?.[2] || trailing[3]), activity: names.get(normalize(activity)) || { type: 'other', title: activity } };
+}
+
 /** The source remains the document. Only recognized steps contribute to its graph. */
 export function parseTrainingText(text, { sport = 'other' } = {}) {
   const result = { blocks: [], errors: [], lines: [] };
@@ -118,31 +147,33 @@ export function parseTrainingText(text, { sport = 'other' } = {}) {
   const fail = (line, message) => result.errors.push({ line, message });
   if (typeof text !== 'string') { fail(1, 'L’entraînement doit être du texte.'); return result; }
   if (text.length > TRAINING_TEXT_LIMIT) { fail(1, `Le texte ne peut pas dépasser ${TRAINING_TEXT_LIMIT.toLocaleString('fr-CA')} caractères.`); return result; }
-  let group = null, groupLine = null, count = 0, segments = 0;
+  let group = null, groupLine = null, groupActivity = null, count = 0, segments = 0;
   const finishGroup = () => {
     if (group && !group.children.length) {
       result.blocks.splice(result.blocks.indexOf(group), 1); count--;
       fail(groupLine.line, 'Ajoute au moins une étape après la répétition.'); delete groupLine.blockId;
     }
-    group = null; groupLine = null;
+    group = null; groupLine = null; groupActivity = null;
   };
   for (const { raw, ...position } of textLines(text)) {
     const line = { ...position, kind: raw.trim() ? 'text' : 'blank' }; result.lines.push(line);
     if (!raw.trim()) { finishGroup(); continue; }
-    const repeat = /^(\d+)\s*(x|×|rounds?)\s*$/i.exec(raw.trim());
+    const repeat = repeatHeader(raw);
     if (repeat) {
       line.kind = 'repeat';
       if (group) { fail(line.line, 'Sépare les répétitions par une ligne vide; les groupes imbriqués ne sont pas interprétés.'); finishGroup(); }
-      const repetitions = Number(repeat[1]);
+      const repetitions = repeat.count;
       if (repetitions < 1 || repetitions > WORKOUT_LIMITS.repeat) { fail(line.line, `Choisis de 1 à ${WORKOUT_LIMITS.repeat} répétitions.`); continue; }
+      if (repeat.activity?.title.length > 500) { fail(line.line, 'Le nom de l’activité ne peut pas dépasser 500 caractères.'); continue; }
       if (count >= WORKOUT_LIMITS.blocks || result.blocks.length >= WORKOUT_LIMITS.siblings) { fail(line.line, 'Le nombre maximal de blocs est atteint.'); continue; }
-      group = { ...makeBlock('repeat'), repeat_count: repetitions, ...(/^round/i.test(repeat[2]) ? { repeat_unit: 'rounds' } : {}) };
+      group = { ...makeBlock('repeat'), repeat_count: repetitions, ...(repeat.rounds ? { repeat_unit: 'rounds' } : {}) };
+      groupActivity = repeat.activity;
       line.blockId = group.id; groupLine = line; result.blocks.push(group); count++; continue;
     }
     if (!/^\s*-/.test(raw)) continue;
     line.kind = 'step';
     try {
-      const block = parseStep(raw, sport); if (!block) { line.kind = 'text'; continue; }
+      const block = parseStep(raw, sport, groupActivity); if (!block) { line.kind = 'text'; continue; }
       const list = group ? group.children : result.blocks, addedSegments = group?.repeat_count || 1;
       if (count >= WORKOUT_LIMITS.blocks || list.length >= WORKOUT_LIMITS.siblings) throw new Error('Le nombre maximal de blocs est atteint.');
       if (segments + addedSegments > WORKOUT_LIMITS.segments) throw new Error('La séance contient trop d’étapes répétées.');
@@ -252,14 +283,14 @@ const orderedBlocks = blocks => { const result = []; const visit = list => list.
 
 /** Retains hidden legacy fields only for unchanged source lines, never overwriting edited doses. */
 export function reconcileTrainingBlocks(result, previousBlocks = [], previousText = '') {
-  const next = clone(result), current = indexBlocks(next.blocks), prior = parseTrainingText(previousText), ordered = orderedBlocks(previousBlocks), candidates = new Map();
+  const next = clone(result), current = indexBlocks(next.blocks), prior = parseTrainingText(previousText), priorParsed = indexBlocks(prior.blocks), ordered = orderedBlocks(previousBlocks), candidates = new Map();
   let index = 0;
   for (const line of prior.lines) {
     if (!line.blockId) continue;
     let block = ordered[index++];
     if (!block || block.kind !== (line.kind === 'repeat' ? 'repeat' : 'step')) continue;
     const key = `${line.kind}:${previousText.slice(line.start, line.end).trim()}`;
-    if (!candidates.has(key)) candidates.set(key, []); candidates.get(key).push(block);
+    if (!candidates.has(key)) candidates.set(key, []); candidates.get(key).push({ block, parsed: priorParsed.get(line.blockId) });
   }
   const used = new Set();
   for (const line of next.lines) {
@@ -268,13 +299,23 @@ export function reconcileTrainingBlocks(result, previousBlocks = [], previousTex
     // Source slices stay in a non-persisted index; only the caller stores the document.
     const source = sources.get(result) ?? result.sourceText ?? result.text;
     const key = `${line.kind}:${typeof source === 'string' ? source.slice(line.start, line.end).trim() : stepText(block)}`;
-    let previous = candidates.get(key)?.shift();
-    if (!previous) {
-      previous = ordered.find(value => !used.has(value.id) && value.kind === block.kind && (block.kind === 'repeat' ? value.repeat_count === block.repeat_count && value.repeat_unit === block.repeat_unit : stepText(value) === stepText(block)));
+    let match = candidates.get(key)?.shift();
+    if (!match) {
+      const previous = ordered.find(value => !used.has(value.id) && value.kind === block.kind && (block.kind === 'repeat' ? value.repeat_count === block.repeat_count && value.repeat_unit === block.repeat_unit : stepText(value) === stepText(block)));
+      if (previous) match = { block: previous };
     }
+    const previous = match?.block;
     if (!previous || used.has(previous.id)) continue;
     used.add(previous.id); const oldId = block.id, children = block.children;
+    // The source line can stay unchanged while its inherited activity changes.
+    // Preserve its identity and hidden fields without restoring the old scope.
+    const inherited = {};
+    if (block.kind === 'step' && match.parsed && (block.type !== match.parsed.type || block.title !== match.parsed.title)) {
+      Object.assign(inherited, { type: block.type, title: block.title });
+      if (JSON.stringify(block.effort ?? null) !== JSON.stringify(match.parsed.effort ?? null)) Object.assign(inherited, { effort: clone(block.effort), zone: block.zone });
+    }
     Object.assign(block, clone(previous), { id: previous.id || oldId, children });
+    Object.assign(block, inherited);
     line.blockId = block.id;
   }
   if (sources.has(result)) sources.set(next, sources.get(result));

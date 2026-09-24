@@ -40,11 +40,43 @@ test('old session notes that resemble new steps cannot silently change a workout
  assert.ok(editor.lockedReason);assert.deepEqual(editor.getValue(),[original]);assert.equal(editor.getNotes(),notes);assert.equal(editor.getDocument(),null);
 });
 
-test('protected legacy sessions retain an already stored rich document during unrelated changes',()=>{
+test('a stored free-text document cannot discard historical blocks that cannot be serialized',()=>{
  const inner={...makeBlock('repeat'),repeat_count:100,children:[step({duration_seconds:1}),step({duration_seconds:2})]};
  const original={...makeBlock('repeat'),repeat_count:1,children:[inner]},doc={version:1,text:'Consignes conservées',marks:[{start:0,end:9,bold:true}]};
  const {editor}=fixture({blocks:[original],document:doc,notes:'Anciennes notes'});assert.ok(editor.lockedReason);
- assert.deepEqual(editor.getDocument(),doc);assert.deepEqual(editor.getValue(),[original]);assert.equal(editor.getNotes(),'Anciennes notes');
+ assert.deepEqual(editor.getDocument(),doc);assert.deepEqual(editor.getValue(),[original]);assert.equal(editor.getNotes(),'Anciennes notes');assert.equal(editor.result,null);
+});
+
+test('a partial stored document cannot replace historical blocks when safe conversion fails',()=>{
+ const inner={...makeBlock('repeat'),repeat_count:100,children:[step({duration_seconds:1}),step({duration_seconds:2})]};
+ const original={...makeBlock('repeat'),repeat_count:1,children:[inner]},doc={version:1,text:'- Sac 1min',marks:[]};
+ const {editor}=fixture({blocks:[original],document:doc});assert.ok(editor.lockedReason);
+ assert.deepEqual(editor.getValue(),[original]);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,300);assert.deepEqual(editor.getDocument(),doc);
+});
+
+test('opening an older document immediately aligns its newly recognized rounds with the saved calculation and preview',()=>{
+ const text='Shadow Boxing 3 rounds\n- 2min - Jab\n- 1min @ repos';
+ const old=[{...makeBlock('other'),title:'Boxe',description:'Jab',duration_seconds:120},{...makeBlock('other'),title:'Boxe',duration_seconds:60,effort:{kind:'recovery',label:'Repos'}}];
+ const doc={version:1,text,marks:[{start:0,end:22,bold:true}]},{editor,mount}=fixture({blocks:old,document:doc,sport:'boxing'});
+ assert.equal(editor.getValue()[0].kind,'repeat');assert.equal(editor.getValue()[0].repeat_count,3);
+ assert.ok(editor.getValue()[0].children.every(block=>block.type==='shadow'));assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
+ assert.equal(summarizeBlocks(editor.result.blocks).duration_seconds,540);assert.match(mount.querySelector('.pe-summary').textContent,/9 min/);
+ assert.equal(editor.getDocument().text,text);assert.deepEqual(editor.getDocument().marks,doc.marks);
+ const saved={blocks:editor.getValue(),document:editor.getDocument(),sport:'boxing'},again=fixture(saved).editor;
+ assert.equal(summarizeBlocks(again.getValue()).duration_seconds,540);assert.deepEqual(again.getValue(),saved.blocks);
+});
+
+test('an older other activity cannot overwrite a newly understood alias merely because both have one step',()=>{
+ const old={...makeBlock('other'),title:'Shadow Boxing',duration_seconds:30,future:{keep:true}};
+ const {editor}=fixture({blocks:[old],document:{text:'- Shadow Boxing 30s',marks:[]},sport:'boxing'});
+ assert.equal(editor.lockedReason,'');assert.equal(editor.getValue()[0].type,'shadow');assert.equal(editor.result.blocks[0].type,'shadow');assert.equal(editor.getValue()[0].duration_seconds,30);assert.equal(editor.getValue()[0].id,old.id);assert.deepEqual(editor.getValue()[0].future,{keep:true});
+});
+
+test('stored source doses override outdated blocks while compatible metadata on other steps survives',()=>{
+ const first=step({duration_seconds:60,notes:'Gants',future:{keep:true}}),second={...makeBlock('shadow'),title:'Shadow',duration_seconds:30};
+ const {editor}=fixture({blocks:[first,second],document:{text:'- Sac 1min\n- Shadow 2min',marks:[]}});
+ assert.equal(editor.getValue()[0].id,first.id);assert.deepEqual(editor.getValue()[0].future,{keep:true});assert.equal(editor.getValue()[0].notes,'Gants');
+ assert.equal(editor.getValue()[1].duration_seconds,120);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,180);
 });
 
 test('adding a group from inside another group preserves all of the original repetitions',()=>{

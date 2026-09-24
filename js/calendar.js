@@ -30,3 +30,33 @@ export function periodLabel(anchor, view) {
   return `${dateLabel(start,{day:'numeric',month:'short'})} — ${dateLabel(end,{day:'numeric',month:'short',year:'numeric'})}`;
 }
 export { todayLocal };
+
+/** Stable event order; moving one note does not rewrite neighbouring notes. */
+export function orderedEvents(events) {
+  return [...events].sort((a,b)=>a.date.localeCompare(b.date)||Number(a.sort_order||0)-Number(b.sort_order||0)||(a.end_date||a.date).localeCompare(b.end_date||b.date)||String(a.id).localeCompare(String(b.id)));
+}
+
+/** Clip long events to one week and assign non-overlapping horizontal lanes. */
+export function eventSpans(events, dates) {
+  if(!dates.length)return {spans:[],lanes:0};
+  const occupied=[],spans=[];
+  for(const event of orderedEvents(events)) {
+    const end=event.end_date||event.date;
+    if(end<=event.date||event.date>dates.at(-1)||end<dates[0])continue;
+    const start=event.date<dates[0]?dates[0]:event.date,finish=end>dates.at(-1)?dates.at(-1):end;
+    const startIndex=dates.indexOf(start),endIndex=dates.indexOf(finish);
+    if(startIndex<0||endIndex<0)continue;
+    let lane=occupied.findIndex(last=>last<startIndex);if(lane<0)lane=occupied.length;
+    occupied[lane]=endIndex;
+    spans.push({event,start,end:finish,startIndex,endIndex,lane,continuesBefore:event.date<start,continuesAfter:end>finish});
+  }
+  return {spans,lanes:occupied.length};
+}
+
+/** Shift the whole inclusive date range, including across DST and year changes. */
+export function moveEventDates(event, targetDate, anchorDate=event.date) {
+  // addDays validates the calendar date before calculating a UTC day ordinal.
+  const ordinal=value=>Date.parse(`${addDays(value,0)}T12:00:00Z`)/86400000;
+  const delta=ordinal(targetDate)-ordinal(anchorDate);
+  return {date:addDays(event.date,delta),end_date:event.end_date?addDays(event.end_date,delta):null};
+}

@@ -7,6 +7,7 @@ import { ProgramEditor } from './program-editor.js';
 import { EVENT_COLORS, applyEventColor } from './event-colors.js';
 import { renderSessionChart } from './session-chart.js';
 import { dateLabel } from './calendar.js';
+import { accessIcon } from './access-icons.js';
 
 export const EVENT_CATEGORIES = [
   ['school', 'École'], ['exam', 'Examen'], ['work', 'Travail'], ['vacation', 'Vacances'],
@@ -91,8 +92,31 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   }
   function lockControl(item) {
     const creator = !item || item.created_by === getState().user?.id;
-    const control = input('is_locked', '', 'checkbox', { checked: item ? item.is_locked !== false : false, disabled: !creator });
-    return { control, field: el('label', { class: 'lock-control' }, control, el('span', {}, 'Verrouiller', el('small', {}, creator ? 'Seul le créateur pourra modifier ou déplacer cet élément.' : 'Seul le créateur peut changer le verrouillage.'))) };
+    return accessControl('is_locked', 'Verrouiller', item ? item.is_locked !== false : false, !creator, 'locked', 'unlocked', checked => creator
+      ? checked ? 'Verrouillé · seul l’auteur peut modifier ou déplacer.' : 'Déverrouillé · modifiable par l’athlète et ses coachs autorisés.'
+      : 'Seul l’auteur peut changer le verrouillage.');
+  }
+  function accessControl(name, label, checked, disabled, activeIcon, inactiveIcon, describe) {
+    const control = input(name, '', 'checkbox', { checked, disabled, 'aria-label': label });
+    const drawing = el('span', { class: 'access-drawing', 'aria-hidden': 'true' });
+    const wrapper = el('label', { class: `access-control ${name === 'is_locked' ? 'lock-control' : 'privacy-control'}` }, control, drawing);
+    const update = () => {
+      drawing.replaceChildren(accessIcon(control.checked ? activeIcon : inactiveIcon));
+      wrapper.dataset.active = String(control.checked); wrapper.dataset.disabled = String(control.disabled);
+      wrapper.title = describe(control.checked);
+    };
+    control.addEventListener('change', update); update();
+    return { control, field: wrapper };
+  }
+  function eventVisible(event) {
+    return !event.is_private || event.created_by === getState().user?.id;
+  }
+  function accessStatus(locked, privateNote = false) {
+    const status = el('span', { class: 'access-status' });
+    const badge = (icon, label) => el('span', { class: 'access-badge', role: 'img', 'aria-label': label, title: label }, accessIcon(icon));
+    status.append(badge(locked ? 'locked' : 'unlocked', locked ? 'Verrouillé · seul l’auteur peut modifier.' : 'Déverrouillé · modifiable ensemble.'));
+    if (privateNote) status.append(badge('private', 'Privé · visible seulement par toi.'));
+    return status;
   }
   async function finish(dialog, message, isCurrent = () => true) {
     if (!isCurrent()) return;
@@ -123,7 +147,6 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const day = input('date', duplicate ? date : session?.date || date, 'date', { required: true });
     const lock = lockControl(existing);
     const editorMount = el('div'), error = errorBox();
-    lock.field.title = lock.field.querySelector('small').textContent;
     const basics = el('fieldset', {class:'session-basics'},el('legend',{},'Séance'),field('Titre de la séance',title),el('div',{class:'session-basics-grid'},field('Discipline',sport),templateOnly ? null : field('Date',day),templateOnly ? null : lock.field));
     const body = el('div', { class: 'dialog-body' }, basics, editorMount, error);
     const submit = el('button', { type: 'submit', class: 'button primary' }, templateOnly ? 'Enregistrer dans ma bibliothèque' : existing ? 'Enregistrer les modifications' : 'Planifier la séance');
@@ -285,7 +308,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const version = ++detailGeneration;
     const dialog = $('detailDialog'), content = $('detailContent');
     const error = errorBox(), body = el('div', { class: 'dialog-body' });
-    body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), el('span', {class:'lock-badge'}, session.is_locked === false ? 'Partagée · modifiable ensemble' : 'Verrouillée · créateur uniquement')));
+    body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), accessStatus(session.is_locked !== false)));
     const workout = el('div');
     if (session.workout_document) {
       renderTrainingDocument(workout, session.workout_document);
@@ -318,8 +341,9 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   }
 
   function editEvent(event = null, date = todayLocal()) {
-    if (event ? !canEdit(event) : !canAdd()) { toast('Tu n’as pas la permission de modifier cet événement.'); return; }
-    const state = getState(), athleteId = state.selectedAthlete.id;
+    if (event ? !eventVisible(event) || !canEdit(event) : !canAdd()) { toast('Tu n’as pas la permission de modifier cet événement.'); return; }
+    const state = getState(), athleteId = state.selectedAthlete.id, editorUserId = state.user.id;
+    const isCurrent = () => getState().user?.id === editorUserId && getState().selectedAthlete?.id === athleteId && dialog.open;
     const dialog = $('eventDialog'), container = $('eventDialogContent');
     const title = input('title', event?.title || '', 'text', { required: true, maxLength: 200 });
     const options = [...EVENT_CATEGORIES];
@@ -336,10 +360,16 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       colors.append(el('label', {}, control, swatch));
     }
     const lock = lockControl(event);
+    const creator = !event || event.created_by === state.user.id;
+    const privacy = accessControl('is_private', 'Privé · visible seulement par moi', !!event?.is_private, !creator, 'private', 'shared', value => !creator ? 'Seul l’auteur peut changer la visibilité.' : value ? 'Privé · visible seulement par toi.' : 'Partagé · visible par l’athlète et ses coachs autorisés.');
+    const visibility = el('p', { class: 'event-visibility', role: 'status' });
+    const updateVisibility = () => { visibility.textContent = privacy.control.checked ? 'Privé · visible seulement par toi.' : 'Partagé avec l’athlète et ses coachs autorisés.'; };
+    privacy.control.addEventListener('change', updateVisibility); updateVisibility();
     const error = errorBox(), submit = el('button', { type: 'submit', class: 'button primary' }, event ? 'Enregistrer les modifications' : 'Ajouter l’événement');
-    const body = el('div', { class: 'dialog-body' }, el('p', { class: 'muted' }, 'Visible par l’athlète et ses coachs autorisés : rendez-vous, disponibilités, compétition ou note.'), field('Titre', title), field('Catégorie', category), el('div', { class: 'form-grid' }, field('Date de début', dateInput), field('Date de fin', endDate, 'Facultative · pour plusieurs jours')), lock.field, field('Notes', notes), colors, error);
+    const basics = el('fieldset', { class: 'session-basics event-basics' }, el('legend', {}, 'Événement / note'), field('Titre', title), field('Catégorie', category), el('div', { class: 'form-grid' }, field('Date de début', dateInput), field('Date de fin', endDate, 'Facultative · pour plusieurs jours')), el('div', { class: 'event-access-row' }, visibility, el('div', { class: 'access-controls', role: 'group', 'aria-label': 'Verrouillage et visibilité' }, lock.field, privacy.field)));
+    const body = el('div', { class: 'dialog-body' }, basics, field('Notes', notes), colors, error);
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
-    container.replaceChildren(heading(event ? 'Modifier l’événement' : 'Ajouter un événement', 'CALENDRIER PARTAGÉ', dialog, 'eventDialogTitle'), form);
+    container.replaceChildren(heading(event ? 'Modifier l’événement' : 'Ajouter un événement', 'CALENDRIER', dialog, 'eventDialogTitle'), form);
     let saving = false;
     form.addEventListener('submit', async e => {
       e.preventDefault(); if (saving || !form.reportValidity()) return;
@@ -347,22 +377,24 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       try {
         if (!title.value.trim()) throw new Error('Donne un titre à ton événement.');
         if (endDate.value && endDate.value < dateInput.value) throw new Error('La date de fin doit être égale ou postérieure au début.');
-        if (getState().selectedAthlete.id !== athleteId || (event ? !canEdit(event) : !canAdd())) throw new Error('Tes permissions ont changé.');
+        if (getState().selectedAthlete.id !== athleteId || getState().user?.id !== editorUserId || (event ? !eventVisible(event) || !canEdit(event) : !canAdd())) throw new Error('Tes permissions ont changé.');
         const payload = { color: colors.querySelector('input:checked').value, title: title.value.trim(), category: category.value, date: dateInput.value, end_date: endDate.value || null, notes: notes.value.trim(), sort_order: event?.sort_order ?? nextOrder(getState().events, dateInput.value) };
         if (!event) Object.assign(payload, { athlete_id: athleteId, created_by: getState().user.id });
         if (!event || event.created_by === getState().user.id && lock.control.checked !== (event.is_locked !== false)) payload.is_locked = lock.control.checked;
+        if (!event || event.created_by === getState().user.id && privacy.control.checked !== !!event.is_private) payload.is_private = privacy.control.checked;
         saving = true;
-        await busy(submit, async () => { await (await getApi()).saveEvent(payload, event); await finish(dialog, event ? 'Événement mis à jour.' : 'Événement ajouté.'); });
-      } catch (err) { showError(error, err); } finally { saving = false; }
+        await busy(submit, async () => { await (await getApi()).saveEvent(payload, event); await finish(dialog, event ? 'Événement mis à jour.' : 'Événement ajouté.', isCurrent); });
+      } catch (err) { if (isCurrent()) showError(error, err); } finally { saving = false; }
     });
     show(dialog); title.focus();
   }
 
   function showEvent(event) {
+    if (!eventVisible(event)) { toast('Cette note est privée.'); return; }
     detailGeneration++;
     const dialog = $('detailDialog'), container = $('detailContent'), error = errorBox();
     const period = dateLabel(event.date, { day: 'numeric', month: 'long', year: 'numeric' }) + (event.end_date && event.end_date !== event.date ? ` → ${dateLabel(event.end_date, { day: 'numeric', month: 'long', year: 'numeric' })}` : '');
-    const body = el('div', { class: 'dialog-body' }, el('div', { class: 'detail-meta' }, el('span', {}, EVENT_CATEGORIES.find(item => item.value === event.category)?.label || event.category), el('span', {}, period)), el('p', { class: 'muted' }, `Créé par ${event.author_name || (event.created_by === getState().selectedAthlete.user_id ? displayName(getState().selectedAthlete) : 'un coach')}. ${event.is_locked === false ? 'Modifiable ensemble.' : 'Verrouillé par son créateur.'}`), event.notes ? el('p', { class: 'note-box' }, event.notes) : null, error);
+    const body = el('div', { class: 'dialog-body' }, el('div', { class: 'detail-meta' }, el('span', {}, EVENT_CATEGORIES.find(item => item.value === event.category)?.label || event.category), el('span', {}, period), accessStatus(event.is_locked !== false, event.is_private)), el('p', { class: 'muted' }, `Créé par ${event.author_name || (event.created_by === getState().selectedAthlete.user_id ? displayName(getState().selectedAthlete) : 'un coach')}.${event.is_private ? ' Privé · visible seulement par toi.' : ''}`), event.notes ? el('p', { class: 'note-box' }, event.notes) : null, error);
     const actions = el('footer', { class: 'dialog-actions' });
     if (canDelete(event)) {
       const remove = button('Supprimer', async () => {

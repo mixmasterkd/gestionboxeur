@@ -12,3 +12,5 @@
 
 @import './workout-chart.css';
 @import './workout-document.css';
+
+@import "./calendar-events.css";
