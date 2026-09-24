@@ -179,7 +179,7 @@ test('only the creator sends a changed lock state',async()=>{
   submit('sessionDialog');await tick();assert.equal(payload.is_locked,true);
 });
 
-test('athlete marks a locked coach workout done without RPE then can open the optional whole-session review',async()=>{
+test('athlete marks a locked coach workout done without RPE then sees the whole-session review in the same section',async()=>{
   const calls=[];const doneAt='2026-09-21T21:00:00Z';
   const {ui,state}=fixture({athlete:true,canEdit:()=>false,api:{rpc:async(...args)=>{calls.push(args);return doneAt;}}});
   state.sessions[0].is_locked=true;ui.showSession(state.sessions[0]);
@@ -188,8 +188,9 @@ test('athlete marks a locked coach workout done without RPE then can open the op
   assert.deepEqual(calls,[['set_session_completed',{p_session_id:'s1',p_completed:true}]]);
   assert.equal(state.sessions[0].completed_at,doneAt);
   assert.equal(document.querySelector('.completion-button').getAttribute('aria-pressed'),'true');
-  const review=document.querySelector('.post-session-review');assert.equal(review.open,false);
-  assert.ok(review.querySelector('[name="rpe"]'));assert.match(review.textContent,/séance complète/);
+  const review=document.querySelector('.post-session-review');assert.equal(review.tagName,'SECTION');
+  assert.ok(review.closest('.session-completion'));assert.ok(review.querySelector('[name="rpe"]'));
+  assert.equal(review.querySelector('summary'),null);assert.doesNotMatch(review.textContent,/Partager mon retour/);
 });
 
 test('completion is athlete-only, prevents duplicate pending saves and undo keeps previous feedback',async()=>{
@@ -298,3 +299,34 @@ test('one library inserts blocks or replaces a session while keeping date and he
 });
 
 test.after(async () => { await window.happyDOM.abort(); });
+
+test('review saves changed feeling and comment automatically and stays open',async()=>{
+ const calls=[];const {ui,state}=fixture({athlete:true,api:{rpc:async(...args)=>{calls.push(args);}}});
+ state.sessions[0].completed_at='2026-09-21T20:00:00Z';ui.showSession(state.sessions[0]);
+ const rpe=document.querySelector('[name=rpe]');rpe.value='6';rpe.dispatchEvent(new window.Event('change',{bubbles:true}));await tick();assert.equal(calls.length,0);
+ document.querySelector('[name=feeling][value="4"]').click();await tick();
+ assert.equal(calls.length,1);assert.equal(calls[0][1].p_feeling,4);assert.equal(document.getElementById('detailDialog').open,true);
+ const comment=document.querySelector('[name=comment]');comment.value='Bien récupéré';comment.dispatchEvent(new window.Event('change',{bubbles:true}));await tick();
+ assert.equal(calls[1][1].p_comment,'Bien récupéré');assert.equal(state.feedback[0].comment,'Bien récupéré');
+ assert.match(document.querySelector('.feedback-save-status').textContent,/Bilan enregistré/);
+});
+
+test('automatic review queues the latest values and locks completion during a save',async()=>{
+ const calls=[];let release;const pending=new Promise(resolve=>{release=resolve;});
+ const {ui,state}=fixture({athlete:true,api:{rpc:async(...args)=>{calls.push(args);if(calls.length===1)await pending;}}});
+ state.sessions[0].completed_at='2026-09-21T20:00:00Z';ui.showSession(state.sessions[0]);
+ document.querySelector('[name=rpe]').value='5';document.querySelector('[name=feeling][value="3"]').click();await tick();
+ assert.equal(document.querySelector('.completion-button').disabled,true);
+ for(const radio of document.querySelectorAll('[name=feeling]'))radio.checked=radio.value==='5';
+ document.querySelector('[name=feeling][value="5"]').dispatchEvent(new window.Event('change',{bubbles:true}));const comment=document.querySelector('[name=comment]');comment.value='Dernier choix';comment.dispatchEvent(new window.Event('change',{bubbles:true}));
+ release();await tick();await tick();assert.equal(calls.length,2);assert.equal(calls[1][1].p_feeling,5);assert.equal(calls[1][1].p_comment,'Dernier choix');assert.equal(document.querySelector('.completion-button').disabled,false);
+});
+
+test('failed automatic review keeps the draft and offers retry without claiming success',async()=>{
+ let calls=0;const {ui,state}=fixture({athlete:true,api:{rpc:async()=>{if(++calls===1)throw new Error('Hors ligne');}}});
+ state.sessions[0].completed_at='2026-09-21T20:00:00Z';ui.showSession(state.sessions[0]);
+ document.querySelector('[name=rpe]').value='9';document.querySelector('[name=feeling][value="2"]').click();await tick();
+ assert.match(document.querySelector('.feedback-save-status').textContent,/non enregistré/);assert.equal(document.querySelector('[name=rpe]').value,'9');
+ const retry=[...document.querySelectorAll('.post-session-review button')].find(b=>b.textContent==='Réessayer');assert.equal(retry.hidden,false);retry.click();await tick();
+ assert.equal(calls,2);assert.equal(retry.hidden,true);assert.match(document.querySelector('.feedback-save-status').textContent,/Bilan enregistré/);
+});

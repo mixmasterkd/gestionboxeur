@@ -207,8 +207,8 @@ function sessionCard(session) {
       finally{toggle.disabled=false;}
     },'completion-button',{'aria-pressed':String(completed),'aria-label':`${completed?'Annuler la réalisation de':'Marquer comme faite :'} ${session.title}`});
     toggle.title=completed?'Annuler « faite »':'Marquer comme faite';
-    toggle.append(el('span',{class:'completion-mark','aria-hidden':'true'},completed?'✓':''));
-    titleRow.append(toggle);
+    toggle.append(el('span',{'aria-hidden':'true'},completed?'✓':'○'),el('span',{},'Fait'));
+    card.append(el('div',{class:'session-card-footer'},toggle));
   }else card.append(el('span',{class:`completion-pill ${completed?'completed':'pending'}`},completed?'✓ Faite':'À faire'));
   const feedback=state.feedback.find(f=>f.session_id===session.id);
   if(completed&&feedback&&(!isCoach()||state.relation?.can_view_feedback!==false))card.append(el('div',{class:'feedback-pill'},`${feedback.feeling?feelings[feedback.feeling]+' ':''}${feedback.rpe?'RPE '+feedback.rpe+'/10':'Retour reçu'}${feedback.comment?' · commentaire':''}`));

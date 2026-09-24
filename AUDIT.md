@@ -149,3 +149,9 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Étapes seules : Consigne unique, retrait de Plus d’options / Notes. Lignes des répétitions et rounds : Consigne visible sous les mesures, zone facultative et retrait de la case Repos. Contenu historique des notes conservé et présenté dans la consigne; anciennes récupérations préservées.
 - Changer sans chevron; initiales sur six couleurs pastel stables selon l’identité de l’athlète. Surface Texte ardoise claire en sombre et ivoire en clair, sans exemple prérempli.
 - Validation : 282 tests réussis, vérification de structure et compilation réussies. Contrôles visuels à 375 et 1280 px : consignes des rounds, types disponibles, initiales pastel et contraste du champ Texte dans les deux thèmes.
+
+## 24 septembre 2026 — Bilan visible et réalisation rapide
+
+- Bilan sous le statut de réalisation, dans le même encadré, sans accordéon. RPE de 1 à 10, ressenti et commentaire visibles après réalisation. Enregistrement automatique, état de sauvegarde et nouvelle tentative après erreur; file des dernières modifications et réalisation désactivée durant l’écriture.
+- Ressenti sélectionné avec contraste renforcé dans les deux thèmes; choix répartis en trois colonnes sur mobile. Bouton Fait avec cercle / coche, couleur active et libellé au bas des tuiles, y compris en vue mois.
+- Validation : 285 tests réussis, structure et build contrôlés. Aperçu fictif : RPE et changements de ressenti enregistrés, commentaire conservé à la réouverture, présentation mobile vérifiée. Aucun bilan réel modifié.

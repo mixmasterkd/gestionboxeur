@@ -380,7 +380,7 @@ test('monthly tile completion is reversible without opening the session details'
   const page=await surface({role:'athlete',sessions:[{...makeSession('quick'),is_locked:true}]});
   try {
     page.app.state.view='month';await page.app.refreshCalendar();
-    let toggle=page.$('calendar').querySelector('.session-title-row .completion-button');
+    let toggle=page.$('calendar').querySelector('.session-card-footer .completion-button');
     assert.ok(toggle);toggle.click();await settle();
     toggle=page.$('calendar').querySelector('.completion-button');
     assert.equal(toggle.getAttribute('aria-pressed'),'true');

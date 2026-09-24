@@ -84,6 +84,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       }, 'completion-button button secondary', { 'aria-pressed': String(completed) });
       section.append(toggle, error);
     }
+    section.append(feedbackSection(session, version, section));
     return section;
   }
   function lockControl(item) {
@@ -225,9 +226,9 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     show(dialog); title.focus();
   }
 
-  function feedbackSection(session) {
+  function feedbackSection(session, version, completion) {
     const state = getState(), feedback = (state.feedback || []).find(item => item.session_id === session.id);
-    const section = el('details', { class: 'feedback-section post-session-review' }, el('summary', {}, 'Bilan après la séance · RPE et ressenti'));
+    const section = el('section', { class: 'feedback-section post-session-review', 'aria-label':'Bilan de la séance' }, el('h3', {}, 'Bilan'));
     if (!session.completed_at) return el('p', { class: 'post-session-hint muted' }, 'Le bilan sera disponible une fois la séance marquée comme faite.');
     if (!ownsAthlete() || session.athlete_id !== state.selectedAthlete.id) {
       if (state.relation?.can_view_feedback === false) { section.append(el('p', { class: 'muted' }, 'L’athlète ne partage pas ses feedbacks avec toi.')); return section; }
@@ -244,23 +245,45 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     FEELINGS.forEach(feeling => choices.append(el('label', { class: 'feeling-choice' }, el('input', { type: 'radio', name: 'feeling', value: String(feeling.value), required: true, checked: feedback?.feeling === feeling.value }), el('span', {}, feeling.emoji, el('small', {}, `${feeling.value} · ${feeling.label}`)))));
     feelingGroup.append(choices); feelingGroup.style.border = '0'; feelingGroup.style.padding = '0'; feelingGroup.style.margin = '0';
     const comment = textarea('comment', feedback?.comment || '', { maxLength: 20000 });
-    const error = errorBox(), submit = el('button', { type: 'submit', class: 'button primary' }, feedback ? 'Mettre à jour mon retour' : 'Partager mon retour');
-    const form = el('form', {}, field('Effort perçu · RPE', rpe, '1 = très facile · 10 = effort maximal'), feelingGroup, field('Commentaire', comment), error, submit);
-    let saving = false;
-    form.addEventListener('submit', async event => {
-      event.preventDefault(); if (saving || !form.reportValidity()) return;
-      error.hidden = true;
+    const error = errorBox(), status = el('p',{class:'feedback-save-status muted',role:'status'},'Enregistrement automatique');
+    const retry = button('Réessayer', () => saveFeedback(), 'button secondary', {hidden:true});
+    const form = el('form', {}, field('Effort perçu · RPE', rpe, '1 = très facile · 10 = effort maximal'), feelingGroup, field('Commentaire', comment), status, error, retry);
+    const userId = state.user.id;
+    const isCurrent = () => getState().user?.id === userId && version === detailGeneration && ownsSession(session);
+    const values = () => ({p_session_id:session.id,p_rpe:Number(rpe.value),p_feeling:Number(form.querySelector('input[name="feeling"]:checked')?.value),p_comment:comment.value.trim()});
+    let saving = false, queued = false, savedSignature = feedback ? JSON.stringify(values()) : '';
+    async function saveFeedback() {
+      if (!isCurrent()) return;
+      if (saving) { queued = true; return; }
+      const payload = values();
+      if (!Number.isInteger(payload.p_rpe) || payload.p_rpe < 1 || payload.p_rpe > 10 || !Number.isInteger(payload.p_feeling) || payload.p_feeling < 1 || payload.p_feeling > 5) { status.textContent='Choisis ton RPE et ton ressenti.'; return; }
+      const signature = JSON.stringify(payload);
+      if (signature === savedSignature) { status.textContent='Bilan enregistré'; return; }
+      const toggle = completion.querySelector('.completion-button');
+      error.hidden = true; retry.hidden = true; saving = true; if (toggle) toggle.disabled = true;
+      status.textContent='Enregistrement…';
       try {
-        const feeling = Number(form.querySelector('input[name="feeling"]:checked')?.value), effort = Number(rpe.value);
-        if (!Number.isInteger(effort) || effort < 1 || effort > 10 || !Number.isInteger(feeling) || feeling < 1 || feeling > 5) throw new Error('Choisis ton RPE et ton ressenti.');
-        if (!ownsSession(session)) throw new Error('Ce feedback ne concerne pas ton calendrier.');
         const current = getState().sessions?.find(item => item.id === session.id);
         if (!(current || session).completed_at) throw new Error('Marque d’abord cette séance comme faite.');
-        saving = true;
-        await busy(submit, async () => { await (await getApi()).rpc('save_session_feedback', { p_session_id: session.id, p_rpe: effort, p_feeling: feeling, p_comment: comment.value.trim() }); await finish($('detailDialog'), 'Retour partagé avec tes coachs.'); });
-      } catch (err) { showError(error, err); } finally { saving = false; }
-    });
-    section.append(el('p', { class: 'muted' }, 'Facultatif : ton retour concerne la séance complète. Tu peux le remplir plus tard.'), form); return section;
+        await (await getApi()).rpc('save_session_feedback', payload);
+        savedSignature = signature;
+        if (!isCurrent()) return;
+        const list = getState().feedback || (getState().feedback = []);
+        const saved = {session_id:session.id,rpe:payload.p_rpe,feeling:payload.p_feeling,comment:payload.p_comment};
+        const existing = list.find(item => item.session_id === session.id);
+        if (existing) Object.assign(existing,saved); else list.push(saved);
+        status.textContent='Bilan enregistré';
+        try { await refresh(); } catch { if (isCurrent()) status.textContent='Bilan enregistré · calendrier à actualiser'; }
+      } catch (err) { if (isCurrent()) { status.textContent='Bilan non enregistré';showError(error,err);retry.hidden=false; } }
+      finally { saving=false;if(toggle)toggle.disabled=false; if(queued && isCurrent()){queued=false;void saveFeedback();} }
+    }
+    let commentTimer;
+    const flush = () => {clearTimeout(commentTimer);void saveFeedback();};
+    form.addEventListener('change', flush);
+    comment.addEventListener('blur', flush);
+    comment.addEventListener('input',()=>{status.textContent='Modification en cours…';clearTimeout(commentTimer);commentTimer=setTimeout(flush,600);});
+    form.addEventListener('submit', event => {event.preventDefault();void saveFeedback();});
+    section.append(form); return section;
   }
 
   function showSession(session) {
@@ -289,7 +312,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       }); actions.append(save);
     }
     actions.append(button('Fermer', () => dialog.close()));
-    content.replaceChildren(heading(session.title, 'SÉANCE PLANIFIÉE', dialog, 'detailTitle'), body, feedbackSection(session), actions); show(dialog);
+    content.replaceChildren(heading(session.title, 'SÉANCE PLANIFIÉE', dialog, 'detailTitle'), body, actions); show(dialog);
   }
 
   function editEvent(event = null, date = todayLocal()) {
