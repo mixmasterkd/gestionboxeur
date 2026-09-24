@@ -13,7 +13,7 @@ const { createLibraryUI } = await import('../js/library.js');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return { promise, resolve, reject }; };
 const ownTemplate = (id = 'personal-1', kind = 'session') => ({ id, coach_id: 'coach1', title: kind === 'block' ? 'Bloc personnel' : 'Course personnelle', sport: 'running', description: '', notes: '', blocks: [{ ...makeBlock('run'), duration_seconds: 1200 }], kind });
-function fixture({ athlete = false, templates = [], canAdd = () => true, api = {}, onUseTemplate } = {}) {
+function fixture({ athlete = false, templates = [], canAdd = () => true, api = {}, onUseTemplate, onCreateTemplate } = {}) {
   document.body.innerHTML = '<dialog id="libraryDialog"><div id="libraryContent"></div></dialog><dialog id="confirmDialog"><h2 id="confirmTitle"></h2><p id="confirmText"></p><button id="confirmYes"></button></dialog><div id="toast" hidden></div>';
   const state = { user: { id: athlete ? 'athlete1' : 'coach1' }, profile: { account_type: athlete ? 'athlete' : 'coach' }, selectedAthlete: { id: 'a1' } };
   const calls = [], backend = {
@@ -21,7 +21,7 @@ function fixture({ athlete = false, templates = [], canAdd = () => true, api = {
     saveTemplate: async payload => { calls.push(['save', payload]); return { ...payload, id: 'saved-1' }; },
     deleteTemplate: async id => { calls.push(['delete', id]); }, ...api,
   };
-  const ui = createLibraryUI({ getState: () => state, canAdd, onUseTemplate: onUseTemplate || (copy => calls.push(['use', copy])), api: backend });
+  const ui = createLibraryUI({ getState: () => state, canAdd, onCreateTemplate, onUseTemplate: onUseTemplate || (copy => calls.push(['use', copy])), api: backend });
   return { ui, state, calls, backend };
 }
 const source = value => document.querySelector(`.library-sources [data-source="${value}"]`).click();
@@ -37,7 +37,7 @@ test('coach library separates private models and the starter kit without automat
   assert.equal(document.querySelectorAll('.template-card').length, 1);
   assert.equal(card('foreign'), null);
   source('starter');
-  assert.equal(document.querySelectorAll('.template-card').length, 12);
+  assert.equal(document.querySelectorAll('.template-card').length, 13);
   assert.equal(document.querySelectorAll('[data-action="delete-template"]').length, 0);
   assert.deepEqual(calls, [['get']]);
 });
@@ -46,7 +46,7 @@ test('kit remains usable while private models load or fail', async () => {
   const pending = deferred();
   const { ui, calls } = fixture({ api: { getTemplates: () => pending.promise } });
   const opening = ui.open(); await tick(); source('starter');
-  assert.equal(document.querySelectorAll('.template-card').length, 12);
+  assert.equal(document.querySelectorAll('.template-card').length, 13);
   pending.reject(new Error('Service indisponible')); await opening;
   assert.match(document.querySelector('[role="alert"]').textContent, /kit de départ reste disponible/);
   action('starter-jog-10', 'use-template').click();
@@ -174,4 +174,18 @@ test('changing accounts during deletion confirmation prevents the write', async 
   const { ui, state, calls } = fixture({ templates: [ownTemplate()] });
   await ui.open(); action('personal-1', 'delete-template').click(); await tick(); state.user.id = 'coach2';
   confirm(true); await tick(); assert.equal(calls.some(call => call[0] === 'delete'), false);
+});
+
+
+test('library creates workouts without a selected athlete and keeps block selection scoped', async () => {
+  let creates = 0;
+  const { ui, state } = fixture({ canAdd: () => false, onCreateTemplate: () => { creates++; } });
+  state.selectedAthlete = null;
+  await ui.open();
+  [...document.querySelectorAll('button')].find(button => button.textContent.includes('Créer un entraînement')).click();
+  assert.equal(creates, 1); assert.equal(document.getElementById('libraryDialog').open, false);
+  for (const options of [{ kind: 'block' }, { kind: 'session', onSelect: () => {} }]) {
+    await ui.open(options);
+    assert.equal([...document.querySelectorAll('button')].some(button => button.textContent.includes('Créer un entraînement')), false);
+  }
 });

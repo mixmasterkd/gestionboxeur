@@ -139,7 +139,7 @@ test('spatial navigation opens as a named dialog and closes back to its trigger'
     assert.equal(dialog.open, true);
     assert.equal(doc.body.classList.contains('space-is-open'), true);
     assert.equal(doc.activeElement, dialog.querySelector('.space-close'));
-    assert.equal(dialog.querySelectorAll('.space-card').length, 4);
+    assert.equal(dialog.querySelectorAll('.space-card').length, 5);
     assert.equal(dialog.querySelector('.is-current').href, 'https://example.test/boxing/admin/');
     dialog.querySelector('.space-close').click();
     assert.equal(dialog.open, false);
@@ -182,5 +182,20 @@ test('refreshing navigation disposes the old spatial map and releases the scroll
     assert.equal(doc.querySelector('#spaceNavigation').open, false);
     assert.equal(doc.querySelector('#spaceNavigation').textContent.includes('Administration'), false);
     doc.querySelector('.nav-explore').click(); assert.equal(doc.querySelector('#spaceNavigation').open, true);
+  } finally { ui.window.happyDOM.abort(); }
+});
+
+
+test('coach library opens once through its deep link and again through Explorer', () => {
+  const ui = navigation('https://example.test/boxing/planning.html?athlete=a1#bibliotheque');
+  try {
+    const doc = ui.window.document, button = doc.createElement('button');
+    let opens = 0; button.id = 'libraryButton'; button.onclick = () => { opens++; }; doc.body.append(button);
+    ui.mount({ role: 'coach' }); ui.flush();
+    assert.equal(opens, 1); assert.equal(ui.window.location.hash, ''); assert.equal(ui.window.location.search, '?athlete=a1');
+    ui.mount({ role: 'coach' }); ui.flush(); assert.equal(opens, 1);
+    doc.querySelector('.nav-explore').click();
+    [...doc.querySelectorAll('.space-card')].find(link => link.textContent.includes('Bibliothèque')).click();
+    assert.equal(opens, 2); assert.equal(doc.querySelector('#spaceNavigation').open, false);
   } finally { ui.window.happyDOM.abort(); }
 });

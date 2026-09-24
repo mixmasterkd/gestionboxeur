@@ -2,7 +2,7 @@ import { BLOCK_TYPES, WORKOUT_LIMITS, makeBlock, validateBlocks, summarizeBlocks
 
 /** Workout text uses m for minutes; distances always have an explicit distance unit. */
 export const syntaxHelp = 'Course / Shadow / Sac / Abdos / Corde : un en-tête choisit le travail. 1m30 @ Z2 - Consigne. 3 rounds 1m/1m - Consigne. 2x puis ses étapes indentées de deux espaces. Distance : 400 mètres ou 1km. Libre - Consigne sans durée.';
-export const advancedSyntaxHelp = 'Un titre personnalisé s’écrit « Course : Footing léger ». Les options conservées automatiquement apparaissent après | sous forme JSON (notes, intensité cible, répétitions, etc.). Ne les efface pas si tu veux les conserver. Les identifiants internes des blocs sont recréés.';
+export const advancedSyntaxHelp = 'Un titre personnalisé s’écrit « Course : Jog léger ». Les options conservées automatiquement apparaissent après | sous forme JSON (notes, zones, répétitions, etc.). Ne les efface pas si tu veux les conserver. Les identifiants internes des blocs sont recréés.';
 
 const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').trim();
 const headings = new Map();
@@ -11,6 +11,7 @@ for (const type of BLOCK_TYPES) {
   headings.set(normalize(type.id), { type: type.id, title: type.label });
 }
 for (const [label, type] of [['Course à pied', 'run'], ['Abdos', 'strength'], ['Corde', 'cardio'], ['Corde à sauter', 'cardio'], ['Musculation', 'strength'], ['Repos', 'recovery']]) headings.set(normalize(label), { type, title: label });
+headings.set('sparing', { type: 'sparring', title: 'Sparring' });
 const numeric = '(?:\\d+(?:[.,]\\d*)?|[.,]\\d+)(?:[eE][+-]?\\d+)?';
 const number = value => Number(value.replace(',', '.'));
 const distancePattern = new RegExp(`^(${numeric})\\s*(km|mtr|mtrs|mètres?|metres?)$`, 'i');
@@ -75,6 +76,8 @@ function heading(text, context) {
   return null;
 }
 function parseStep(text, context) {
+  const inline = /^(sparring|sparing)\s+(?=\d|libre\b)(.+)$/i.exec(text);
+  if (inline) return parseStep(inline[2], { type: 'sparring', title: 'Sparring' });
   let description = '';
   const separator = /\s+-\s*/.exec(text);
   if (separator) { description = text.slice(separator.index + separator[0].length); text = text.slice(0, separator.index).trimEnd(); }
@@ -112,7 +115,7 @@ export function parseWorkoutText(text, { sport = 'other' } = {}) {
   if (text.length > MAX_TEXT) return { blocks, errors: [{ line: 1, message: 'Le programme texte est trop volumineux.' }] };
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
   if (lines.length > MAX_LINES) return { blocks, errors: [{ line: 1, message: `Le programme ne peut pas dépasser ${MAX_LINES} lignes.` }] };
-  const context = sport === 'running' ? { type: 'run', title: 'Course' } : { type: 'other', title: 'Autre' };
+  const context = sport === 'running' ? { type: 'run', title: 'Course' } : sport === 'sparring' ? { type: 'sparring', title: 'Sparring' } : { type: 'other', title: 'Autre' };
   const stack = [{ list: blocks, context, pending: null, last: null, canNest: false }]; let count = 0;
   const close = frame => { if (frame.pending) fail(frame.pending, 'Cet en-tête doit être suivi d’une étape (par exemple 1m ou Libre - Consigne).'); };
   try {
@@ -155,6 +158,21 @@ export function parseWorkoutText(text, { sport = 'other' } = {}) {
     }
   } catch (error) { fail(1, error.message || 'Programme texte invalide.'); }
   return { blocks, errors: errors.sort((a, b) => a.line - b.line) };
+}
+
+/** Session-wide prose shares the text surface without becoming timed workout blocks. */
+export function parseSessionText(text, options) {
+  const notes = [];
+  const program = text.split('\n').map(line => {
+    if (/^#(?: |$)/.test(line)) { notes.push(line.replace(/^# ?/, '')); return ''; }
+    return line;
+  }).join('\n');
+  const result = parseWorkoutText(program, options);
+  if (notes.join('\n').length > 20000) result.errors.push({ line: 1, message: 'Le texte libre ne peut pas dépasser 20 000 caractères.' });
+  return { ...result, notes: notes.join('\n') };
+}
+export function serializeSessionText(blocks, notes = '') {
+  return [notes ? notes.split('\n').map(line => `# ${line}`).join('\n') : '', serializeWorkoutText(blocks)].filter(Boolean).join('\n\n');
 }
 
 function formatTime(seconds) {

@@ -1,3 +1,4 @@
+import { applyEventColor } from './event-colors.js';
 import Sortable from 'sortablejs';
 import { client, loadAccount, loadCalendar, rpc, saveSession } from './data.js';
 import * as dataApi from './data.js';
@@ -18,7 +19,7 @@ const canView=()=>state.planningAvailable && !!state.selectedAthlete?.user_id &&
 const canAdd=()=>canView() && (ownsCalendar() || !!state.relation?.can_add_sessions);
 const canEdit=session=>canView() && session.athlete_id===state.selectedAthlete.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (session.created_by===state.user?.id || session.is_locked===false);
 const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi});
-const libraryUI=createLibraryUI({getState:()=>state,canAdd,onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
+const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:()=>sessionUI.editTemplate(),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
 const connectionsUI=createConnectionsUI({getState:()=>state,refreshAccount,refreshCalendar});
 const calendarViews=new Set(['today','week','month']);
 function viewPreferenceKey() {
@@ -176,7 +177,7 @@ function sessionCard(session) {
   const meta=[];if(summary.hasTime)meta.push(formatDuration(summary.duration_seconds));if(summary.hasDistance)meta.push(`${new Intl.NumberFormat('fr-CA',{maximumFractionDigits:2}).format(summary.distance_m/1000)} km`);
   if(!meta.length)meta.push(session.blocks.length?`${session.blocks.length} bloc${session.blocks.length>1?'s':''}`:'Instructions libres');
   card.append(el('div',{class:'session-meta'},meta.join(' · ')));
-  if(['running','boxing'].includes(session.sport))card.append(renderSessionChart(session,{summary}));
+  if(['running','boxing','sparring'].includes(session.sport))card.append(renderSessionChart(session,{summary}));
   card.append(el('p',{class:'session-author'},`Par ${session.author_name||'Coach'}`));
   if(ownsCalendar()) {
     const toggle=button(completed?'✓ Faite':'Marquer comme faite',async()=>{
@@ -196,7 +197,7 @@ function renderCalendar() {
   for(const date of datesForView(state.anchor,state.view)) {
     const day=el('section',{class:`day${date===todayLocal()?' today':''}${date.slice(0,7)!==state.anchor.slice(0,7)?' outside-month':''}`,dataset:{date},'aria-label':dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})});
     day.append(el('header',{class:'day-heading'},el('span',{class:'weekday'},dateLabel(date,{weekday:'short'})),el('span',{class:'date-number','aria-label':date===todayLocal()?'Aujourd’hui':undefined},String(Number(date.slice(8))))));
-    for(const event of state.events.filter(e=>eventOnDate(e,date))){ const card=button('',()=>sessionUI.showEvent(event),'event-card');card.append(el('span',{class:'event-label'},event.is_locked===false?'Événement partagé':'Événement · verrouillé'),el('strong',{},event.title));day.append(card); }
+    for(const event of state.events.filter(e=>eventOnDate(e,date))){ const card=button('',()=>sessionUI.showEvent(event),'event-card');applyEventColor(card,event.color);card.append(el('span',{class:'event-label'},event.is_locked===false?'Événement partagé':'Événement · verrouillé'),el('strong',{},event.title));day.append(card); }
     const content=el('div',{class:'day-content',dataset:{date}});
     const sessions=orderedSessions(state.sessions.filter(s=>s.date===date));sessions.forEach(s=>content.append(sessionCard(s)));
     content.append(el('div',{class:'empty-day'},'Aucune séance prévue'));

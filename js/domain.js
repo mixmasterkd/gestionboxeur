@@ -2,6 +2,7 @@
 export const SPORTS = [
   { id: 'running', label: 'Course', icon: '↗' },
   { id: 'boxing', label: 'Boxe', icon: '◈' },
+  { id: 'sparring', label: 'Sparring', icon: '◈' },
   { id: 'strength', label: 'Musculation', icon: '▰' },
   { id: 'mobility', label: 'Mobilité', icon: '◎' },
   { id: 'other', label: 'Autre', icon: '＋' },

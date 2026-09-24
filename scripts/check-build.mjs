@@ -21,7 +21,7 @@ for (const page of pages) {
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);
       const computed = window.getComputedStyle(button);
-      assert.equal(computed.backgroundColor, '#235f4c', `${page} at ${width}px: the current palette must win`);
+      assert.equal(computed.backgroundColor, '#a64132', `${page} at ${width}px: the current palette must win`);
       assert.equal(computed.color, '#fff', `${page}: readable primary action`);
       assert.ok(parseFloat(computed.minHeight) >= 44, `${page}: usable action height`);
       if (page === 'planning.html') {

@@ -55,11 +55,17 @@ L'athlète et ses coachs autorisés peuvent créer des séances structurées, de
 
 Seul l'athlète concerné peut marquer une **séance faite** ou annuler ce statut, depuis la tuile du calendrier ou le détail de la séance, même si celle-ci est verrouillée par son coach. Aucun bilan n'est exigé pour cocher la séance. Après l'avoir cochée, il peut ouvrir le bilan facultatif pour renseigner le RPE, le ressenti et un commentaire portant sur la séance entière. Le coach voit le statut fait/à faire; l'accès au bilan reste soumis à l'autorisation de lecture des retours. Annuler le statut conserve le bilan enregistré, sans l'afficher tant que la séance n'est pas recochée.
 
-La bibliothèque du coach distingue **Mes modèles**, privés à son compte, et le **Kit de départ** disponible sans enregistrement préalable. Le kit propose 11 jogs de 10 à 60 minutes par tranches de 5 minutes et une séance Boxe fondamentale : corde 5 min, 4 rounds de shadow de 2 min avec 1 min de repos entre les rounds, 4 rounds de sac au même format, puis abdos 5 min (32 min au total). Ce sont des bases entièrement ajustables, sans prescription individualisée. Le bouton « Garder dans mes modèles » copie uniquement le modèle choisi; aucune insertion automatique du kit n'est faite dans la base.
+La bibliothèque du coach distingue **Mes modèles**, privés à son compte, et le **Kit de départ** disponible sans enregistrement préalable. Le kit propose 11 jogs de 10 à 60 minutes par tranches de 5 minutes, une séance Sparring de 3 rounds de 2 minutes avec 1 minute de repos entre les rounds, et une séance Boxe fondamentale : corde 5 min, 4 rounds de shadow de 2 min avec 1 min de repos entre les rounds, 4 rounds de sac au même format, puis abdos 5 min (32 min au total). Ce sont des bases entièrement ajustables, sans prescription individualisée. Le bouton « Garder dans mes modèles » copie uniquement le modèle choisi; aucune insertion automatique du kit n'est faite dans la base.
+
+La bibliothèque est accessible depuis le calendrier et la navigation Explorer. « Créer un entraînement » permet de sauvegarder un modèle sans athlète sélectionné.
 
 Une séance ou un bloc enregistré s'utilise comme copie modifiable; supprimer un modèle ne supprime pas les séances déjà planifiées. « Garder comme modèle » est aussi disponible directement dans le formulaire de création, sans devoir planifier la séance. Un remplacement par un modèle demande confirmation si le formulaire contient déjà des informations.
 
 Le programme propose deux vues synchronisées : **Programme**, une ligne lisible par étape, et **Texte**. Toucher une ligne ouvre un petit formulaire; les boutons Étape, Répétition et Rounds permettent de créer des blocs sans connaître la notation. Les réglages avancés sont repliés. Le glisser-déposer et les boutons monter/descendre restent disponibles, y compris dans les répétitions. Un formulaire de bloc doit être validé ou annulé avant d'enregistrer la séance. Dans une séance de course, les nouvelles étapes sont de la course par défaut; changer de discipline ne réécrit pas les blocs existants.
+
+Les descriptions et notes partagées sont réunies dans la vue Texte (lignes commençant par `#`), sans champs redondants. La zone d’effort se règle sur l’effort; une nouvelle répétition ne porte pas de zone en doublon. Le sélecteur d’intensité ciblée est retiré. Les anciennes données avancées restent conservées. La saisie libre ne présente aucun exemple en filigrane ou consigne pédagogique; l’aide reste repliée.
+
+Les notes et événements du calendrier proposent cinq couleurs pastel : sable, corail, bleu, lavande et menthe. Le choix est enregistré avec les mêmes permissions et verrous que leur contenu.
 
 L'aide « Écrire un entraînement » explique la nomenclature et fournit un exemple. Cette syntaxe est propre à la plateforme, inspirée du principe des éditeurs texte d'entraînement; elle ne garantit pas une compatibilité complète avec Intervals.icu ou Nolio.
 
@@ -75,7 +81,7 @@ Shadow
 ```
 
 - `m` signifie minutes, `s` secondes; `1m30s` et `1m30` sont acceptés. Une distance doit être explicite : `400 mètres`, `400mtr` ou `1km`.
-- Un en-tête donne le type et le nom aux étapes suivantes. `Course : Footing léger` donne un titre personnalisé. `Libre - Consigne` décrit un bloc sans durée.
+- Un en-tête donne le type et le nom aux étapes suivantes. `Course : Jog léger` donne un titre personnalisé. `Libre - Consigne` décrit un bloc sans durée.
 - `2x` répète les étapes indentées de deux espaces. Revenir au bord gauche termine la séquence. Une récupération incluse dans la séquence se répète également après le dernier effort.
 - `3 rounds 1m/1m` signifie trois rounds d'une minute, avec une minute de repos **entre** les rounds, sans repos final. `3rounds` est aussi accepté.
 - `@ Z2` est une zone cible facultative, distincte du RPE après séance. Après `-`, le texte reste une consigne : « faire du 8/16 » n'est pas interprété comme des intervalles.
@@ -83,7 +89,9 @@ Shadow
 
 Un texte invalide reste visible avec le numéro des lignes à corriger, ne remplace pas le dernier programme valide et empêche l'enregistrement. Le graphique reflète le dernier programme valide. Le bouton de retour au dernier programme valide permet d'abandonner explicitement le brouillon invalide.
 
-Les tuiles course et boxe présentent un petit graphique. Pour la course, la largeur représente la durée et la hauteur/couleur la zone renseignée; pour la boxe, la largeur représente la durée et la couleur le type d'atelier ou le repos, sans inventer d'intensité. Les profils partiels sont signalés; les très longues séances sont regroupées par catégorie et identifiées comme répartition, sans prétendre conserver la chronologie. L'aperçu détaillé de course propose aussi un axe distance lorsque celle-ci est renseignée.
+La discipline Sparring accepte une séance à consignes libres ou des rounds structurés, notamment `Sparing 3 rounds 2m/1m`, avec sa couleur dans le graphique.
+
+Les tuiles course, boxe et sparring présentent un petit graphique. Pour la course, la largeur représente la durée et la hauteur/couleur la zone renseignée; pour la boxe, la largeur représente la durée et la couleur le type d'atelier ou le repos, sans inventer d'intensité. Les profils partiels sont signalés; les très longues séances sont regroupées par catégorie et identifiées comme répartition, sans prétendre conserver la chronologie. L'aperçu détaillé de course propose aussi un axe distance lorsque celle-ci est renseignée.
 
 La dernière vue **Jour / Semaine / Mois** est mémorisée par compte sur l'appareil utilisé; les aperçus locaux ont des préférences séparées. La date repart sur aujourd'hui à l'ouverture. L'indicateur **Course prévue · semaine** affiche les minutes connues du lundi au dimanche de la semaine sélectionnée, même en vue Jour ou Mois; la période est indiquée. Les kilomètres sont secondaires et n'apparaissent que si une distance a été renseignée. Aucune conversion distance/durée implicite n'est faite; les durées partielles et les totaux indisponibles sont explicitement signalés. Les autres totaux concernent tous les sports de la période affichée.
 

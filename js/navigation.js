@@ -6,6 +6,7 @@ mountTestSessionBanner();
 const icons = {
   athletes: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/>',
+  library: '<path d="M4 4h6v16H4zM14 4h6v16h-6zM6 8h2m8 0h2"/>',
   gym: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM9 21v-8h6v8"/>',
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/>',
   admin: '<path d="m12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7z"/><path d="m8 12 3 3 5-6"/>',
@@ -39,6 +40,7 @@ function mountExplorer(nav, items, route, onPlanning) {
     gym: 'Coordonnées et identité du gym.',
     profile: 'Profil et informations sportives.',
     admin: 'Membres, gyms et athlète de test.',
+    library: 'Tes entraînements et les séances de base.',
   };
   for (const [index, item] of items.entries()) {
     const link = document.createElement('a');
@@ -53,8 +55,8 @@ function mountExplorer(nav, items, route, onPlanning) {
     }
     link.addEventListener('click', event => {
       dialog.close();
-      if (item.connections && onPlanning) {
-        const button = document.getElementById('connectionsButton');
+      if ((item.connections || item.library) && onPlanning) {
+        const button = document.getElementById(item.library ? 'libraryButton' : 'connectionsButton');
         if (button) { event.preventDefault(); button.click(); }
       }
     });
@@ -161,7 +163,11 @@ export function mountNavigation({ role = 'athlete', isAdmin = false } = {}) {
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
-  mountExplorer(nav, items, route, onPlanning);
+  mountExplorer(nav, athlete ? items : [...items, { icon: 'library', text: 'Bibliothèque', href: 'planning.html#bibliotheque', library: true }], route, onPlanning);
+  if (!athlete && onPlanning && location.hash === '#bibliotheque') {
+    const clean = new URL(location.href); clean.hash = ''; history.replaceState(history.state, '', clean.href);
+    requestAnimationFrame(() => { const library = document.getElementById('libraryButton'); if (library && !library.hidden) library.click(); });
+  }
   mountTestSessionBanner();
   if (athlete && onPlanning && location.hash === '#coachs') {
     // Consume this deep link before scheduling: a data refresh may mount the

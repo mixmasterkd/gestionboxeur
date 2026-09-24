@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fr-CA">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#102c25"><meta name="description" content="Planification des entraînements, en complément des fiches d’athlètes et des listes combat et sparring."><title>Planification</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#24272c"><meta name="description" content="Planification des entraînements, en complément des fiches d’athlètes et des listes combat et sparring."><title>Planification</title>
 
 
 <link rel="stylesheet" href="css/planning-page.css">
@@ -10,7 +10,7 @@
 <a class="skip-link" href="#main">Aller au calendrier</a>
 <header class="app-header">
 <a id="gymHome" class="gym-identity" href="./"><span id="gymBrand" class="gym-name">Mon espace</span><span id="gymAddress" class="gym-address" hidden></span></a>
-<nav class="main-nav" aria-label="Navigation principale"><a id="rosterLink" href="./" hidden>Athlètes &amp; listes</a><a href="planning.html" aria-current="page">Planification</a><button id="libraryButton" type="button" hidden>Bibliothèque</button></nav>
+<nav class="main-nav" aria-label="Navigation principale"><a id="rosterLink" href="./" hidden>Athlètes &amp; listes</a><a href="planning.html" aria-current="page">Planification</a></nav>
 <div class="account-nav"><span id="accountName" class="account-name"></span><button id="connectionsButton" class="icon-button" type="button" title="Coachs et invitations" aria-label="Coachs et invitations">↗</button><a id="adminLink" href="admin/" hidden>Admin</a><button id="logoutButton" class="quiet-button" type="button">Déconnexion</button></div>
 </header>
 <div id="globalError" class="banner error-banner" role="alert" hidden></div><div id="connectionBanner" class="banner" role="status" hidden></div>
@@ -23,7 +23,7 @@
 <div class="sidebar-footer"><a class="roster-shortcut" href="./">Préparer une liste combat / sparring</a><button id="manageConnectionsButton" class="quiet-button" type="button">Coachs et invitations ↗</button></div>
 </aside>
 <main id="main" class="planner-main" tabindex="-1">
-<section class="planner-intro"><div><p id="viewEyebrow" class="eyebrow" hidden></p><h1 id="athleteTitle">Calendrier</h1><p id="athleteSubtitle" class="muted">Séances, événements et notes.</p></div><div class="intro-actions"><button id="inviteButton" class="button secondary" type="button" hidden>Inviter l’athlète ↗</button><button id="addSessionButton" class="button primary" type="button" hidden>＋ Planifier une séance</button><button id="addEventButton" class="button primary" type="button" hidden>＋ Événement personnel</button></div></section>
+<section class="planner-intro"><div><p id="viewEyebrow" class="eyebrow" hidden></p><h1 id="athleteTitle">Calendrier</h1><p id="athleteSubtitle" class="muted">Séances, événements et notes.</p></div><div class="intro-actions"><button id="libraryButton" class="button secondary" type="button" hidden>Bibliothèque d’entraînements</button><button id="inviteButton" class="button secondary" type="button" hidden>Inviter l’athlète ↗</button><button id="addSessionButton" class="button primary" type="button" hidden>＋ Planifier une séance</button><button id="addEventButton" class="button primary" type="button" hidden>＋ Événement personnel</button></div></section>
 <div id="noAthlete" class="welcome-empty" hidden><span class="empty-ring" aria-hidden="true"></span><h2>Aucun calendrier accessible</h2><p>Lie un compte athlète à une fiche de ton effectif pour accéder à son calendrier.</p><a class="button primary" href="./">Ouvrir mes athlètes</a></div>
 <section id="calendarSection" aria-label="Calendrier de planification">
 <div class="calendar-toolbar"><div class="date-navigation"><button id="previousButton" class="icon-button" aria-label="Période précédente" type="button">←</button><h2 id="periodTitle"></h2><button id="nextButton" class="icon-button" aria-label="Période suivante" type="button">→</button><button id="todayButton" class="today-button" type="button">Aujourd’hui</button></div><div id="viewButtons" class="segmented" role="group" aria-label="Vue du calendrier"><button data-view="today" id="todayViewButton" type="button" aria-pressed="false">Jour</button><button data-view="week" type="button" aria-pressed="true">Semaine</button><button data-view="month" type="button" aria-pressed="false">Mois</button></div></div>

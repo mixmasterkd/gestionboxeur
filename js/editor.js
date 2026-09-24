@@ -235,7 +235,7 @@ export class BlockEditor {
       if (dose.childElementCount) controls.append(dose);
       controls.append(field('Zone cible', 'zone', block.zone, { options: [['', 'Libre'], ...Array.from({ length: 7 }, (_, index) => [String(index + 1), `Z${index + 1}`])] }));
       const advanced = element('div', 'be-controls');
-      advanced.append(field('Intensité cible', 'intensity', block.intensity, { options: intensities }), field('Répétitions de mouvement', 'repetitions', block.repetitions, { type: 'number', min: 1, max: 10000, step: 1, placeholder: 'Facultatif' }));
+      advanced.append(field('Répétitions de mouvement', 'repetitions', block.repetitions, { type: 'number', min: 1, max: 10000, step: 1, placeholder: 'Facultatif' }));
       details.append(advanced, field('Notes', 'notes', block.notes, { type: 'textarea', placeholder: 'Précisions, matériel, variantes…' })); body.append(details);
     }
     const footer = element('div', 'be-card-footer');
@@ -350,7 +350,6 @@ function readonlyBlock(block) {
   card.append(head);
   if (block.kind !== 'repeat') {
     const details = dosage(block); if (details) card.append(element('p', 'workout-dose', details));
-    if (block.intensity) card.append(element('p', 'be-muted', `Intensité cible : ${intensities.find(([id]) => id === block.intensity)?.[1] || block.intensity}`));
   }
   if (block.description) card.append(element('p', 'workout-instructions', block.description));
   if (block.notes) card.append(element('p', 'workout-notes', block.notes));

@@ -5,7 +5,7 @@ import { summarizeBlocks, validateBlocks } from '../js/domain.js';
 
 test('starter kit has 11 adjustable time-only jogs from 10 through 60 minutes', () => {
   const kit = getStarterTemplates(), jogs = kit.filter(item => item.sport === 'running');
-  assert.equal(kit.length, 12);
+  assert.equal(kit.length, 13);
   assert.equal(jogs.length, 11);
   jogs.forEach((template, index) => {
     const minutes = 10 + index * 5;

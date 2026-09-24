@@ -1,6 +1,6 @@
 import Sortable from 'sortablejs';
 import { BLOCK_TYPES, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
-import { parseWorkoutText, serializeWorkoutText } from './workout-text.js';
+import { parseWorkoutText, serializeSessionText, parseSessionText } from './workout-text.js';
 import { el, button, field, input, textarea, select, errorBox, showError, busy } from './ui.js';
 
 const clone = value => structuredClone(value);
@@ -53,9 +53,10 @@ function numeric(value, label, { min = 1, max = 10000, integer = true } = {}) {
 
 /** One structured program, two editing surfaces; invalid drafts never replace it. */
 export class ProgramEditor {
-  constructor(container, { blocks = [], sport = 'other', onChange = () => {}, onSaveBlock = null } = {}) {
+  constructor(container, { blocks = [], notes = '', sport = 'other', onChange = () => {}, onSaveBlock = null } = {}) {
     this.container = container; this.blocks = normalized(blocks);
     this.sport = sport; this.onChange = onChange; this.onSaveBlock = onSaveBlock;
+    this.notes = notes;
     this.mode = 'program'; this.textDraft = ''; this.textErrors = []; this.mini = null;
     this.sortables = []; this.helpOpen = false; this.destroyed = false;
     this.group = `program-${makeBlock().id}`;
@@ -67,9 +68,11 @@ export class ProgramEditor {
     return clone(this.blocks);
   }
   hasDraft() { return !!this.mini || this.textErrors.length > 0; }
-  setValue(blocks) {
+  getNotes() { this.getValue(); return this.notes; }
+  setValue(blocks, notes = this.notes) {
     const next = normalized(blocks);
-    const draft = this.mode === 'text' ? serializeWorkoutText(next) : '';
+    const draft = this.mode === 'text' ? serializeSessionText(next, notes) : '';
+    this.notes = notes;
     this.blocks = next; this.mini = null; this.textErrors = [];
     if (this.mode === 'text') this.textDraft = draft;
     this.render(); this.emit();
@@ -97,7 +100,7 @@ export class ProgramEditor {
     if (mode === this.mode) return;
     if (mode === 'program' && this.textErrors.length) { this.showError('Corrige les lignes signalées, ou reviens au dernier programme valide.'); return; }
     if (mode === 'text') {
-      try { this.textDraft = serializeWorkoutText(this.blocks); }
+      try { this.textDraft = serializeSessionText(this.blocks, this.notes); }
       catch (error) { this.showError(error.message); return; }
     }
     this.mode = mode; this.render();
@@ -110,12 +113,13 @@ export class ProgramEditor {
     this.container.classList.add('program-editor');
     const modes = el('div', { class: 'pe-modes', role: 'group', 'aria-label': 'Mode de création du programme' });
     for (const [mode, label] of [['program', 'Programme'], ['text', 'Texte']]) modes.append(button(label, () => this.switchMode(mode), 'pe-button', { 'aria-pressed': String(this.mode === mode), disabled: !!this.mini, dataset: { mode } }));
-    const header = el('header', { class: 'pe-heading' }, el('div', {}, el('h3', {}, 'Programme'), el('p', {}, 'Des lignes à déplacer. Touche une étape pour la modifier.')), modes);
+    const header = el('header', { class: 'pe-heading' }, el('div', {}, el('h3', {}, 'Programme')), modes);
     this.errors = errorBox(); this.errors.classList.add('pe-error');
     this.summary = el('p', { class: 'pe-summary', role: 'status' });
     this.container.replaceChildren(header, this.help(), this.errors);
     if (this.mode === 'text') this.container.append(this.textSurface());
     else {
+      if (this.notes) this.container.append(button(this.notes, () => this.switchMode('text'), 'pe-narrative', { title: 'Modifier le texte libre' }));
       this.container.append(this.renderList(this.blocks, 1));
       if (this.mini) this.container.append(this.miniPanel());
       else this.container.append(this.addBar());
@@ -128,23 +132,24 @@ export class ProgramEditor {
     return el('details', { class: 'pe-help', open: this.helpOpen }, el('summary', {}, 'ⓘ Aide · écrire un entraînement'),
       el('p', {}, 'Écris directement dans Texte, ou utilise les boutons en mode Programme. Les deux modifient les mêmes étapes.'),
       el('dl', {},
-        el('dt', {}, 'Course, Shadow, Sac…'), el('dd', {}, 'Un titre de section donne le type et le nom aux étapes qui suivent. Exemple : Course : Footing facile.'),
+        el('dt', {}, 'Course, Shadow, Sac…'), el('dd', {}, 'Un titre de section donne le type et le nom aux étapes qui suivent. Exemple : Course : Jog facile.'),
         el('dt', {}, '10m · 30s · 1m30s'), el('dd', {}, 'Minutes, secondes ou durée combinée. Le m signifie toujours minutes. Les durées sont prioritaires, sans distance obligatoire.'),
         el('dt', {}, '2x + lignes en retrait'), el('dd', {}, 'Répète les étapes placées dessous, avec 2 espaces au début de chaque ligne. Reviens au bord gauche pour terminer la séquence. La récupération écrite fait partie de chaque répétition, même la dernière.'),
         el('dt', {}, '3 rounds 1m/1m'), el('dd', {}, '3 rounds de 1 minute de travail, avec 1 minute de repos entre les rounds, sans repos après le dernier. Écris un repos séparé si tu en veux ensuite. 3rounds est aussi accepté.'),
         el('dt', {}, '@ Z2'), el('dd', {}, 'Zone cible facultative, de Z1 à Z7. Ce n’est pas le RPE après séance.'),
+        el('dt', {}, '# texte libre'), el('dd', {}, 'Les lignes précédées de # contiennent les consignes et les notes de la séance.'),
         el('dt', {}, '- consigne'), el('dd', {}, 'Tout ce qui suit le tiret est une consigne libre : « faire du 8/16 » ne crée pas d’intervalles automatiquement.'),
         el('dt', {}, '400 mètres · 1km'), el('dd', {}, 'Distance seulement si tu la choisis explicitement. Aucune conversion automatique en durée.')),
       el('pre', {}, el('code', {}, example)),
       el('details', { class: 'pe-help-advanced' }, el('summary', {}, 'Réglages avancés et conservation des données'), el('p', {}, 'Certains blocs existants peuvent afficher une annotation | {…} à la fin d’une ligne. Elle conserve les notes, intensités, types précis ou autres réglages non exprimés dans la notation courte. Garde cette annotation pour conserver ces informations, ou modifie-les avec le petit formulaire. Ce format est propre à cette plateforme ; tous les codes Intervals.icu ne sont pas pris en charge.')));
   }
   textSurface() {
-    const text = textarea('workout_program', this.textDraft, { class: 'pe-text-input', spellcheck: false, rows: 13, 'aria-label': 'Programme en texte', 'aria-describedby': `${this.group}-text-status`, placeholder: 'Course\n10m @ Z2\n\n2x\n  1m @ Z3\n  1m @ Z1 - Récupération' });
+    const text = textarea('workout_program', this.textDraft, { class: 'pe-text-input', spellcheck: false, rows: 13, 'aria-label': 'Programme en texte', 'aria-describedby': `${this.group}-text-status` });
     this.textStatus = el('div', { class: 'pe-text-status', id: `${this.group}-text-status`, role: 'status' });
     text.addEventListener('input', () => {
-      this.textDraft = text.value; const result = parseWorkoutText(this.textDraft, { sport: this.sport });
+      this.textDraft = text.value; const result = parseSessionText(this.textDraft, { sport: this.sport });
       this.textErrors = result.errors; this.errors.hidden = true;
-      if (!result.errors.length) { this.blocks = result.blocks; this.emit(); }
+      if (!result.errors.length) { this.blocks = result.blocks; this.notes = result.notes; this.emit(); }
       this.updateTextStatus(text);
     });
     text.addEventListener('keydown', event => {
@@ -153,9 +158,9 @@ export class ProgramEditor {
       text.setRangeText('  ', start, end, 'end'); text.dispatchEvent(new text.ownerDocument.defaultView.Event('input', { bubbles: true }));
     });
     const revert = button('Revenir au dernier programme valide', () => {
-      this.textErrors = []; this.textDraft = serializeWorkoutText(this.blocks); this.mode = 'program'; this.render();
+      this.textErrors = []; this.textDraft = serializeSessionText(this.blocks, this.notes); this.mode = 'program'; this.render();
     }, 'pe-button', { class: 'pe-button pe-revert', hidden: !this.textErrors.length });
-    const panel = el('div', { class: 'pe-text-panel' }, el('p', { class: 'pe-text-hint' }, 'Saisie libre · graphique mis à jour lorsque toutes les lignes sont valides.'), text, this.textStatus, revert);
+    const panel = el('div', { class: 'pe-text-panel' }, text, this.textStatus, revert);
     this.updateTextStatus(text, revert); return panel;
   }
   updateTextStatus(text, revert = this.container.querySelector('.pe-revert')) {
@@ -163,7 +168,7 @@ export class ProgramEditor {
     this.textStatus.replaceChildren();
     if (this.textErrors.length) {
       this.textStatus.append(el('p', {}, 'Aperçu : dernier programme valide. Corrige le texte avant de planifier.'), el('ul', {}, this.textErrors.slice(0, 8).map(error => el('li', {}, `Ligne ${error.line} : ${error.message}`))));
-    } else this.textStatus.textContent = this.blocks.length ? 'Programme valide · synchronisé avec les blocs.' : 'Ajoute une étape, ou garde une séance à consignes libres.';
+    } else this.textStatus.textContent = this.blocks.length ? 'Programme valide · synchronisé avec les blocs.' : '';
     if (revert) revert.hidden = !this.textErrors.length;
   }
   updateSummary() {
@@ -207,7 +212,7 @@ export class ProgramEditor {
     if (this.mini || action === 'handle') return;
     this.errors.hidden = true;
     if (action.startsWith('add-')) {
-      this.mini = { action, parentId: id || '', block: action === 'add-repeat' ? { ...makeBlock('repeat'), type: this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : 'other') };
+      this.mini = { action, parentId: id || '', block: action === 'add-repeat' ? { ...makeBlock('repeat'), type: this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other') };
       if (action === 'add-step') this.mini.block.duration_seconds = 300;
       if (action === 'add-rounds') Object.assign(this.mini.block, { rounds: 3, work_seconds: 120, rest_seconds: 60 });
       this.render(); this.container.querySelector('.pe-mini input')?.focus(); return;
@@ -261,15 +266,15 @@ export class ProgramEditor {
     const types = BLOCK_TYPES.map(item => [item.id, item.label]); if (!types.some(([type]) => type === block.type)) types.push([block.type, block.type]);
     const type = choose('block_type', types, block.type);
     const zone = choose('block_zone', [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], block.zone == null ? '' : String(block.zone));
-    const intensity = choose('block_intensity', [['', 'Non précisée'], ['easy', 'Facile'], ['moderate', 'Modérée'], ['hard', 'Difficile'], ['max', 'Maximale']], block.intensity || '');
     const movement = input('block_repetitions', block.repetitions ?? '', 'text', { inputMode: 'numeric' });
     const notes = textarea('block_notes', block.notes || '', { maxLength: 10000 });
-    const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), el('div', { class: 'pe-mini-fields' }, field('Type', type), field(repeating && !draft.id ? 'Zone des efforts' : 'Zone cible', zone), field('Intensité cible', intensity), field('Répétitions de mouvement', movement)), field('Notes', notes));
+    if (!repeating || !draft.id) panel.append(el('div', { class: 'pe-mini-fields' }, field('Type', type), field(repeating ? 'Zone des efforts' : 'Zone d’effort', zone)));
+    const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), el('div', { class: 'pe-mini-fields' }, field('Répétitions de mouvement', movement)), field('Notes', notes));
     panel.append(advanced);
     const error = errorBox();
     const apply = () => {
       try {
-        const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, intensity: intensity.value || null, repetitions: movement.value.trim() ? numeric(movement.value, 'Répétitions de mouvement') : null, notes: notes.value };
+        const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, repetitions: movement.value.trim() ? numeric(movement.value, 'Répétitions de mouvement') : null, notes: notes.value };
         if (!draft.id && !nextBlock.title) nextBlock.title = repeating ? 'Intervalles' : typeLabel(nextBlock.type);
         if (repeating) {
           nextBlock.repeat_count = numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat });

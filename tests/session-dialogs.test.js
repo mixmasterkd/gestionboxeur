@@ -25,6 +25,47 @@ function fixture({ athlete = false, api = {}, canEdit = () => true, canAdd = () 
 }
 function submit(dialogId) { document.querySelector(`#${dialogId} form`).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); }
 
+test('a coach can create a reusable workout without an athlete or calendar write permission', async () => {
+  let payload;
+  const { ui, state } = fixture({ canAdd: () => false, api: { saveTemplate: async data => { payload = data; } } });
+  state.selectedAthlete = null;
+  ui.editTemplate();
+  document.querySelector('[name="title"]').value = 'Sparring technique';
+  document.querySelector('[name="sport"]').value = 'sparring';
+  document.querySelector('[data-mode="text"]').click();
+  const text = document.querySelector('.pe-text-input'); text.value = '# Travail léger, détails à préciser'; text.dispatchEvent(new window.Event('input'));
+  assert.equal(document.querySelector('[name="date"]'), null);
+  submit('sessionDialog'); await tick();
+  assert.equal(payload.kind, 'session'); assert.equal(payload.sport, 'sparring'); assert.equal(payload.coach_id, 'coach1');
+  assert.equal(payload.notes, 'Travail léger, détails à préciser'); assert.deepEqual(payload.blocks, []);
+  assert.equal(payload.athlete_id, undefined);
+});
+
+test('legacy description and shared notes are edited in the single program text surface', async () => {
+  let payload;
+  const { ui } = fixture({ api: { saveSession: async data => { payload = data; } } });
+  ui.editSession({ ...session(), description: 'Objectif technique', notes: 'Apporter les gants' });
+  assert.equal(document.querySelector('[name="description"]'), null);
+  assert.equal(document.querySelector('[name="notes"]'), null);
+  document.querySelector('[data-mode="text"]').click();
+  assert.match(document.querySelector('.pe-text-input').value, /# Objectif technique/);
+  submit('sessionDialog'); await tick();
+  assert.equal(payload.description, ''); assert.equal(payload.notes, 'Objectif technique\n\nApporter les gants');
+});
+
+test('event pastel selection is restored, saved and used in its detail', async () => {
+  let payload;
+  const { ui } = fixture({ api: { saveEvent: async data => { payload = data; } } });
+  const event = { id: 'e1', athlete_id: 'a1', created_by: 'coach1', title: 'Note', date: '2026-09-24', category: 'note', color: 'lavender', notes: 'Détails' };
+  ui.editEvent(event);
+  assert.equal(document.querySelector('[name="event_color"]:checked').value, 'lavender');
+  document.querySelector('[name="event_color"][value="coral"]').click(); submit('eventDialog'); await tick();
+  assert.equal(payload.color, 'coral');
+  ui.showEvent({ ...event, ...payload });
+  assert.equal(document.querySelector('.note-box').dataset.color, 'coral');
+  assert.equal(document.querySelector('.note-box').style.getPropertyValue('--event-bg'), '#fbe2dc');
+});
+
 test('session update sends only editable fields, preserves order and optimistic version', async () => {
   let payload, previous;
   const { ui, refreshed } = fixture({ api: { saveSession: async (p, s) => { payload = p; previous = s; } } });
@@ -61,7 +102,7 @@ test('stale session errors keep entered content and dialog visible', async () =>
 test('planning a reusable session template creates a session for the selected athlete', async () => {
   let payload, previous;
   const { ui } = fixture({ api: { saveSession: async (p, s) => { payload = p; previous = s; } } });
-  const template = { id: 'template1', coach_id: 'coach1', title: 'Footing léger', sport: 'running', blocks: [], kind: 'session' };
+  const template = { id: 'template1', coach_id: 'coach1', title: 'Jog léger', sport: 'running', blocks: [], kind: 'session' };
   ui.editSession(template, '2026-09-21', true); submit('sessionDialog'); await tick();
   assert.equal(payload.athlete_id, 'a1'); assert.equal(payload.created_by, 'coach1'); assert.equal(previous, null);
   assert.equal(payload.date, '2026-09-21');
@@ -105,7 +146,7 @@ test('event edits validate date range and never send identity columns', async ()
   submit('eventDialog'); await tick(); assert.equal(payload, undefined);
   document.querySelector('[name="end_date"]').value = '2026-09-23';
   submit('eventDialog'); await tick();
-  assert.deepEqual(Object.keys(payload).sort(), ['category', 'date', 'end_date', 'notes', 'sort_order', 'title']);
+  assert.deepEqual(Object.keys(payload).sort(), ['category', 'color', 'date', 'end_date', 'notes', 'sort_order', 'title']);
   assert.equal(payload.end_date, '2026-09-23');
 });
 

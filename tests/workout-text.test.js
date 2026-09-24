@@ -49,11 +49,11 @@ test('durations distinguish minute shorthand, seconds and explicit distance unit
 });
 
 test('arbitrary titles and free instructions use explicit syntax without reinterpreting invalid doses', () => {
-  const blocks = parse('Sac : Puissance et précision\nLibre - 8 coups puissants, 1 push-up\nTechnique du mardi:\n- Répéter tranquillement\nCourse : Footing léger\n20m');
+  const blocks = parse('Sac : Puissance et précision\nLibre - 8 coups puissants, 1 push-up\nTechnique du mardi:\n- Répéter tranquillement\nCourse : Jog léger\n20m');
   assert.equal(blocks[0].title, 'Puissance et précision'); assert.equal(blocks[0].type, 'bag');
   assert.equal(blocks[1].title, 'Technique du mardi'); assert.equal(blocks[1].type, 'bag');
   assert.equal(blocks[1].description, 'Répéter tranquillement');
-  assert.equal(blocks[2].title, 'Footing léger');
+  assert.equal(blocks[2].title, 'Jog léger');
   for (const invalid of ['3 raunds 1m/1m', '1mxx', '10', '-1m', '1m @ RPE7', '1m @ Z8', 'Course\n1m\nTexte non structuré']) assert.ok(parseWorkoutText(invalid).errors.length, invalid);
 });
 

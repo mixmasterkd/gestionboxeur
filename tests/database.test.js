@@ -341,12 +341,17 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       await login(coach2);
       assert.equal(await scalar('select count(*)::int from public.personal_events'),1);
       const event=await scalar('select id from public.personal_events');
+      assert.equal(await scalar('select color from public.personal_events where id=$1',[event]),'sand');
+      await db.query("update public.personal_events set color='lavender' where id=$1",[event]);
+      assert.equal(await scalar('select color from public.personal_events where id=$1',[event]),'lavender');
+      await denied(()=>db.query("update public.personal_events set color='invalid' where id=$1",[event]));
       assert.equal((await db.query("update public.personal_events set date='2026-09-25' where id=$1 returning id",[event])).rows.length,1);
       await denied(()=>db.query('update public.personal_events set is_locked=true where id=$1',[event]));
       assert.equal((await db.query('delete from public.personal_events where id=$1 returning id',[event])).rows.length,0);
       const coachEvent=await scalar("insert into public.personal_events(athlete_id,title,date,is_locked) values($1,'Évaluation','2026-09-26',true) returning id",[legacyAthlete]);
       await login(athleteUser);
       assert.equal((await db.query("update public.personal_events set title='Bloqué' where id=$1 returning id",[coachEvent])).rows.length,0);
+      assert.equal((await db.query("update public.personal_events set color='coral' where id=$1 returning id",[coachEvent])).rows.length,0);
       await login(coach2);
       await db.query('delete from public.personal_events where id=$1',[coachEvent]);
       assert.equal(await scalar('select count(*)::int from public.session_feedback'),1);

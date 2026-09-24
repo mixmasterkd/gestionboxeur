@@ -127,7 +127,7 @@ test('interval generator respects structural limits without partially appending 
 });
 
 test('compact cards keep instructions and tools collapsed and preserve disclosure choices through edits', () => {
-  const original = { ...makeBlock('run'), title: 'Footing', description: 'Rester souple', duration_seconds: 600, notes: 'Terrain plat', intensity: 'easy' };
+  const original = { ...makeBlock('run'), title: 'Jog', description: 'Rester souple', duration_seconds: 600, notes: 'Terrain plat', intensity: 'easy' };
   const { editor, mount } = fixture({ blocks: [original], sport: 'running' });
   const id = original.id;
   const card = () => mount.querySelector(`[data-id="${id}"]`);
@@ -135,7 +135,7 @@ test('compact cards keep instructions and tools collapsed and preserve disclosur
   assert.equal(details().open, false);
   assert.equal(card().querySelector('[data-field="duration_seconds"]').closest('details'), null);
   for (const selector of ['[data-field="description"]', '[data-field="notes"]', '[data-action="duplicate"]']) assert.equal(card().querySelector(selector).closest('details'), details());
-  assert.match(details().textContent, /Intensité cible/);
+  assert.doesNotMatch(details().textContent, /Intensité cible/);
   assert.doesNotMatch(mount.textContent, /ressenti|RPE/i);
   details().open = true;
   change(card().querySelector('[data-field="mode"]'), 'mixed');

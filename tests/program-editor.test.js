@@ -133,11 +133,29 @@ test('missing and duplicate block IDs are normalized so each row edits the inten
   assert.equal(new Set(editor.getValue().map(b => b.id)).size, 2);
 });
 
-test('new repetitions apply the chosen type and target intensity to their efforts', () => {
+test('new repetitions apply type and zone only to their effort steps', () => {
   const { editor, mount } = fixture({ sport: 'boxing' }); click(mount, 'add-repeat');
-  change(mount.querySelector('[name="block_type"]'), 'bag'); change(mount.querySelector('[name="block_intensity"]'), 'hard');
+  change(mount.querySelector('[name="block_type"]'), 'bag'); assert.equal(mount.querySelector('[name="block_intensity"]'), null);
   change(mount.querySelector('[name="block_zone"]'), '4'); click(mount, 'apply-mini');
-  const effort = editor.getValue()[0].children[0]; assert.equal(effort.type, 'bag'); assert.equal(effort.intensity, 'hard'); assert.equal(effort.zone, 4);
+  const effort = editor.getValue()[0].children[0]; assert.equal(effort.type, 'bag'); assert.equal(effort.intensity, null); assert.equal(editor.getValue()[0].zone, null); assert.equal(effort.zone, 4);
+  mount.querySelector('[data-action="edit"]').click();
+  assert.equal(mount.querySelector('[name="block_zone"]'), null, 'a repeat container has no second zone control');
+});
+
+test('session prose survives both editor views and invalid drafts without changing chart totals', () => {
+  const { editor, mount } = fixture({ notes: 'Apporter les gants.\n\nRendez-vous à 18 h.', blocks: [{ ...makeBlock('run'), duration_seconds: 600 }] });
+  textMode(mount);
+  assert.match(mount.querySelector('.pe-text-input').value, /# Apporter les gants/);
+  change(mount.querySelector('.pe-text-input'), '# Séance technique\nSparing 3 rounds 2m/1m');
+  assert.equal(editor.getNotes(), 'Séance technique');
+  assert.equal(editor.getValue()[0].type, 'sparring');
+  assert.equal(summarizeBlocks(editor.getValue()).duration_seconds, 480);
+  mount.querySelector('[data-mode="program"]').click();
+  assert.equal(mount.querySelector('.pe-narrative').textContent, 'Séance technique');
+  textMode(mount); change(mount.querySelector('.pe-text-input'), '# Nouveau brouillon\n3 rounds invalides');
+  assert.throws(() => editor.getNotes(), /Corrige/);
+  mount.querySelector('.pe-revert').click();
+  assert.equal(editor.getNotes(), 'Séance technique');
 });
 
 test('editing a legacy zero dose or extra advanced timing preserves existing values', () => {

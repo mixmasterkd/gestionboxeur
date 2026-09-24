@@ -12,6 +12,11 @@ export function getStarterTemplates() {
     };
   });
   return [...jogs, {
+    id: 'starter-sparring', source: 'starter', kind: 'session',
+    title: 'Sparring · 3 rounds', sport: 'sparring', description: '',
+    notes: 'Adapter les rounds et les consignes avec le coach.',
+    blocks: [{ ...makeBlock('sparring'), title: 'Sparring', rounds: 3, work_seconds: 120, rest_seconds: 60 }],
+  }, {
     id: 'starter-boxing-fundamentals', source: 'starter', kind: 'session',
     title: 'Boxe fondamentale', sport: 'boxing',
     description: 'Une base de séance à personnaliser : corde, shadow, sac et abdos.', notes: '',

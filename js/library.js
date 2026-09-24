@@ -17,7 +17,7 @@ const fingerprint = template => JSON.stringify(withoutIds({
   blocks: template.blocks || [], kind: template.kind,
 }));
 
-export function createLibraryUI({ getState, canAdd, onUseTemplate, api }) {
+export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTemplate, api }) {
   let ticket = 0;
   const copiesByCoach = new Map(), pendingByCoach = new Map();
   let currentView = null;
@@ -34,6 +34,7 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, api }) {
     const active = () => current === ticket && dialog.open && wrap.contains(body) && authorized();
     if (!authorized()) { body.append(el('p', {}, 'La bibliothèque est réservée aux coachs.')); return; }
 
+    if (onCreateTemplate && kind !== 'block' && !onSelect) body.append(button('＋ Créer un entraînement', () => { if (!authorized()) return; dialog.close(); onCreateTemplate(); }, 'button primary'));
     let source = 'personal', filter = kind || 'all', templates = [], loading = true;
     const starter = getStarterTemplates(), statuses = new Map(), deletedIds = new Set();
     if (!copiesByCoach.has(ownerId)) copiesByCoach.set(ownerId, new Map());

@@ -2,6 +2,7 @@ import { $, el, button, field, input, textarea, select, heading, errorBox, showE
 import { SPORTS, BLOCK_TYPES, todayLocal, validateBlocks, summarizeBlocks } from './domain.js';
 import { renderWorkout } from './editor.js';
 import { ProgramEditor } from './program-editor.js';
+import { EVENT_COLORS, applyEventColor } from './event-colors.js';
 import { renderSessionChart } from './session-chart.js';
 import { dateLabel } from './calendar.js';
 
@@ -103,9 +104,9 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     toast('Bloc enregistré dans tes modèles.');
   }
 
-  function editSession(session = null, date = todayLocal(), duplicate = false) {
-    if (session && !duplicate ? !canEdit(session) : !canAdd()) { toast('Tu n’as pas la permission de planifier cette séance.'); return; }
-    const state = getState(), athlete = state.selectedAthlete, editorUserId = state.user?.id;
+  function editSession(session = null, date = todayLocal(), duplicate = false, { templateOnly = false } = {}) {
+    if (templateOnly ? !coach() : session && !duplicate ? !canEdit(session) : !canAdd()) { toast('Tu n’as pas la permission de planifier cette séance.'); return; }
+    const state = getState(), athlete = templateOnly ? { id: null, first_name: 'Bibliothèque privée' } : state.selectedAthlete, editorUserId = state.user?.id;
     if (!athlete) { toast('Choisis d’abord un athlète.'); return; }
     if (session?.athlete_id && session.athlete_id !== athlete.id) { toast('Ouvre le calendrier de cet athlète avant de modifier la séance.'); return; }
     const existing = duplicate ? null : session;
@@ -116,28 +117,24 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     if (session?.sport && !sportOptions.some(option => option.value === session.sport)) sportOptions.push({ value: session.sport, label: session.sport });
     const sport = select('sport', sportOptions, session?.sport || 'running', { required: true });
     const day = input('date', duplicate ? date : session?.date || date, 'date', { required: true });
-    const description = textarea('description', session?.description || '', { maxLength: 20000, placeholder: 'Objectif général, consignes de la séance…' });
-    const notes = textarea('notes', session?.notes || '', { maxLength: 20000, placeholder: 'Matériel, rendez-vous, précisions…' });
-    const more = el('details', { class: 'session-form-details' }, el('summary', {}, 'Consignes générales et options'), field('Description', description), field('Notes partagées', notes));
     const lock = lockControl(existing), preview = el('div', { class: 'workout-preview' });
-    more.append(lock.field);
     const graph = el('details', { class: 'session-form-details session-program-preview' }, el('summary', {}, 'Aperçu graphique du programme'), preview);
     const editorMount = el('div'), error = errorBox();
     const templates = el('div', { class: 'template-tabs' });
-    const body = el('div', { class: 'dialog-body' }, templates, field('Titre de la séance', title), el('div', { class: 'form-grid' }, field('Discipline', sport), field('Date', day)), editorMount, graph, more, error);
-    const submit = el('button', { type: 'submit', class: 'button primary' }, existing ? 'Enregistrer les modifications' : 'Planifier la séance');
+    const body = el('div', { class: 'dialog-body' }, templates, field('Titre de la séance', title), el('div', { class: 'form-grid' }, field('Discipline', sport), templateOnly ? null : field('Date', day)), editorMount, graph, templateOnly ? null : lock.field, error);
+    const submit = el('button', { type: 'submit', class: 'button primary' }, templateOnly ? 'Enregistrer dans ma bibliothèque' : existing ? 'Enregistrer les modifications' : 'Planifier la séance');
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
-    container.replaceChildren(heading(existing ? 'Modifier la séance' : duplicate ? 'Dupliquer la séance' : 'Planifier une séance', displayName(athlete), dialog, 'sessionDialogTitle'), form);
+    container.replaceChildren(heading(templateOnly ? 'Créer un entraînement' : existing ? 'Modifier la séance' : duplicate ? 'Dupliquer la séance' : 'Planifier une séance', displayName(athlete), dialog, 'sessionDialogTitle'), form);
     let previewBlocks = session?.blocks || [], revision = 0, keep = null, modelSaving = false;
     const changed = () => { revision++; if (keep && !modelSaving) { keep.disabled = false; keep.textContent = 'Garder comme modèle'; } };
     const drawPreview = blocks => {
       changed();
-      previewBlocks = blocks; graph.hidden = !['running', 'boxing'].includes(sport.value) || !blocks.length;
+      previewBlocks = blocks; graph.hidden = !['running', 'boxing', 'sparring'].includes(sport.value) || !blocks.length;
       if (sport.value === 'running') renderWorkout(preview, blocks, { sport: 'running', chartOnly: true });
       else preview.replaceChildren(renderSessionChart({ blocks, sport: sport.value }, { compact: false }));
     };
-    const editor = new ProgramEditor(editorMount, { blocks: session?.blocks || [], sport: sport.value, onChange: drawPreview, onSaveBlock: coach() ? block => { if (!isCurrent()) throw new Error('Le compte actif a changé.'); return saveBlockTemplate(block, sport.value); } : null });
-    const isCurrent = () => dialog.open && activeEditor === editor && getState().user?.id === editorUserId && getState().selectedAthlete?.id === athlete.id;
+    const editor = new ProgramEditor(editorMount, { blocks: session?.blocks || [], notes: [session?.description, session?.notes].filter(Boolean).join('\n\n'), sport: sport.value, onChange: drawPreview, onSaveBlock: coach() ? block => { if (!isCurrent()) throw new Error('Le compte actif a changé.'); return saveBlockTemplate(block, sport.value); } : null });
+    const isCurrent = () => dialog.open && activeEditor === editor && getState().user?.id === editorUserId && (templateOnly || getState().selectedAthlete?.id === athlete.id);
     drawPreview(previewBlocks);sport.addEventListener('change', () => { editor.setSport(sport.value); drawPreview(previewBlocks); });
     activeEditor = editor;
     dialog.addEventListener('close', () => { editor.destroy(); if (activeEditor === editor) activeEditor = null; }, { once: true });
@@ -145,12 +142,12 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       templates.append(button('Bibliothèque de séances', () => openLibrary({ kind: 'session', onSelect: async template => {
         if (!isCurrent()) return;
         try {
-          if (editor.hasDraft() || editor.getValue().length || title.value.trim() || description.value.trim() || notes.value.trim()) {
+          if (editor.hasDraft() || editor.getValue().length || title.value.trim() || editor.getNotes().trim()) {
             if (!await confirmAction('Remplacer le programme ?', 'Le modèle remplacera les blocs et les consignes actuellement saisis. La date et le verrouillage resteront inchangés.', 'Utiliser le modèle')) return;
           }
           if (!isCurrent()) return;
-          blocksError(template.blocks || []); editor.setValue(template.blocks || []);
-          title.value = template.title || ''; description.value = template.description || ''; notes.value = template.notes || '';
+          blocksError(template.blocks || []); editor.setValue(template.blocks || [], [template.description, template.notes].filter(Boolean).join('\n\n'));
+          title.value = template.title || '';
           if (![...sport.options].some(option => option.value === template.sport)) sport.append(el('option', { value: template.sport }, sportName(template.sport)));
           sport.value = template.sport || 'other'; editor.setSport(sport.value); drawPreview(editor.getValue());
         } catch (err) { showError(error, err); }
@@ -162,7 +159,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
         } catch (err) { showError(error, err); }
       } })));
     }
-    if (coach()) {
+    if (coach() && !templateOnly) {
       keep = button('Garder comme modèle', async () => {
         if (modelSaving) return;
         error.hidden = true;
@@ -171,7 +168,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           if (!title.value.trim()) throw new Error('Donne un titre à ton modèle.');
           const blocks = editor.getValue(); blocksError(blocks);
           const savedRevision = revision; modelSaving = true;
-          await busy(keep, () => api.saveTemplate({ title: title.value.trim(), sport: sport.value, description: description.value.trim(), notes: notes.value.trim(), blocks, kind: 'session', coach_id: editorUserId }));
+          await busy(keep, () => api.saveTemplate({ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, kind: 'session', coach_id: editorUserId }));
           if (!isCurrent()) return;
           keep.disabled = savedRevision === revision; keep.textContent = savedRevision === revision ? 'Modèle enregistré' : 'Garder comme modèle'; toast('Séance gardée dans ta bibliothèque. Aucune date n’a été planifiée.');
         } catch (failure) { if (isCurrent()) showError(error, failure); }
@@ -187,13 +184,25 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       error.hidden = true;
       try {
         if (!title.value.trim()) throw new Error('Donne un titre à la séance.');
+        if (templateOnly) {
+          if (!isCurrent() || !coach()) throw new Error('Le compte actif a changé.');
+          const blocks = editor.getValue(); blocksError(blocks);
+          saving = true;
+          await busy(submit, async () => {
+            const data = await getApi();
+            if (!isCurrent() || !coach()) return;
+            await data.saveTemplate({ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, kind: 'session', coach_id: editorUserId });
+            if (isCurrent()) { dialog.close(); toast('Entraînement enregistré dans ta bibliothèque.'); }
+          });
+          return;
+        }
         if (!isCurrent() || (existing ? !canEdit(existing) : !canAdd())) throw new Error('Tes permissions ont changé. Actualise le calendrier.');
         const blocks = editor.getValue(); blocksError(blocks);
         const current = getState();
         if (current.selectedAthlete?.id !== athlete.id) throw new Error('Le calendrier actif a changé. Rouvre la séance.');
         const payload = { title: title.value.trim(), sport: sport.value, date: day.value,
           sort_order: existing && existing.date === day.value ? existing.sort_order : nextOrder(current.sessions, day.value, existing?.id),
-          description: description.value.trim(), notes: notes.value.trim(), blocks };
+          description: '', notes: editor.getNotes().trim(), blocks };
         if (!existing) Object.assign(payload, { athlete_id: athlete.id, created_by: current.user.id });
         if (!existing || existing.created_by === current.user.id && lock.control.checked !== (existing.is_locked !== false)) payload.is_locked = lock.control.checked;
         saving = true;
@@ -258,7 +267,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), el('span', {class:'lock-badge'}, session.is_locked === false ? 'Partagée · modifiable ensemble' : 'Verrouillée · créateur uniquement')));
     if (session.description) body.append(el('p', { class: 'session-intro' }, session.description));
     const workout = el('div'); renderWorkout(workout, session.blocks || [], { sport: session.sport }); body.append(workout);
-    if (session.sport === 'boxing') workout.prepend(renderSessionChart(session, { compact: false }));
+    if (['boxing', 'sparring'].includes(session.sport)) workout.prepend(renderSessionChart(session, { compact: false }));
     if (session.notes) body.append(el('p', { class: 'note-box' }, session.notes));
     body.append(error, completionSection(session, dialog, version));
     const actions = el('footer', { class: 'dialog-actions' });
@@ -292,9 +301,15 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const endDate = input('end_date', event?.end_date || '', 'date', { min: event?.date || date });
     dateInput.addEventListener('input', () => { endDate.min = dateInput.value; });
     const notes = textarea('notes', event?.notes || '', { maxLength: 20000, placeholder: 'Ex. Pas disponible avant 18 h.' });
+    const colors = el('fieldset', { class: 'event-colors' }, el('legend', {}, 'Couleur pastel'));
+    for (const choice of EVENT_COLORS) {
+      const control = input('event_color', choice.id, 'radio', { checked: choice.id === (event?.color || 'sand') });
+      const swatch = el('span', {}, choice.label); applyEventColor(swatch, choice.id);
+      colors.append(el('label', {}, control, swatch));
+    }
     const lock = lockControl(event);
     const error = errorBox(), submit = el('button', { type: 'submit', class: 'button primary' }, event ? 'Enregistrer les modifications' : 'Ajouter l’événement');
-    const body = el('div', { class: 'dialog-body' }, el('p', { class: 'muted' }, 'Visible par l’athlète et ses coachs autorisés : rendez-vous, disponibilités, compétition ou note.'), field('Titre', title), field('Catégorie', category), el('div', { class: 'form-grid' }, field('Date de début', dateInput), field('Date de fin', endDate, 'Facultative · pour plusieurs jours')), lock.field, field('Notes', notes), error);
+    const body = el('div', { class: 'dialog-body' }, el('p', { class: 'muted' }, 'Visible par l’athlète et ses coachs autorisés : rendez-vous, disponibilités, compétition ou note.'), field('Titre', title), field('Catégorie', category), el('div', { class: 'form-grid' }, field('Date de début', dateInput), field('Date de fin', endDate, 'Facultative · pour plusieurs jours')), lock.field, field('Notes', notes), colors, error);
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
     container.replaceChildren(heading(event ? 'Modifier l’événement' : 'Ajouter un événement', 'CALENDRIER PARTAGÉ', dialog, 'eventDialogTitle'), form);
     let saving = false;
@@ -305,7 +320,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
         if (!title.value.trim()) throw new Error('Donne un titre à ton événement.');
         if (endDate.value && endDate.value < dateInput.value) throw new Error('La date de fin doit être égale ou postérieure au début.');
         if (getState().selectedAthlete.id !== athleteId || (event ? !canEdit(event) : !canAdd())) throw new Error('Tes permissions ont changé.');
-        const payload = { title: title.value.trim(), category: category.value, date: dateInput.value, end_date: endDate.value || null, notes: notes.value.trim(), sort_order: event?.sort_order ?? nextOrder(getState().events, dateInput.value) };
+        const payload = { color: colors.querySelector('input:checked').value, title: title.value.trim(), category: category.value, date: dateInput.value, end_date: endDate.value || null, notes: notes.value.trim(), sort_order: event?.sort_order ?? nextOrder(getState().events, dateInput.value) };
         if (!event) Object.assign(payload, { athlete_id: athleteId, created_by: getState().user.id });
         if (!event || event.created_by === getState().user.id && lock.control.checked !== (event.is_locked !== false)) payload.is_locked = lock.control.checked;
         saving = true;
@@ -330,7 +345,8 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     }
     if (canEdit(event)) actions.append(button('Modifier / déplacer', () => { dialog.close(); editEvent(event); }));
     actions.append(button('Fermer', () => dialog.close()));
+    if (body.querySelector('.note-box')) applyEventColor(body.querySelector('.note-box'), event.color);
     container.replaceChildren(heading(event.title, 'ÉVÉNEMENT PERSONNEL', dialog, 'detailTitle'), body, actions); show(dialog);
   }
-  return { editSession, showSession, editEvent, showEvent, setCompleted };
+  return { editSession, editTemplate: () => editSession(null, todayLocal(), false, { templateOnly: true }), showSession, editEvent, showEvent, setCompleted };
 }

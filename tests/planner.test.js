@@ -5,6 +5,7 @@ import {Window} from 'happy-dom';
 import * as domain from '../js/domain.js';
 import * as calendar from '../js/calendar.js';
 import * as ui from '../js/ui.js';
+import {applyEventColor} from '../js/event-colors.js';
 import {renderSessionChart} from '../js/session-chart.js';
 
 const settle=async()=>{for(let i=0;i<20;i++)await Promise.resolve();await new Promise(r=>setImmediate(r));};
@@ -25,11 +26,11 @@ async function surface({role='coach',sessions=[],events=[],feedback=[],url='http
     rpc:async(name,args)=>{calls.push([name,args]);if(invitationError)throw new Error(invitationError);return 'athlete';},
     saveSession:async(...args)=>{calls.push(['save',...args]);return args[0];}};
   const methods={editSession:(...args)=>calls.push(['edit',...args]),showSession:s=>calls.push(['show',s]),editEvent:(...args)=>calls.push(['event',...args]),showEvent:e=>calls.push(['showEvent',e]),setCompleted:async(s,completed)=>{calls.push(['complete',s.id,completed]);source.sessions.find(item=>item.id===s.id).completed_at=completed?'2026-09-22T12:00:00Z':null;await window.__app.refreshCalendar();}};
-  window.__bridge={api,domain,calendar,renderSessionChart,ui:{...ui,toast:m=>calls.push(['toast',m])},
+  window.__bridge={api,domain,calendar,renderSessionChart,applyEventColor,ui:{...ui,toast:m=>calls.push(['toast',m])},
     Sortable:class {constructor(node,options){this.node=node;this.options=options;instances.push(this);}destroy(){}},
     createSessionUI:()=>methods,createConnectionsUI:()=>({open:()=>{},inviteAthlete:()=>{}}),createLibraryUI:options=>({open:()=>{},options})};
   const code=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
-  window.eval(`const mountNavigation=()=>{};const {Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart}=window.__bridge;
+  window.eval(`const mountNavigation=()=>{};const {Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor}=window.__bridge;
     const dataApi=window.__bridge.api;
     const {client,loadAccount,loadCalendar,rpc,saveSession}=dataApi;
     const {SPORTS,summarizeBlocks,formatDuration}=window.__bridge.domain;
