@@ -112,3 +112,4 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Liste : Sparring en premier et sélectionné à chaque ouverture; type et poids partagent le même contrôle avec aria-pressed, fond contrasté et coche. Correction des contacts coachs auparavant clairs sur fond blanc en thème sombre.
 - Entraînement : vues Texte et Blocs sous le titre Entraînement, en remplacement de Programme comme nom de vue.
 - Validation : 265 tests réussis, dont déplacement enregistré, échec avec restauration et droits/contexte. Styles compilés des contacts et sélections contrôlés dans les deux thèmes; déplacement réel vérifié dans l’aperçu local.
+- Publication : application `3448b58`, workflow `36018909299` réussi. Les 18 fichiers publics correspondent à l’artefact publié. Contrôle connecté : Sparring par défaut, sélection du poids et contraste des contacts, vues Texte / Blocs confirmés. Le formulaire déjà ouvert par l’utilisateur a été conservé intact.
