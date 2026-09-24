@@ -8,7 +8,7 @@
 .journal-column { padding:16px;background:var(--white);border:1px solid var(--line);border-radius:12px;min-width:0; }
 .journal-column h2 { font-weight:650;font-size:15px;line-height:1.5;display:flex;justify-content:space-between;gap:10px;margin:0 0 16px; }
 .journal-count { color:var(--muted);font-size:12px; }
-.journal-card { display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink);padding:14px;margin-bottom:12px;overflow-wrap:anywhere; }
+.journal-card { display:flex;align-items:flex-start;width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink);padding:0;margin-bottom:12px;overflow-wrap:anywhere; }
 .journal-card:hover { border-color:var(--accent-line); }
 .journal-card strong { font-size:14px; }
 .journal-card p { font-size:12px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap; }
@@ -23,3 +23,14 @@
 .library-folder-form { padding:14px;border:1px solid var(--line);border-radius:10px; }
 .library-folder-form .form-field { flex:1;min-width:140px; }
 @media(max-width:800px){.journal-board{grid-template-columns:1fr}.journal-toolbar .segmented{width:auto}.journal-toolbar .segmented button{padding:10px}.journal-column{padding:14px}.journal-detail-actions{align-items:stretch}.journal-detail-actions .form-field{width:100%}}
+
+.journal-cards { min-height:140px; }
+.journal-card-open { display:block;flex:1;min-width:0;text-align:left;background:none;border:0;color:inherit;padding:14px;overflow-wrap:anywhere; }
+.journal-card-open:focus-visible { outline:2px solid var(--accent);outline-offset:-3px;border-radius:8px; }
+.journal-drag-handle { flex:0 0 36px;min-height:44px;display:grid;place-items:center;font-size:23px;color:var(--muted);cursor:grab;touch-action:none;user-select:none; }
+.journal-drag-handle + .journal-card-open { padding-left:0; }
+.journal-drag-chosen { border-color:var(--accent-line); }
+.journal-drag-ghost { opacity:.4; }
+.journal-cards:has(.journal-card) > .journal-empty { display:none; }
+.journal-drag-status { font-size:12px;color:var(--muted); }
+.journal-drag-status:empty { display:none; }

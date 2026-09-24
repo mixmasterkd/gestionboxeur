@@ -1,31 +1,35 @@
+import Sortable from 'sortablejs';
 import { $, el, button, field, input, textarea, select, heading, errorBox, showError, busy } from './ui.js';
 export const JOURNAL_STATUSES=[['explore','À explorer'],['work','En travail'],['maintain','À entretenir']];
 const labels=Object.fromEntries(JOURNAL_STATUSES);
 const date=value=>new Intl.DateTimeFormat('fr-CA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));
 const normalize=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr');
-export function createJournalUI({getState,api}) {
+export function createJournalUI({getState,api,makeSortable=(node,options)=>new Sortable(node,options)}) {
  let ticket=0,context='',entries=[],updates=[],view='kanban',archived=false,query='';
+ let sortables=[],drag=null,dragSaving=false;
+ const destroySortables=()=>{sortables.forEach(sortable=>sortable.destroy());sortables=[];};
  const root=$('journalSection');
  const key=()=>`${getState().user?.id}:${getState().selectedAthlete?.id}`;
  const owns=()=>getState().selectedAthlete?.user_id===getState().user?.id;
  const readable=()=>!!getState().selectedAthlete?.user_id&&(owns()||getState().relation?.status==='accepted'&&getState().relation.can_view_calendar);
  const writable=()=>readable()&&(owns()||getState().relation?.can_add_sessions);
  const current=(version)=>version===context&&version===key()&&!root.hidden;
+ const dragStatus=el('p',{class:'journal-drag-status',role:'status','aria-live':'polite'});
  const errors=errorBox(),content=el('div',{class:'journal-content'});
  const search=input('journal_search','','search',{'aria-label':'Rechercher dans le journal'});
  const archiveChoice=select('journal_archive',[{value:'active',label:'Sujets actifs'},{value:'archived',label:'Archives'}],'active',{'aria-label':'Afficher les archives'});
  const modes=el('div',{class:'segmented',role:'group','aria-label':'Vue du journal'});
  for(const [value,label] of [['kanban','Kanban'],['timeline','Chronologie']])modes.append(button(label,()=>{view=value;draw();},'',{dataset:{view:value},'aria-pressed':String(view===value)}));
  const create=button('＋ Sujet',()=>edit(), 'button primary');
- root.replaceChildren(el('div',{class:'journal-toolbar'},modes,create),el('div',{class:'journal-filters'},field('Rechercher',search),archiveChoice),el('p',{class:'muted journal-sharing'},'Partagé avec les coachs qui ont accès à ce calendrier. Les notes du calendrier restent séparées.'),errors,content);
+ root.replaceChildren(el('div',{class:'journal-toolbar'},modes,create),el('div',{class:'journal-filters'},field('Rechercher',search),archiveChoice),el('p',{class:'muted journal-sharing'},'Partagé avec les coachs qui ont accès à ce calendrier. Les notes du calendrier restent séparées.'),errors,dragStatus,content);
  search.addEventListener('input',()=>{query=normalize(search.value.trim());draw();});
  archiveChoice.addEventListener('change',()=>{archived=archiveChoice.value==='archived';draw();});
- function invalidate(){ticket++;context='';entries=[];updates=[];content.replaceChildren();$('journalDialog')?.close();}
+ function invalidate(){destroySortables();drag=null;dragStatus.textContent='';ticket++;context='';entries=[];updates=[];content.replaceChildren();$('journalDialog')?.close();}
  async function refresh(){
   if(root.hidden)return;
   const version=key(),request=++ticket;
   if(context!==version){$('journalDialog').close();entries=[];updates=[];query='';search.value='';context=version;}
-  errors.hidden=true;create.hidden=!writable();
+  destroySortables();errors.hidden=true;create.hidden=!writable();
   if(!readable()){content.replaceChildren(el('p',{},'L’accès au journal suit les autorisations de ce calendrier.'));return;}
   content.replaceChildren(el('p',{role:'status'},'Chargement du journal…'));
   try{const result=await api.loadJournal(getState().selectedAthlete.id);if(request!==ticket||!current(version))return;entries=result.entries;updates=result.updates;draw();}
@@ -35,22 +39,52 @@ export function createJournalUI({getState,api}) {
  function draw(){
   if(!current(context))return;
   modes.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
-  content.replaceChildren();const list=matching();
+  destroySortables();content.replaceChildren();const list=matching();
   if(view==='kanban'){
    const board=el('div',{class:'journal-board'});
-   for(const [status,label] of JOURNAL_STATUSES){const items=list.filter(e=>e.status===status);const column=el('section',{class:'journal-column','aria-label':label},el('h2',{},label,el('span',{class:'journal-count'},String(items.length))));
-    for(const entry of items)column.append(button('',()=>detail(entry),'journal-card',{'aria-label':`Ouvrir ${entry.title}`}));
-    [...column.querySelectorAll('.journal-card')].forEach((node,i)=>{const entry=items[i];node.append(el('strong',{},entry.title),el('p',{},entry.body),el('small',{},`${entry.author_name||'Auteur'} · ${date(entry.updated_at)}`));});
-    if(!items.length)column.append(el('p',{class:'muted'},'Aucun sujet.'));board.append(column);
-   }content.append(board);
+   const canDrag=writable()&&!archived;
+   for(const [status,label] of JOURNAL_STATUSES){
+    const items=list.filter(e=>e.status===status);
+    const column=el('section',{class:'journal-column','aria-label':label},el('h2',{},label,el('span',{class:'journal-count'},String(items.length))));
+    const cards=el('div',{class:'journal-cards',dataset:{status}});
+    for(const entry of items){
+     const card=el('article',{class:'journal-card',dataset:{entryId:entry.id}});
+     if(canDrag)card.append(el('span',{class:'journal-drag-handle','aria-hidden':'true',title:'Glisser pour changer de statut'},'⠿'));
+     const open=button('',()=>detail(entry),'journal-card-open',{'aria-label':`Ouvrir ${entry.title}`});
+     open.append(el('strong',{},entry.title),el('p',{},entry.body),el('small',{},`${entry.author_name||'Auteur'} · ${date(entry.updated_at)}`));card.append(open);cards.append(card);
+    }
+    cards.append(el('p',{class:'muted journal-empty'},'Aucun sujet.'));
+    column.append(cards);board.append(column);
+   }
+   content.append(board);
+   if(canDrag)for(const cards of board.querySelectorAll('.journal-cards'))sortables.push(makeSortable(cards,{
+    group:'journal-status',sort:false,animation:150,draggable:'.journal-card',handle:'.journal-drag-handle',ghostClass:'journal-drag-ghost',chosenClass:'journal-drag-chosen',
+    delay:170,delayOnTouchOnly:true,touchStartThreshold:5,fallbackOnBody:true,disabled:dragSaving,
+    onMove:()=>!dragSaving&&current(context)&&writable()&&!archived,
+    onStart:event=>{drag={version:context,entry:entries.find(e=>e.id===event.item.dataset.entryId)};},
+    onEnd:finishDrag,
+   }));
   }else{
    const byId=new Map(list.map(e=>[e.id,e]));const feed=updates.filter(u=>byId.has(u.entry_id)).sort((a,b)=>b.created_at.localeCompare(a.created_at));
    if(!feed.length)content.append(el('p',{class:'empty-message'},'Aucune entrée dans cette vue.'));
    for(const update of feed){const entry=byId.get(update.entry_id);const row=el('article',{class:'journal-timeline-entry'},el('small',{},`${date(update.created_at)} · ${update.author_name||'Auteur'}`),button(entry.title,()=>detail(entry),'journal-entry-link'),el('p',{},updateText(update)));content.append(row);}
   }
  }
+ async function finishDrag(event){
+  const started=drag;drag=null;
+  const status=event.to?.dataset.status;
+  if(!started||!current(started.version))return;
+  if(dragSaving||!writable()||archived||!started.entry||!labels[status]||status===started.entry.status){draw();return;}
+  dragSaving=true;errors.hidden=true;dragStatus.textContent='Enregistrement du déplacement…';
+  sortables.forEach(sortable=>sortable.option('disabled',true));
+  try{
+   await save({status},started.entry,started.version);
+   if(current(started.version))dragStatus.textContent=`${started.entry.title} : ${labels[status]}.`;
+  }catch(error){if(current(started.version)){draw();dragStatus.textContent='';showError(errors,error);}}
+  finally{dragSaving=false;if(current(started.version))draw();}
+ }
  function updateText(update){return update.kind==='status'?`Statut : ${labels[update.content]||update.content}`:update.kind==='archived'?'Sujet archivé':update.kind==='restored'?'Sujet réactivé':update.kind==='edited'?`Texte modifié\n${update.content}`:update.kind==='created'?`Sujet ouvert\n${update.content}`:update.content;}
- async function save(payload,entry,version){if(!current(version)||!writable())throw new Error('Le journal sélectionné a changé.');const saved=await api.saveJournalEntry(payload,entry);if(!current(version))return null;await refresh();return current(version)?entries.find(e=>e.id===saved.id)||saved:null;}
+ async function save(payload,entry,version){if(!current(version)||!writable())throw new Error('Le journal sélectionné a changé.');const saved=await api.saveJournalEntry(payload,entry);if(!current(version))return null;entries=[...entries.filter(e=>e.id!==saved.id),saved];await refresh();return current(version)?entries.find(e=>e.id===saved.id)||saved:null;}
  function edit(entry=null){
   if(!writable()||entry&&entry.created_by!==getState().user.id)return;
   const version=context,dialog=$('journalDialog'),wrap=$('journalContent'),error=errorBox();

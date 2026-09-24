@@ -35,6 +35,20 @@ for (const page of pages) {
         assert.equal(completion.display,'inline-grid','completion remains visible in monthly mobile view');
         assert.ok(parseFloat(completion.minHeight)>=36,'monthly completion target remains usable');
       }
+      if (page === 'index.html') {
+        const coach=window.document.createElement('div');coach.className='coach-choice';coach.innerHTML='<label class="coach-choice-head"><strong>Coach test</strong></label>';
+        window.document.getElementById('coachChoices').append(coach);
+        const coachStyle=window.getComputedStyle(coach);
+        assert.equal(coachStyle.backgroundColor,theme==='dark'?'#22262d':'#fff','contact surface follows appearance');
+        assert.equal(window.getComputedStyle(coach.querySelector('strong')).color,theme==='dark'?'#edf0f4':'#222c3a','contact text remains legible');
+        const selected=window.document.querySelector('#typeButtons [aria-pressed="true"]');
+        const weight=window.document.querySelector('#weightButtons button');weight.setAttribute('aria-pressed','true');
+        for(const option of [selected,weight]) {
+          const style=window.getComputedStyle(option);
+          assert.equal(style.backgroundColor,theme==='dark'?'#edf0f4':'#222c3a','same high-contrast selected option');
+          assert.equal(style.color,theme==='dark'?'#181b20':'#f4f5f7','selected option readable');
+        }
+      }
       if (page === 'index.html' && width < 620) {
         assert.equal(window.getComputedStyle(window.document.querySelector('.share-foot')).marginLeft, '0px', 'share buttons must remain inside the dialog');
       }

@@ -111,9 +111,9 @@ export class ProgramEditor {
     const priorHelp = this.container.querySelector('.pe-help'); if (priorHelp) this.helpOpen = priorHelp.open;
     this.sortables.forEach(s => s.destroy()); this.sortables = [];
     this.container.classList.add('program-editor');
-    const modes = el('div', { class: 'pe-modes', role: 'group', 'aria-label': 'Mode de création du programme' });
-    for (const [mode, label] of [['text', 'Texte'], ['program', 'Programme']]) modes.append(button(label, () => this.switchMode(mode), 'pe-button', { 'aria-pressed': String(this.mode === mode), disabled: !!this.mini, dataset: { mode } }));
-    const header = el('header', { class: 'pe-heading' }, el('div', {}, el('h3', {}, 'Programme')), modes);
+    const modes = el('div', { class: 'pe-modes', role: 'group', 'aria-label': 'Vue de l’entraînement' });
+    for (const [mode, label] of [['text', 'Texte'], ['program', 'Blocs']]) modes.append(button(label, () => this.switchMode(mode), 'pe-button', { 'aria-pressed': String(this.mode === mode), disabled: !!this.mini, dataset: { mode } }));
+    const header = el('header', { class: 'pe-heading' }, el('div', {}, el('h3', {}, 'Entraînement')), modes);
     this.errors = errorBox(); this.errors.classList.add('pe-error');
     this.summary = el('p', { class: 'pe-summary', role: 'status' });
     this.container.replaceChildren(header, this.help(), this.errors);
@@ -130,7 +130,7 @@ export class ProgramEditor {
   help() {
     const example = 'Course\n2x\n  1m @ Z2\n  1m @ Z1 - Marcher si nécessaire\n\nShadow\n3 rounds 1m/1m - Faire du 8/16\n3 rounds 30s/30s - In and out / burpees\n\nSac\n4 rounds 2m/1m - Jab et déplacement\n\nAbdos\n5m - Circuit au choix';
     return el('details', { class: 'pe-help', open: this.helpOpen }, el('summary', {}, 'ⓘ Aide · écrire un entraînement'),
-      el('p', {}, 'Écris directement dans Texte, ou utilise les boutons en mode Programme. Les deux modifient les mêmes étapes.'),
+      el('p', {}, 'Écris directement dans Texte, ou utilise les boutons dans la vue Blocs. Les deux modifient les mêmes étapes.'),
       el('dl', {},
         el('dt', {}, 'Course, Shadow, Sac…'), el('dd', {}, 'Un titre de section donne le type et le nom aux étapes qui suivent. Exemple : Course : Jog facile.'),
         el('dt', {}, '10m · 30s · 1m30s'), el('dd', {}, 'Minutes, secondes ou durée combinée. Le m signifie toujours minutes. Les durées sont prioritaires, sans distance obligatoire.'),

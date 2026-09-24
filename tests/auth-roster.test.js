@@ -348,12 +348,12 @@ test('legacy roster keeps eight existing athletes, unavailable statuses, gym add
     assert.equal(ui.window.location.search, '?liste=1');
     ui.$('shareButton').click();
     assert.equal(ui.$('shareDialog').open, true);
-    assert.match(ui.$('sharePreview').textContent, /COMBAT/);
+    assert.match(ui.$('sharePreview').textContent, /SPARRING/);
     assert.match(ui.$('sharePreview').textContent, /MON ÉQUIPE/);
     assert.match(ui.$('sharePreview').textContent, /123, rue du Gym/);
     assert.doesNotMatch(ui.$('sharePreview').textContent, /privée existante/);
-    ui.$('typeButtons').querySelector('[data-value="sparring"]').click();
-    assert.match(ui.$('sharePreview').textContent, /SPARRING/);
+    ui.$('typeButtons').querySelector('[data-value="combat"]').click();
+    assert.match(ui.$('sharePreview').textContent, /COMBAT/);
     assert.equal(mock.calls.some(call => call[0] === 'eq' && call[2] === 'is_active'), false);
   } finally { await ui.close(); }
 });
@@ -432,7 +432,7 @@ test('an old pending invitation does not block a coach from opening the roster a
     assert.equal(ui.$('shareDialog').open, false);
     ui.$('shareButton').click();
     assert.equal(ui.$('shareDialog').open, true);
-    assert.match(ui.$('sharePreview').textContent, /COMBAT/);
+    assert.match(ui.$('sharePreview').textContent, /SPARRING/);
   } finally { await ui.close(); }
 });
 
@@ -462,5 +462,19 @@ test('mobile roster sort uses the same ordering as the table headers', async () 
   assert.match(ui.$('athleteRows').firstElementChild.textContent,/Zoe/);
   ui.$('mobileSortDirection').click();assert.match(ui.$('athleteRows').firstElementChild.textContent,/Alex/);
   assert.equal(ui.window.document.querySelector('[data-sort="weight"]').closest('th').getAttribute('aria-sort'),'descending');
+ }finally{await ui.close();}
+});
+
+
+test('sharing defaults to Sparring first and exposes synchronized selection for type and weight',async()=>{
+ const mock=rosterMock();const ui=await surface('index.html','roster.js',mock.client,'https://gestionboxeur.example/index.html');
+ try{
+  ui.$('shareButton').click();
+  assert.equal(ui.$('typeButtons').firstElementChild.dataset.value,'sparring');
+  assert.match(ui.$('sharePreview').textContent,/POUR SPARRING/);
+  assert.equal(ui.$('typeButtons').querySelector('[aria-pressed=true]').dataset.value,'sparring');
+  ui.$('typeButtons').querySelector('[data-value=combat]').click();assert.match(ui.$('sharePreview').textContent,/POUR COMBAT/);
+  ui.$('weightButtons').querySelector('[data-value=kg]').click();assert.equal(ui.$('weightButtons').querySelectorAll('[aria-pressed=true]').length,1);assert.equal(ui.$('weightButtons').querySelector('[aria-pressed=true]').dataset.value,'kg');
+  ui.$('shareDialog').close();ui.$('shareButton').click();assert.equal(ui.$('typeButtons').querySelector('[aria-pressed=true]').dataset.value,'sparring');
  }finally{await ui.close();}
 });

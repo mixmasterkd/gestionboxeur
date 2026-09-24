@@ -13,7 +13,7 @@ import { mountNavigation } from './navigation.js';
     let currentUser;
     let profileData;
     let gymSettings;
-    let shareType = "combat";
+    let shareType = "sparring";
     let shareWeight = "both";
     let sortKey = "name";
     let sortDirection = "asc";
@@ -462,10 +462,10 @@ import { mountNavigation } from './navigation.js';
     }
     function updateSharePreview() { $("sharePreview").textContent = shareText(); }
     function openShare() {
-      $("shareGym").value = gymSettings?.gym_name || "Mon gym"; $("includeGymName").checked = true; $("includeGymAddress").checked = !!gymSettings?.address; $("includeGymAddress").disabled = !gymSettings?.address; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "combat"; shareWeight = "both";
+      $("shareGym").value = gymSettings?.gym_name || "Mon gym"; $("includeGymName").checked = true; $("includeGymAddress").checked = !!gymSettings?.address; $("includeGymAddress").disabled = !gymSettings?.address; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "sparring"; shareWeight = "both";
       setSegment($("typeButtons"), shareType); setSegment($("weightButtons"), shareWeight); renderCoachChoices(); updateSharePreview(); els.shareDialog.showModal();
     }
-    function setSegment(group, value) { group.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.value === value)); }
+    function setSegment(group, value) { group.querySelectorAll("button").forEach(b => { const selected=b.dataset.value===value; b.classList.toggle("active",selected);b.setAttribute("aria-pressed",String(selected)); }); }
     async function copyShare() {
       const text = shareText();
       try {

@@ -61,7 +61,7 @@ La bibliothèque est accessible depuis le calendrier. On peut créer et renommer
 
 Une séance ou un bloc enregistré s'utilise comme copie modifiable; supprimer un modèle ne supprime pas les séances déjà planifiées. « Garder comme modèle » est aussi disponible directement dans le formulaire de création, sans devoir planifier la séance. Un remplacement par un modèle demande confirmation si le formulaire contient déjà des informations.
 
-Le programme propose deux vues synchronisées : **Texte**, sélectionné par défaut à gauche avec une saisie vide pour une nouvelle séance, puis **Programme** à droite, une ligne lisible par étape. Toucher une ligne ouvre un petit formulaire; les boutons Étape, Répétition et Rounds permettent de créer des blocs sans connaître la notation. Les réglages avancés sont repliés; le champ Répétitions de mouvement est retiré, sans effacer les anciennes données. Le glisser-déposer et les commandes monter/descendre du menu de ligne restent disponibles, y compris dans les répétitions. Un formulaire de bloc doit être validé ou annulé avant d'enregistrer la séance. Dans une séance de course, les nouvelles étapes sont de la course par défaut; changer de discipline ne réécrit pas les blocs existants.
+Le programme propose deux vues synchronisées : **Texte**, sélectionné par défaut à gauche avec une saisie vide pour une nouvelle séance, puis **Blocs** à droite, une ligne lisible par étape. Toucher une ligne ouvre un petit formulaire; les boutons Étape, Répétition et Rounds permettent de créer des blocs sans connaître la notation. Les réglages avancés sont repliés; le champ Répétitions de mouvement est retiré, sans effacer les anciennes données. Le glisser-déposer et les commandes monter/descendre du menu de ligne restent disponibles, y compris dans les répétitions. Un formulaire de bloc doit être validé ou annulé avant d'enregistrer la séance. Dans une séance de course, les nouvelles étapes sont de la course par défaut; changer de discipline ne réécrit pas les blocs existants.
 
 Les descriptions et notes partagées sont réunies dans la vue Texte (lignes commençant par `#`), sans champs redondants. La zone d’effort se règle sur l’effort; une nouvelle répétition ne porte pas de zone en doublon. Le sélecteur d’intensité ciblée est retiré. Les anciennes données avancées restent conservées. La saisie libre ne présente aucun exemple en filigrane ou consigne pédagogique; l’aide reste repliée.
 
@@ -170,7 +170,7 @@ Techniquement, `account_type` est conservé pour compatibilité : `coach` signif
 
 ### Journal
 
-Le journal est indépendant des notes du calendrier, accessible depuis la navigation. Deux vues présentent les mêmes sujets et suivis : **Kanban** et **Chronologie**, sans pièces jointes ni gestion de liens. Les colonnes sont **À explorer / En travail / À entretenir**; le statut se change dans le détail d’un sujet. Aucun statut « Acquis » ou fin définitive. La recherche retrouve sujets, textes et commentaires; l’archivage conserve tout l’historique et permet une réactivation.
+Le journal est indépendant des notes du calendrier, accessible depuis la navigation. Deux vues présentent les mêmes sujets et suivis : **Kanban** et **Chronologie**, sans pièces jointes ni gestion de liens. Les colonnes sont **À explorer / En travail / À entretenir**; le statut se change dans le détail d’un sujet ou en glissant sa tuile par la poignée vers une autre colonne. Les archives restent consultables sans glisser-déposer. Aucun statut « Acquis » ou fin définitive. La recherche retrouve sujets, textes et commentaires; l’archivage conserve tout l’historique et permet une réactivation.
 
 Chaque personne peut tenir son journal. Les coachs ayant accès à son calendrier peuvent le consulter; ceux autorisés à ajouter des séances peuvent aussi créer des sujets, ajouter leurs conseils et changer les statuts. Chacun peut modifier uniquement son propre texte. Les auteurs et l’historique des changements sont enregistrés côté serveur. Les notes privées du coach restent une demande distincte, pas encore implantée.
 
@@ -188,3 +188,6 @@ Palette sombre graphite par défaut, texte clair, accents ardoise discrets. Un b
 
 
 Sur mobile, les athlètes apparaissent en cartes compactes : nom et sélection, quatre renseignements côte à côte, puis statut et Modifier. Un sélecteur de tri remplace les en-têtes de colonnes. Le nom d’un athlète ayant partagé son calendrier ouvre directement ce calendrier; les autres noms ouvrent leur fiche. Rattacher se trouve uniquement dans la fiche, avec protection des modifications non enregistrées.
+
+
+La préparation d’une liste s’ouvre sur Sparring, placé avant Combat. Le type de liste et les unités de poids partagent des boutons à état sélectionné explicite (contraste et coche), lisibles dans les deux thèmes. Les coachs contacts utilisent les surfaces et textes du thème actif.

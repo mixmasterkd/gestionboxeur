@@ -430,7 +430,7 @@
         <aside class="share-options">
           <div class="option-group">
             <span class="option-title">Type de liste</span>
-            <div class="segmented" id="typeButtons"><button class="active" data-value="combat" type="button">Combat</button><button data-value="sparring" type="button">Sparring</button></div>
+            <div class="segmented" id="typeButtons" role="group" aria-label="Type de liste"><button class="active" data-value="sparring" aria-pressed="true" type="button">Sparring</button><button data-value="combat" aria-pressed="false" type="button">Combat</button></div>
           </div>
           <div class="option-group">
             <label><span>Nom du gym</span><input id="shareGym" value="Mon gym"></label>
@@ -443,7 +443,7 @@
           </div>
           <div class="option-group">
             <span class="option-title">Poids affiché</span>
-            <div class="segmented three" id="weightButtons"><button class="active" data-value="both" type="button">kg + lb</button><button data-value="kg" type="button">kg</button><button data-value="lb" type="button">lb</button></div>
+            <div class="segmented three" id="weightButtons" role="group" aria-label="Poids affiché"><button class="active" data-value="both" type="button">kg + lb</button><button data-value="kg" type="button">kg</button><button data-value="lb" type="button">lb</button></div>
           </div>
           <div class="option-group checks">
             <span class="option-title">Informations</span>
