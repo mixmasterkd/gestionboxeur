@@ -43,6 +43,7 @@
   .dialog-head.dark .dialog-title { color: var(--ink); }
   .dark .close { color: var(--ink); background: var(--soft); border-color: var(--line); }
   .roster-summary .stat strong, .week-overview strong, .pe-line strong { color: var(--ink); }
+  .roster-summary .stat span { color: var(--muted); }
   th, .roster thead, .roster thead th { color: var(--muted); background: #292e37; border-color: var(--line); }
   tbody tr, .roster tbody tr { background: var(--white); }
   tbody tr:hover, .roster tbody tr:hover { background: #2d333c; }

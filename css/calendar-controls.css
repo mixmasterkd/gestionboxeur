@@ -7,6 +7,7 @@
 .athlete-picker-dialog .sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .athlete-picker-dialog h2 { font-size: 19px; margin: 0; letter-spacing: -.025em; }
 .athlete-picker-dialog .search-box { margin: 0; }
+.athlete-picker-dialog .search-box input { flex: 1; width: 100%; min-width: 0; }
 .athlete-picker-dialog .athlete-list { display: flex; flex-direction: column; overflow: auto; max-height: min(46dvh, 380px); overscroll-behavior: contain; padding: 3px; }
 .athlete-picker-dialog .athlete-item { width: 100%; min-width: 0; flex-shrink: 0; }
 .athlete-picker-dialog .sidebar-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); }
