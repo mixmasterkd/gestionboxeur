@@ -53,6 +53,8 @@ a { text-underline-offset: 4px; }
   border-radius: 9px; min-height: 44px; font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 650;
   border-width: 1px; padding: 12px 17px; line-height: 1.35; text-decoration: none; transition: background .15s, border-color .15s, transform .15s;
 }
+.button { white-space: normal; text-align: center; overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+.button > .count { flex-shrink: 0; }
 .button:hover:not(:disabled), .be-button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: none; }
 .button-dark, .button.primary, .button-accent { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
 .button-dark:hover:not(:disabled), .button.primary:hover:not(:disabled), .button-accent:hover:not(:disabled) { background: #1d4f9f; border-color: #1d4f9f; }
@@ -120,6 +122,8 @@ a { text-underline-offset: 4px; }
 .content { width: auto; margin: 26px 30px 60px; max-width: none; }
 .panel { background: var(--white); border: 1px solid var(--line); border-radius: 15px; box-shadow: var(--shadow); margin: 0 0 24px; overflow: hidden; }
 .panel-head { padding: 26px; gap: 18px; align-items: center; }
+.panel-head > * { min-width: 0; }
+.dashboard .actions { flex-wrap: wrap; }
 .panel-head .kicker { font-size: 9px; margin-bottom: 7px; }
 .count { background: #262720; color: var(--white); min-width: 22px; height: 22px; font-size: 10px; }
 .filters { background: #f7f6f1; border-width: 1px; border-color: var(--line); grid-template-columns: minmax(200px, 1.5fr) minmax(160px, 1fr) 100px auto; min-height: 62px; }
@@ -319,6 +323,12 @@ dialog::backdrop, .app-dialog::backdrop { background: #222320a8; backdrop-filter
 .pill { display: inline-block; background: var(--accent-soft); color: var(--accent-dark); border-radius: 20px; padding: 7px 11px; font-size: 11px; white-space: nowrap; }
 .dashboard td { font-size: 12px; line-height: 1.7; }
 .admin-row-actions button { min-height: 38px; font-size: 11px; }
+.gym-directory { display: grid; gap: 12px; padding: 0 26px 26px; }
+.gym-directory-item { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 9px; }
+.gym-directory-item > div { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.gym-directory-item strong { font-size: 13px; }
+.gym-directory-item p { margin: 5px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.gym-directory-item > .button { flex-shrink: 0; }
 .profile-grid { display: grid; gap: 22px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .profile-grid .field { min-width: 0; }
 .test-session-banner { position: relative; z-index: 65; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 20px; padding: 12px 20px; background: var(--accent-soft); color: #365784; border-bottom: 1px solid var(--accent-line); font-size: 12px; line-height: 1.6; }
@@ -647,6 +657,10 @@ dialog::backdrop, .app-dialog::backdrop { background: #222320a8; backdrop-filter
   .dialog-body, .workout-area, .feedback-section { padding: 20px 18px; }
   .dialog-actions { padding: 16px 18px; }
   .dialog-actions .button { min-height: 46px; }
+  /* This footer is outside a form: it must not inherit the form's negative margins. */
+  .dialog-foot.share-foot { margin: 0; }
+  .dialog-foot.share-foot .button { flex: 1 1 120px; }
+  .dialog-foot.share-foot .spacer { display: none; }
   .app-dialog { max-height: calc(100dvh - 16px); border-radius: 13px; }
   .be-tools .be-button { min-width: 34px; min-height: 42px; }
   .be-field input, .be-field select, .be-field textarea { min-height: 46px; font-size: 16px; }
@@ -670,6 +684,8 @@ dialog::backdrop, .app-dialog::backdrop { background: #222320a8; backdrop-filter
   .dashboard .panel > p { margin: 0 18px 20px; font-size: 12px; }
   .dashboard .panel .form-grid { grid-template-columns: 1fr; gap: 17px; }
   .dashboard .panel-head .actions { grid-template-columns: 1fr; }
+  .dashboard .actions > .button { flex: 1 1 160px; }
+  .gym-directory { padding: 0 18px 23px; }
   .roster-summary.stats { padding: 0 8px; }
   .roster-summary .stat { display: block; min-height: 64px; padding: 11px 10px; }
   .roster-summary .stat strong { font-size: 22px; }

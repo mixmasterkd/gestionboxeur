@@ -15,6 +15,96 @@ function icon(name) {
   return `<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 }
 
+let disposeExplorer = () => {};
+
+/** A native dialog keeps focus and Escape behaviour without replacing ordinary links. */
+function mountExplorer(nav, items, route, onPlanning) {
+  disposeExplorer();
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'nav-explore';
+  trigger.setAttribute('aria-haspopup', 'dialog');
+  trigger.setAttribute('aria-controls', 'spaceNavigation');
+  trigger.innerHTML = '<span class="explore-symbol" aria-hidden="true">✳</span><span>Explorer</span>';
+  nav.append(trigger);
+
+  const dialog = document.createElement('dialog');
+  dialog.id = 'spaceNavigation';
+  dialog.className = 'space-navigation';
+  dialog.setAttribute('aria-labelledby', 'spaceTitle');
+  dialog.innerHTML = '<div class="space-orbit" aria-hidden="true"><i></i><i></i><i></i></div><header class="space-heading"><div><p class="eyebrow">Navigation</p><h2 id="spaceTitle">Ton espace.</h2></div><button type="button" class="space-close" aria-label="Fermer la navigation">×</button></header><div class="space-stage"><div class="space-grid"></div></div><p class="space-hint">Choisis une rubrique pour continuer.</p>';
+  const descriptions = {
+    athletes: 'Fiches, disponibilités et listes.',
+    calendar: 'Séances, événements et suivi.',
+    gym: 'Coordonnées et identité du gym.',
+    profile: 'Profil et informations sportives.',
+    admin: 'Membres, gyms et athlète de test.',
+  };
+  for (const [index, item] of items.entries()) {
+    const link = document.createElement('a');
+    link.className = 'space-card';
+    link.href = route(item.href);
+    link.innerHTML = `<span class="space-card-top">${icon(item.icon)}<span class="space-number">0${index + 1}</span></span><strong>${item.text}</strong><span class="space-description"></span><span class="space-arrow" aria-hidden="true">↗</span>`;
+    link.querySelector('.space-description').textContent = item.connections ? 'Liens et autorisations de partage.' : descriptions[item.icon];
+    if (item.active) {
+      link.classList.add('is-current');
+      const current = document.createElement('span');
+      current.className = 'space-current'; current.textContent = 'Tu es ici'; link.append(current);
+    }
+    link.addEventListener('click', event => {
+      dialog.close();
+      if (item.connections && onPlanning) {
+        const button = document.getElementById('connectionsButton');
+        if (button) { event.preventDefault(); button.click(); }
+      }
+    });
+    dialog.querySelector('.space-grid').append(link);
+  }
+  document.body.append(dialog);
+  const close = dialog.querySelector('.space-close');
+  trigger.addEventListener('click', () => {
+    if (dialog.open) return;
+    dialog.showModal();
+    document.body.classList.add('space-is-open');
+    close.focus();
+  });
+  close.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) {
+      const rect = dialog.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+    }
+  });
+  const grid = dialog.querySelector('.space-grid');
+  const motion = matchMedia('(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)');
+  let frame = null;
+  const reset = () => {
+    if (frame !== null) cancelAnimationFrame(frame);
+    frame = null; grid.style.removeProperty('--space-x'); grid.style.removeProperty('--space-y');
+  };
+  dialog.addEventListener('pointermove', event => {
+    if (!dialog.open || !motion.matches || event.pointerType === 'touch') return;
+    const rect = dialog.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = Math.max(-1, Math.min(1, (event.clientX - rect.left) / rect.width * 2 - 1));
+    const y = Math.max(-1, Math.min(1, (event.clientY - rect.top) / rect.height * 2 - 1));
+    if (frame !== null) cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      grid.style.setProperty('--space-x', `${-y * 3}deg`);
+      grid.style.setProperty('--space-y', `${x * 4}deg`);
+      frame = null;
+    });
+  });
+  dialog.addEventListener('pointerleave', reset);
+  dialog.addEventListener('close', () => {
+    reset(); document.body.classList.remove('space-is-open');
+    if (trigger.isConnected && !document.querySelector('dialog[open]')) trigger.focus();
+  });
+  disposeExplorer = () => {
+    reset(); dialog.remove(); document.body.classList.remove('space-is-open');
+  };
+}
+
 /** Role-specific primary navigation. Authorization remains in the data layer. */
 export function mountNavigation({ role = 'athlete', isAdmin = false } = {}) {
   document.getElementById('primaryNavigation')?.remove();
@@ -71,6 +161,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false } = {}) {
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
+  mountExplorer(nav, items, route, onPlanning);
   mountTestSessionBanner();
   if (athlete && onPlanning && location.hash === '#coachs') {
     // Consume this deep link before scheduling: a data refresh may mount the

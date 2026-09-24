@@ -26,7 +26,31 @@ function assertCleared(ui) {
   assert.equal(ui.$('gymBrand').textContent, 'Mon gym'); assert.equal(ui.$('gymAddress').textContent, '');
   assert.equal(ui.$('userRows').children.length, 0); assert.equal(ui.$('createTestButton').disabled, true); assert.equal(ui.$('refreshButton').disabled, true);
   assert.equal(ui.$('adminError').textContent, ''); assert.equal(ui.$('toast').textContent, '');
+  assert.equal(ui.$('testAccountError').textContent, ''); assert.equal(ui.$('createTestButton').hasAttribute('aria-busy'), false);
 }
+
+test('test account failures stay beside the test button while member refreshes complete', async () => {
+  const creation = deferred(), members = deferred();
+  const ui = await surface({ invoke: body => body.action === 'athlete_test_session' ? creation.promise : members.promise });
+  try {
+    ui.$('createTestButton').click(); await settle();
+    assert.equal(ui.$('createTestButton').disabled, true);
+    assert.equal(ui.$('createTestButton').getAttribute('aria-busy'), 'true');
+    assert.match(ui.$('createTestButton').textContent, /Ouverture/);
+    ui.$('createTestButton').dispatchEvent(new ui.window.Event('click')); await settle();
+    assert.equal(ui.calls.filter(call => call === 'athlete_test_session').length, 1);
+    creation.resolve({ data: null, error: { message: 'Création du compte impossible.' } }); await settle();
+    members.resolve(ok({ users: [person('Membre')] })); await settle();
+    ui.$('refreshButton').click(); await settle();
+    assert.equal(ui.$('testAccountError').textContent, 'Création du compte impossible.');
+    assert.equal(ui.$('testAccountError').classList.contains('hidden'), false);
+    assert.equal(ui.$('adminError').textContent, '');
+    assert.equal(ui.$('createTestButton').disabled, false);
+    assert.equal(ui.$('createTestButton').hasAttribute('aria-busy'), false);
+    assert.equal(ui.$('createTestButton').textContent, 'Passer en mode athlète de test');
+    ui.emit('SIGNED_OUT'); assertCleared(ui);
+  } finally { await ui.close(); }
+});
 
 test('sign-out invalidates an initialization paused at session, profile or gym', async () => {
   for (const stage of ['session', 'profile', 'gym']) {

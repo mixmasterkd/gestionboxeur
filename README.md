@@ -1,6 +1,6 @@
 # gestionboxeur
 
-Gestion des boxeurs, listes combat/sparring et calendrier partagé entre athlète et coachs. Interface sportive ivoire, graphite et bleu ciel, avec un dessin vectoriel original, le nom du gym dans l'en-tête et aucune initiale du projet utilisée comme logo. La navigation est latérale sur ordinateur et placée en bas sur téléphone. Les couleurs des zones d'effort conservent leur signification.
+Gestion des boxeurs, listes combat/sparring et calendrier partagé entre athlète et coachs. Interface sportive vert profond, ivoire et citron, avec le nom du gym dans l'en-tête. La navigation est latérale sur ordinateur et placée en bas sur téléphone. **Explorer** ouvre une carte des rubriques en perspective, avec un léger mouvement au pointeur sur ordinateur et de grandes cartes verticales sur téléphone. Les liens habituels restent disponibles. Les effets respectent la préférence de réduction des animations; aucune bibliothèque 3D, police distante ou boucle d'animation permanente n'est ajoutée. Les couleurs des zones d'effort conservent leur signification.
 
 Le nom technique du dépôt reste **gestionboxeur**. Le nom du gym demeure une donnée personnalisable. Le projet de référence est ce dossier `gestionboxeur/`; les anciennes pages et copies de scripts dans le dossier parent ne font pas partie de la construction Vite.
 
@@ -35,7 +35,7 @@ npm run preview
 
 - `check` vérifie la syntaxe JavaScript, les identifiants HTML, les dialogues accessibles et les balises mobiles.
 - `test` vérifie les dates, les calculs de blocs, les parcours d'interface et les protections entre comptes.
-- `build` produit le site statique dans `dist/`; `preview` permet de consulter cette construction localement.
+- `build` produit le site statique dans `dist/` puis vérifie les styles compilés des cinq pages à 375 et 1280 px; `preview` permet de consulter cette construction localement. Chaque famille de pages possède une entrée CSS ordonnée (`account-page.css`, `planning-page.css`, `roster-page.css`) pour empêcher l'extraction des styles partagés de remettre les anciennes règles après le thème.
 
 ## Parcours
 

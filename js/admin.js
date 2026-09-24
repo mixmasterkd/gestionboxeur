@@ -22,6 +22,10 @@ function showError(text = '') {
   $('adminError').textContent = text;
   $('adminError').classList.toggle('hidden', !text);
 }
+function showTestError(text = '') {
+  $('testAccountError').textContent = text;
+  $('testAccountError').classList.toggle('hidden', !text);
+}
 async function callAdmin(body) {
   if (!authorized) throw new Error('Accès administrateur requis.');
   const { data, error } = await client.functions.invoke('admin-users', { body });
@@ -117,13 +121,21 @@ async function createTestUser() {
   if (!authorized || $('createTestButton').disabled) return;
   const account = accountGeneration, userId = currentUserId;
   $('createTestButton').disabled = true;
-  showError();
+  $('createTestButton').textContent = 'Ouverture du compte de test…';
+  $('createTestButton').setAttribute('aria-busy', 'true');
+  showTestError();
   try {
     const data = await callAdmin({ action: 'athlete_test_session' });
     if (!activeAccount(account, userId)) return;
     await beginTestSession(data, userId, () => activeAccount(account, userId));
-  } catch (error) { if (activeAccount(account, userId)) showError(/Action inconnue|Function not found/i.test(error.message || '') ? 'Le mode athlète de test sera disponible après la mise à jour du service d’administration.' : error.message); }
-  finally { if (account === accountGeneration) $('createTestButton').disabled = !authorized; }
+  } catch (error) { if (activeAccount(account, userId)) showTestError(/Action inconnue|Function not found/i.test(error.message || '') ? 'Le mode athlète de test sera disponible après la mise à jour du service d’administration.' : error.message); }
+  finally {
+    if (account === accountGeneration) {
+      $('createTestButton').disabled = !authorized;
+      $('createTestButton').textContent = 'Passer en mode athlète de test';
+      $('createTestButton').removeAttribute('aria-busy');
+    }
+  }
 }
 async function loadGyms() {
   if (!authorized) return;
@@ -161,6 +173,8 @@ function clearPrivateState() {
   $('userRows').replaceChildren();
   $('gymBrand').textContent = 'Mon gym'; $('gymAddress').textContent = ''; document.title = 'Administration';
   $('createTestButton').disabled = true; $('refreshButton').disabled = true;
+  $('createTestButton').textContent = 'Passer en mode athlète de test';
+  $('createTestButton').removeAttribute('aria-busy'); showTestError();
   $('saveAdminGymButton').disabled = true;$('gymDirectory').replaceChildren();resetGymForm();$('gymError').textContent='';$('gymError').classList.add('hidden');
   $('emptyState').classList.add('hidden'); showError();
   clearTimeout(timer); $('toast').textContent = ''; $('toast').classList.add('hidden');

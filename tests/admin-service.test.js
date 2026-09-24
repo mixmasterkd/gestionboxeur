@@ -11,7 +11,12 @@ function service({admin=true,validJwt=true,mapping=true,testAdmin=false,owner=ad
   const testUser={id:testId,email:`athlete-test-${adminId}@gestionboxeur.test`,app_metadata:{test_admin_id:owner,is_test_athlete:true}};
   const database={auth:{async getUser(token){calls.push(['verify-jwt',token]);return {data:{user:validJwt?{id:adminId,user_metadata:{full_name:'Admin'}}:null},error:validJwt?null:{message:'invalid'}};},admin:{
     async getUserById(id){calls.push(['get-user',id]);return {data:{user:testUser},error:null};},
-    async createUser(payload){calls.push(['create-user',payload]);return {data:{user:testUser},error:null};},
+    async createUser(payload){
+      calls.push(['create-user',payload]);
+      // Match the Auth API limit so an invalid generated password cannot pass locally.
+      if(new TextEncoder().encode(payload.password).length>72)return {data:{user:null},error:{message:'Password cannot be longer than 72 characters'}};
+      return {data:{user:testUser},error:null};
+    },
     async generateLink(payload){calls.push(['generate-link',payload]);return {data:{properties:{hashed_token:'single-use-token'}},error:null};},
     async deleteUser(id){calls.push(['delete-user',id]);return {error:null};},
   },async resetPasswordForEmail(email,options){calls.push(['reset-email',email,options]);return {error:null};}},
@@ -35,7 +40,7 @@ test('test session ignores caller targets and produces only dedicated athlete to
 });
 test('test provisioning is athlete-only and never returns its random password',options,async()=>{
   const api=service({mapping:false});const response=await api.request({action:'athlete_test_session'});const body=await response.json();
-  assert.equal(response.status,200);const created=api.calls.find(c=>c[0]==='create-user')[1];assert.equal(created.user_metadata.account_type,'athlete');assert.equal(created.user_metadata.birth_date,'2000-01-01');assert.equal(created.app_metadata.test_admin_id,adminId);assert.equal(created.app_metadata.is_test_athlete,true);assert.ok(created.password.length>60);assert.equal(body.password,undefined);
+  assert.equal(response.status,200);const created=api.calls.find(c=>c[0]==='create-user')[1];assert.equal(created.user_metadata.account_type,'athlete');assert.equal(created.user_metadata.birth_date,'2000-01-01');assert.equal(created.app_metadata.test_admin_id,adminId);assert.equal(created.app_metadata.is_test_athlete,true);assert.ok(created.password.length>60);assert.ok(new TextEncoder().encode(created.password).length<=72);assert.equal(body.password,undefined);
 });
 test('wrong owner or admin-privileged account cannot serve as test athlete',options,async()=>{
   for(const config of [{owner:'another-admin'},{testAdmin:true}]){

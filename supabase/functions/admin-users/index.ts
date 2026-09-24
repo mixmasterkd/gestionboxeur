@@ -92,7 +92,8 @@ Deno.serve(async (request) => {
     const email = `athlete-test-${user.id}@gestionboxeur.test`;
     if (!testUserId) {
       const { data: created, error: createError } = await service.auth.admin.createUser({
-        email, password: `${crypto.randomUUID()}-${crypto.randomUUID()}!`, email_confirm: true,
+        // Keep both UUIDs' entropy, within Auth's 72-byte password limit (67 ASCII bytes).
+        email, password: `${crypto.randomUUID().replaceAll("-", "")}${crypto.randomUUID().replaceAll("-", "")}aA!`, email_confirm: true,
         app_metadata: { is_test_athlete: true, test_admin_id: user.id },
         user_metadata: { full_name: "Athlète test", first_name: "Athlète", last_name: "test", account_type: "athlete", birth_date: "2000-01-01", sex: "M", weight_kg: 70, weight_unit: "kg", fights: 0, wins: 0, losses: 0 },
       });

@@ -125,3 +125,62 @@ test('the coaches deep link opens once and preserves the preview and selected at
     assert.equal(ui.window.location.hash, '');
   } finally { ui.window.happyDOM.abort(); }
 });
+
+test('spatial navigation opens as a named dialog and closes back to its trigger', () => {
+  const ui = navigation('https://example.test/boxing/admin/');
+  try {
+    ui.mount({ role: 'coach', isAdmin: true });
+    const doc = ui.window.document, trigger = doc.querySelector('.nav-explore'), dialog = doc.querySelector('#spaceNavigation');
+    assert.equal(trigger.getAttribute('aria-controls'), dialog.id);
+    assert.equal(trigger.getAttribute('aria-haspopup'), 'dialog');
+    assert.ok(doc.getElementById(dialog.getAttribute('aria-labelledby')));
+    assert.equal(dialog.open, false);
+    trigger.click();
+    assert.equal(dialog.open, true);
+    assert.equal(doc.body.classList.contains('space-is-open'), true);
+    assert.equal(doc.activeElement, dialog.querySelector('.space-close'));
+    assert.equal(dialog.querySelectorAll('.space-card').length, 4);
+    assert.equal(dialog.querySelector('.is-current').href, 'https://example.test/boxing/admin/');
+    dialog.querySelector('.space-close').click();
+    assert.equal(dialog.open, false);
+    assert.equal(doc.body.classList.contains('space-is-open'), false);
+    assert.equal(doc.activeElement, trigger);
+  } finally { ui.window.happyDOM.abort(); }
+});
+
+test('spatial athlete map respects routes and opens coaches without leaving the preview', () => {
+  const ui = navigation('https://example.test/boxing/planning.html?demo=athlete');
+  try {
+    const doc = ui.window.document;
+    const coaches = doc.createElement('dialog');
+    doc.body.append(coaches);
+    const button = doc.createElement('button'); button.id = 'connectionsButton';
+    button.onclick = () => coaches.showModal(); doc.body.append(button);
+    ui.mount({ role: 'athlete' });
+    const dialog = doc.querySelector('#spaceNavigation');
+    const links = [...dialog.querySelectorAll('.space-card')];
+    assert.equal(links.length, 3);
+    assert.equal(links.some(link => link.textContent.includes('Administration')), false);
+    assert.equal(links[0].href, 'https://example.test/boxing/planning.html?demo=athlete');
+    doc.querySelector('.nav-explore').click(); links[1].click();
+    assert.equal(dialog.open, false);
+    assert.equal(coaches.open, true);
+    assert.equal(ui.window.location.pathname, '/boxing/planning.html');
+    assert.equal(ui.window.location.search, '?demo=athlete');
+  } finally { ui.window.happyDOM.abort(); }
+});
+
+test('refreshing navigation disposes the old spatial map and releases the scroll lock', () => {
+  const ui = navigation('https://example.test/boxing/planning.html');
+  try {
+    const doc = ui.window.document;
+    ui.mount({ role: 'coach', isAdmin: true }); doc.querySelector('.nav-explore').click();
+    ui.mount({ role: 'athlete' });
+    assert.equal(doc.querySelectorAll('#spaceNavigation').length, 1);
+    assert.equal(doc.querySelectorAll('.nav-explore').length, 1);
+    assert.equal(doc.body.classList.contains('space-is-open'), false);
+    assert.equal(doc.querySelector('#spaceNavigation').open, false);
+    assert.equal(doc.querySelector('#spaceNavigation').textContent.includes('Administration'), false);
+    doc.querySelector('.nav-explore').click(); assert.equal(doc.querySelector('#spaceNavigation').open, true);
+  } finally { ui.window.happyDOM.abort(); }
+});
