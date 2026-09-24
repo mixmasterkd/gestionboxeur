@@ -198,3 +198,4 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - En-tête : boutons uniformes de 44 px, Déconnexion avec icône et libellé accessible, présentation compacte sur téléphone; logo et gym alignés avec les commandes.
 - Journal : bascule exclusive Actifs / Archives et recherche alignée, conservant les vues Kanban et Chronologie et les restrictions de déplacement des archives.
 - Validation : suite de 296 tests réussie, puis test supplémentaire serveur réussi (297 au total); structure et build contrôlés. Vérification mobile au navigateur, sans inscription réelle ni envoi de courriel. Migration signup_contact_details appliquée; avis de sécurité historiques inchangés.
+- Publication réussie : application `d8da76b`, workflow `36056248915`; 297 tests validés par la publication. Contrôle visuel complémentaire à 1280 px dans les deux thèmes; inscription et en-tête à 375 px sans débordement.
