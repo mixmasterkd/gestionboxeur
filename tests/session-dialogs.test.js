@@ -282,4 +282,19 @@ test('late model save cannot disable or label another editor and ignores duplica
   keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Garder comme modèle');assert.ok(keep);assert.equal(keep.disabled,false);assert.equal(document.querySelector('[name="title"]').value,'Nouveau');
 });
 
+test('one library inserts blocks or replaces a session while keeping date and header lock',async()=>{
+ let options,payload;
+ const {ui}=fixture({openLibrary:value=>{options=value;},api:{saveSession:async value=>{payload=value;}}});
+ ui.editSession(null,'2026-09-23');
+ const library=document.querySelector('.session-library-button');assert.ok(library.querySelector('svg'));assert.equal(document.querySelectorAll('.session-library-access button').length,1);
+ assert.ok(document.querySelector('.session-basics [name=is_locked]'));assert.ok(document.querySelector('.session-basics [name=title]'));assert.equal(document.querySelector('.dialog-body > .lock-control'),null);
+ library.click();assert.equal(options.kind,undefined);
+ const step={id:'first',kind:'step',type:'shadow',title:'Shadow',duration_seconds:60,children:[]};
+ await options.onSelect({title:'Séance de base',sport:'boxing',kind:'session',blocks:[step]});
+ assert.equal(document.querySelector('[name=title]').value,'Séance de base');
+ await options.onSelect({title:'Bloc',sport:'boxing',kind:'block',blocks:[{...step,id:'second',type:'bag',title:'Sac',duration_seconds:120}]});
+ document.querySelector('[name=is_locked]').checked=true;submit('sessionDialog');await tick();await tick();
+ assert.equal(payload.blocks.length,2);assert.deepEqual(payload.blocks.map(b=>b.type),['shadow','bag']);assert.equal(payload.date,'2026-09-23');assert.equal(payload.is_locked,true);
+});
+
 test.after(async () => { await window.happyDOM.abort(); });

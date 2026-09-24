@@ -1,4 +1,4 @@
-import { BLOCK_TYPES, ZONE_COLORS, summarizeBlocks, formatDuration } from './domain.js';
+import { BLOCK_TYPES, blockName, ZONE_COLORS, summarizeBlocks, formatDuration } from './domain.js';
 
 const typeNames = new Map(BLOCK_TYPES.map(type => [type.id, type.label]));
 const typeColors = {
@@ -24,7 +24,7 @@ export function sessionChartData(session, { summary = summarizeBlocks(session.bl
       seconds: segment.duration_seconds, zone, type,
       key: running ? String(zone) : type,
       color: running ? ZONE_COLORS[zone] || '#aeb6c0' : typeColors[type],
-      label: `${segment.title || typeNames.get(segment.type) || 'Bloc'}${segment.round ? ` · round ${segment.round}` : ''}`,
+      label: `${segment.phase === 'rest' ? 'Repos' : blockName(segment)}${segment.round ? ` · round ${segment.round}` : ''}`,
       name,
     };
   });

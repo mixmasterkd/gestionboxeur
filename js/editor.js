@@ -1,5 +1,5 @@
 import Sortable from 'sortablejs';
-import { BLOCK_TYPES, ZONE_COLORS, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
+import { BLOCK_TYPES, blockName, ZONE_COLORS, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
 
 const copy = value => structuredClone(value);
 const typeLabel = type => BLOCK_TYPES.find(item => item.id === type)?.label || type || 'Bloc';
@@ -343,7 +343,7 @@ function dosage(block) {
 }
 function readonlyBlock(block) {
   const card = element('article', `workout-step${block.kind === 'repeat' ? ' workout-repeat' : ''}`);
-  const head = element('div', 'workout-step-head'); head.append(element('h4', '', block.title || (block.kind === 'repeat' ? 'Répétition' : typeLabel(block.type))));
+  const head = element('div', 'workout-step-head'); head.append(element('h4', '', blockName(block)));
   if (block.kind === 'repeat') head.append(element('span', 'workout-badge', `× ${block.repeat_count}`));
   else if (block.zone) { const zone = element('span', 'workout-badge workout-zone', `Z${block.zone}`); zone.style.setProperty('--zone-color', ZONE_COLORS[block.zone] || ZONE_COLORS[1]); head.append(zone); }
   card.append(head);
@@ -397,7 +397,7 @@ export function renderChart(summary, axis = summary.hasTime ? 'time' : 'distance
     const h = height * (segment.zone || 0.45) / maxZone;
     const rect = svgNode('rect', { x, y: bottom - h, width: Math.max(0.1, w - Math.min(0.8, w / 4)), height: h, rx: Math.min(2, w / 5), fill: ZONE_COLORS[segment.zone] || '#b8b9b4' });
     const index = bars.length;
-    const description = `${index + 1}. ${segment.title || typeLabel(segment.type)} · ${format(segment[key])} · ${segment.zone ? `Z${segment.zone}` : 'zone non précisée'}`;
+    const description = `${index + 1}. ${blockName(segment)} · ${format(segment[key])} · ${segment.zone ? `Z${segment.zone}` : 'zone non précisée'}`;
     rect.setAttribute('tabindex', index === 0 ? '0' : '-1');rect.setAttribute('role', 'button');rect.setAttribute('aria-label', description);
     const activate = () => { detail.textContent = description;bars.forEach(bar => {bar.setAttribute('tabindex', bar === rect ? '0' : '-1');bar.classList.toggle('is-active', bar === rect);}); };
     rect.addEventListener('pointerenter', activate);rect.addEventListener('click', activate);rect.addEventListener('focus', activate);

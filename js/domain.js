@@ -14,6 +14,10 @@ export const BLOCK_TYPE_GROUPS = [
   { label: 'Autres', types: [['recovery', 'Récupération'], ['other', 'Autre']] },
 ];
 export const BLOCK_TYPES = BLOCK_TYPE_GROUPS.flatMap(group => group.types.map(([id, label]) => ({ id, label })));
+export function blockName(block) {
+  if (block.kind === 'repeat') return block.repeat_unit === 'rounds' ? 'Rounds' : 'Répétition';
+  return block.type === 'other' ? block.title || 'Autre' : BLOCK_TYPES.find(type => type.id === block.type)?.label || block.type || 'Étape';
+}
 export const ZONE_COLORS = { 1: '#9298a1', 2: '#3b82f6', 3: '#25a567', 4: '#ed9427', 5: '#e54b4b', 6: '#9b60db', 7: '#442c65' };
 export const WORKOUT_LIMITS = Object.freeze({ depth: 4, blocks: 200, siblings: 100, repeat: 100, segments: 10000 });
 const finitePositive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
@@ -110,16 +114,16 @@ export function flattenBlocks(blocks) {
     if (result.length >= WORKOUT_LIMITS.segments) throw new RangeError(`La séance dépasse ${WORKOUT_LIMITS.segments.toLocaleString('fr')} intervalles développés.`);
     result.push(segment);
   }
-  function visit(list) {
+  function visit(list, repeatedRound = null) {
     for (const block of list) {
       if (block.kind === 'repeat') {
-        for (let iteration = 0; iteration < block.repeat_count; iteration++) visit(block.children);
+        for (let iteration = 0; iteration < block.repeat_count; iteration++) visit(block.children, block.repeat_unit === 'rounds' ? iteration + 1 : repeatedRound);
       } else if (block.rounds && finitePositive(block.work_seconds)) {
         for (let round = 0; round < block.rounds; round++) {
           push({ ...block, children: [], duration_seconds: block.work_seconds, distance_m: round === 0 ? (block.distance_m || 0) : 0, phase: 'work', round: round + 1 });
           if (round < block.rounds - 1 && finitePositive(block.rest_seconds)) push({ ...block, children: [], title: 'Repos', duration_seconds: block.rest_seconds, distance_m: 0, zone: 1, intensity: 'easy', phase: 'rest', round: round + 1 });
         }
-      } else push({ ...block, children: [], duration_seconds: block.duration_seconds || 0, distance_m: block.distance_m || 0, phase: 'step' });
+      } else push({ ...block, children: [], duration_seconds: block.duration_seconds || 0, distance_m: block.distance_m || 0, phase: 'step', ...(repeatedRound == null ? {} : {round:repeatedRound}) });
     }
   }
   visit(blocks);

@@ -85,6 +85,8 @@ function parseStep(text, context) {
   let zone = null;
   const zoneMatch = /\s*@\s*Z\s*(\d+)\s*$/i.exec(text);
   if (zoneMatch) { zone = Number(zoneMatch[1]); text = text.slice(0, zoneMatch.index).trimEnd(); }
+  const roundGroup = /^(\d+)\s*rounds?(?:\s*:\s*(.+))?$/i.exec(text);
+  if (roundGroup) return {...makeBlock('repeat'), repeat_count:Number(roundGroup[1]), repeat_unit:'rounds', title:roundGroup[2]?.trim() || 'Répétition', description, zone};
   const repeat = /^(\d+)\s*[x×](?:\s*:\s*(.+))?$/i.exec(text);
   if (repeat) return { ...makeBlock('repeat'), repeat_count: Number(repeat[1]), title: repeat[2]?.trim() || 'Répétition', description, zone };
   const block = { ...makeBlock(context.type), title: context.title, description, zone };
@@ -203,7 +205,8 @@ export function serializeWorkoutText(blocks) {
       const repeat = block.kind === 'repeat';
       let baseline = makeBlock(repeat ? 'repeat' : 'other'), line;
       if (repeat) {
-        baseline.repeat_count = block.repeat_count; line = `${block.repeat_count}x`;
+        baseline.repeat_count = block.repeat_count; line = block.repeat_unit === 'rounds' ? `${block.repeat_count} rounds` : `${block.repeat_count}x`;
+        if (block.repeat_unit === 'rounds') baseline.repeat_unit = 'rounds';
         if (safeText(block.title) && block.title && !/\s+-\s*/.test(block.title) && !/@\s*Z\s*\d+\s*$/i.test(block.title)) { baseline.title = block.title; if (block.title !== 'Répétition') line += ` : ${block.title}`; }
       } else {
         const section = canonicalHeading(block);

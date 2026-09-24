@@ -46,7 +46,7 @@ test('a pyramid repeats every line in order with an explicit final recovery', ()
   const rows=[...mount.querySelectorAll('.pe-sequence-row')];
   ['2m','1m','30s','3m'].forEach((value,i)=>change(rows[i].querySelector('[data-field="duration"]'),value));
   ['2','3','4',''].forEach((value,i)=>change(rows[i].querySelector('[data-field="zone"]'),value));
-  change(rows[3].querySelector('[data-field="phase"]'),'recovery');
+  rows[3].querySelector('[data-field="recovery"]').click();
   click(mount,'apply-mini');
   const repeat=editor.getValue()[0];
   assert.equal(repeat.repeat_count,5);assert.equal(repeat.zone,null);
@@ -58,7 +58,7 @@ test('a pyramid repeats every line in order with an explicit final recovery', ()
 });
 
 test('mini form errors and cancellation never silently commit a partial block', () => {
-  const { editor, mount, changes } = fixture(); click(mount, 'add-rounds'); fill(mount, 'rounds', '2.5'); click(mount, 'apply-mini');
+  const { editor, mount, changes } = fixture({sport:'running'}); click(mount, 'add-rounds'); fill(mount, 'repeat_count', '2.5'); click(mount, 'apply-mini');
   assert.match(mount.querySelector('.pe-mini .form-error').textContent, /entier/);
   assert.equal(changes(), 0); assert.throws(() => editor.getValue());
   [...mount.querySelectorAll('.pe-mini button')].find(b => b.textContent === 'Annuler').click();
@@ -92,10 +92,10 @@ test('mode switches preserve rich block data and changing sport does not rewrite
 });
 
 test('pending mini input survives sport change and prevents appending a template unnoticed', () => {
-  const { editor, mount } = fixture({ sport: 'running' }); click(mount, 'add-step'); fill(mount, 'title', 'Ma saisie');
+  const { editor, mount } = fixture({ sport: 'running' }); click(mount, 'add-step'); change(mount.querySelector('[name=block_type]'),'other'); fill(mount, 'title', 'Ma saisie');
   editor.setSport('boxing'); assert.equal(mount.querySelector('[data-field="title"]').value, 'Ma saisie');
   assert.throws(() => editor.appendBlock(makeBlock('bag')), /Valide ou annule/);
-  click(mount, 'apply-mini'); assert.equal(editor.getValue()[0].title, 'Ma saisie'); assert.equal(editor.getValue()[0].type, 'run');
+  click(mount, 'apply-mini'); assert.equal(editor.getValue()[0].title, 'Ma saisie'); assert.equal(editor.getValue()[0].type, 'other');
 });
 
 test('move and duplicate keep values while copies get independent IDs and repeats cannot be left empty', () => {
@@ -217,4 +217,28 @@ test('new editor opens with blank text on the left and hides movement repetition
  test('repeat changes preserve empty names, zero doses and unknown fields in existing steps',()=>{
  const repeat={...makeBlock('repeat'),title:'',future:'keep',children:[{...makeBlock('run'),duration_seconds:0,notes:'Note',future:{x:2}}]};
  const {editor,mount}=fixture({blocks:[repeat]});click(mount,'edit');fill(mount,'repeat_count','3');click(mount,'apply-mini');assert.deepEqual(editor.getValue(),[{...repeat,repeat_count:3}]);
+});
+
+ test('step type is its visible name; only Other exposes a custom name',()=>{
+ const original={...makeBlock('shadow'),title:'Échauffement',duration_seconds:60};
+ const {editor,mount}=fixture({blocks:[original],sport:'boxing'});
+ assert.equal(mount.querySelector('.pe-line strong').textContent,'Shadow');click(mount,'edit');
+ assert.equal(mount.querySelector('[name=block_title]').closest('label').hidden,true);
+ change(mount.querySelector('[name=block_type]'),'other');assert.equal(mount.querySelector('[name=block_title]').closest('label').hidden,false);
+ fill(mount,'title','Mon exercice');click(mount,'apply-mini');assert.equal(mount.querySelector('.pe-line strong').textContent,'Mon exercice');
+ assert.equal(editor.getValue()[0].type,'other');
+});
+
+test('round and repeat buttons use the same sequence editor without effort or name fields',()=>{
+ for(const action of ['add-rounds','add-repeat']) {
+  const {editor,mount}=fixture({sport:'boxing'});click(mount,action);
+  assert.equal(mount.querySelector('[name=repeat_unit]').value,action==='add-rounds'?'rounds':'repetitions');
+  assert.equal(mount.querySelector('[data-field=phase]'),null);assert.equal(mount.querySelector('[name=block_title]'),null);assert.equal(mount.querySelector('[name=block_description]'),null);
+  fill(mount,'repeat_count','3');change(mount.querySelector('.pe-sequence-row [data-field=duration]'),'2m');click(mount,'add-repeat-line');
+  const last=mount.querySelectorAll('.pe-sequence-row')[1];last.querySelector('[data-field=recovery]').click();change(last.querySelector('[data-field=duration]'),'1m');
+  click(mount,'apply-mini');assert.equal(editor.getValue()[0].kind,'repeat');assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
+  textMode(mount);const text=mount.querySelector('.pe-text-input');if(action==='add-rounds')assert.match(text.value,/^3 rounds/);change(text,text.value);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
+  assert.equal(editor.getValue()[0].repeat_unit,action==='add-rounds'?'rounds':undefined);
+  if(action==='add-rounds')assert.deepEqual(summarizeBlocks(editor.getValue()).segments.map(b=>b.round),[1,1,2,2,3,3]);
+ }
 });

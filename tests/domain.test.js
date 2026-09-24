@@ -124,7 +124,7 @@ test('block editor creates nested blocks, keeps accessible ordering, edits doses
     const mount = document.createElement('div'); document.body.append(mount);
     const suspiciousTitle = '<img src=x onerror=alert(1)>';
     let changes = 0;
-    const editor = new BlockEditor(mount, { blocks: [step({ title: suspiciousTitle, duration_seconds: 600, zone: 1 })], onChange() { changes++; } });
+    const editor = new BlockEditor(mount, { blocks: [step({ type: 'other', title: suspiciousTitle, duration_seconds: 600, zone: 1 })], onChange() { changes++; } });
     assert.equal(mount.querySelectorAll('.be-card').length, 1);
     assert.equal(mount.querySelector('img'), null);
     mount.querySelector('[data-action="duplicate"]').click();

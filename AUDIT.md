@@ -132,3 +132,12 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Actions du calendrier dans un panneau à cellules égales, icônes discrètes et motif neutre du menu dans les deux thèmes. Logo conservé en attente de discussion.
 - Validation : 275 tests réussis; styles compilés et structure vérifiés. Pyramide réelle dans l’aperçu local : 5 × (2 min Z2 + 1 min Z3 + 30 s Z4 + 3 min récupération) = 32 min 30 s, ordre et conversion Texte/Blocs vérifiés. Formulaire contrôlé à 375 px; boutons égaux à 320 et 375 px sans débordement de page.
 - Publication réussie : application `5f8238e`, workflow `36025951635`; les 18 fichiers publics correspondent exactement à l’artefact déployé. Vérification connectée : panneau d’actions, création d’une répétition, passage en Hybride et ajout d’une deuxième ligne avec choix de type visible. Aucun enregistrement de séance réelle lors de ce contrôle.
+
+
+## 24 septembre 2026 — Simplification de l’éditeur
+
+- Choix de calendrier avec icône, recherche encadrée et sélection visible. Menu distinct du fond pointillé : dégradé graphite et lignes obliques, adapté au clair.
+- Nom visible des étapes déterminé par leur type; champ Nom uniquement pour Autre. Titres historiques conservés dans les données, avec affichage du type dans les blocs et graphiques.
+- Rounds et Répétition ouvrent le même éditeur de séquence; unité configurable et numéros de rounds transmis au graphique. Texte accepte les groupes `3 rounds` avec étapes indentées; anciennes notations conservées. Retrait du choix Effort, repos par case compacte, noms/consignes du groupe remplacés par Notes; annotations historiques préservées.
+- Encadré supérieur regroupant titre, discipline, date et verrouillage. Accès unique Bibliothèque avec icône : séances et blocs dans la même fenêtre, ajout des blocs, remplacement confirmé des séances.
+- Validation : 278 tests réussis, dont type visible, nom Autre, séquences de rounds, ordre et durées, sécurité d’affichage, bibliothèque commune et conservation du verrouillage/date. Vérifications visuelles locales à 1280, 375 et 320 px; recherche, bibliothèque, rounds et absence de débordement horizontal contrôlés.

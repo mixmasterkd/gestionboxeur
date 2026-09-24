@@ -1,5 +1,5 @@
 import Sortable from 'sortablejs';
-import { BLOCK_TYPES, BLOCK_TYPE_GROUPS, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
+import { BLOCK_TYPES, BLOCK_TYPE_GROUPS, blockName, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
 import { parseWorkoutText, serializeSessionText, parseSessionText } from './workout-text.js';
 import { el, button, field, input, textarea, select, errorBox, showError, busy } from './ui.js';
 
@@ -34,7 +34,7 @@ function copyWithIds(block) {
 }
 function depthOf(block) { return block.kind === 'repeat' && block.children.length ? 1 + Math.max(...block.children.map(depthOf)) : 1; }
 function dose(block) {
-  if (block.kind === 'repeat') return `${block.repeat_count} × la séquence ci-dessous`;
+  if (block.kind === 'repeat') return `${block.repeat_count} ${block.repeat_unit === 'rounds' ? 'rounds' : 'répétitions'} · la séquence ci-dessous`;
   const parts = [];
   if (block.rounds && block.work_seconds != null) {
     parts.push(`${block.rounds} × ${formatDuration(block.work_seconds)}`);
@@ -142,6 +142,7 @@ export class ProgramEditor {
         el('dt', {}, 'Course, Shadow, Sac…'), el('dd', {}, 'Un titre de section donne le type et le nom aux étapes qui suivent. Exemple : Course : Jog facile.'),
         el('dt', {}, '10m · 30s · 1m30s'), el('dd', {}, 'Minutes, secondes ou durée combinée. Le m signifie toujours minutes. Les durées sont prioritaires, sans distance obligatoire.'),
         el('dt', {}, '2x + lignes en retrait'), el('dd', {}, 'Répète les étapes placées dessous, avec 2 espaces au début de chaque ligne. Reviens au bord gauche pour terminer la séquence. La récupération écrite fait partie de chaque répétition, même la dernière.'),
+        el('dt', {}, '3 rounds + lignes en retrait'), el('dd', {}, 'Un bloc de rounds fonctionne comme une répétition : toutes ses lignes sont rejouées, y compris les repos ajoutés.'),
         el('dt', {}, '3 rounds 1m/1m'), el('dd', {}, '3 rounds de 1 minute de travail, avec 1 minute de repos entre les rounds, sans repos après le dernier. Écris un repos séparé si tu en veux ensuite. 3rounds est aussi accepté.'),
         el('dt', {}, '@ Z2'), el('dd', {}, 'Zone cible facultative, de Z1 à Z7. Ce n’est pas le RPE après séance.'),
         el('dt', {}, '# texte libre'), el('dd', {}, 'Les lignes précédées de # contiennent les consignes et les notes de la séance.'),
@@ -191,11 +192,11 @@ export class ProgramEditor {
     for (const block of blocks) {
       const row = el('article', { class: `pe-row${block.kind === 'repeat' ? ' pe-repeat' : ''}`, dataset: { id: block.id } });
       const handle = this.action('⠿', 'handle', block.id, 'Glisser cette étape'); handle.classList.add('pe-handle'); handle.tabIndex = -1;
-      const main = this.action('', 'edit', block.id, `Modifier ${block.title || typeLabel(block.type)}`); main.classList.add('pe-line');
-      main.append(el('strong', {}, block.title || (block.kind === 'repeat' ? 'Répétition' : typeLabel(block.type))), el('span', { class: 'pe-dose' }, dose(block)));
+      const main = this.action('', 'edit', block.id, `Modifier ${blockName(block)}`); main.classList.add('pe-line');
+      main.append(el('strong', {}, blockName(block)), el('span', { class: 'pe-dose' }, dose(block)));
       if (block.description) main.append(el('small', { class: 'pe-instructions' }, block.description));
       const actions = el('div', { class: 'pe-row-actions' });
-      const more = el('details', { class: 'pe-row-more' }, el('summary', { 'aria-label': `Actions pour ${block.title || typeLabel(block.type)}` }, '•••'));
+      const more = el('details', { class: 'pe-row-more' }, el('summary', { 'aria-label': `Actions pour ${blockName(block)}` }, '•••'));
       more.append(this.action('↑ Monter', 'up', block.id), this.action('↓ Descendre', 'down', block.id));
       more.append(this.action('Dupliquer', 'duplicate', block.id), this.action('Supprimer', 'delete', block.id));
       if (this.onSaveBlock) more.append(this.action('Garder comme bloc', 'save', block.id));
@@ -211,7 +212,7 @@ export class ProgramEditor {
   addBar(parentId = '') {
     const bar = el('div', { class: 'pe-addbar', dataset: { parent: parentId } });
     for (const [action, label] of [['add-step', '＋ Étape'], ['add-repeat', '＋ Répétition'], ['add-rounds', '＋ Rounds']]) {
-      if (action === 'add-repeat' && parentId && this.locate(parentId).depth >= WORKOUT_LIMITS.depth - 1) continue;
+      if (['add-repeat','add-rounds'].includes(action) && parentId && this.locate(parentId).depth >= WORKOUT_LIMITS.depth - 1) continue;
       bar.append(this.action(label, action, parentId));
     }
     return bar;
@@ -220,13 +221,12 @@ export class ProgramEditor {
     if (this.mini || action === 'handle') return;
     this.errors.hidden = true;
     if (action.startsWith('add-')) {
-      this.mini = { action, parentId: id || '', block: action === 'add-repeat' ? { ...makeBlock('repeat'), type: this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other') };
+      this.mini = { action, parentId: id || '', block: ['add-repeat','add-rounds'].includes(action) ? { ...makeBlock('repeat'), ...(action === 'add-rounds' ? {repeat_unit:'rounds',repeat_count:3} : {}), type: this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other') };
       if (action === 'add-step') this.mini.block.duration_seconds = 300;
-      if (action === 'add-rounds') Object.assign(this.mini.block, { rounds: 3, work_seconds: 120, rest_seconds: 60 });
-      this.render(); this.container.querySelector('.pe-mini input')?.focus(); return;
+      this.render(); [...this.container.querySelectorAll('.pe-mini input,.pe-mini select,.pe-mini textarea')].find(control=>!control.closest('[hidden]'))?.focus(); return;
     }
     const found = this.locate(id); if (!found) return;
-    if (action === 'edit') { this.mini = { action, id, block: clone(found.block) }; this.render(); this.container.querySelector('.pe-mini input')?.focus(); return; }
+    if (action === 'edit') { this.mini = { action, id, block: clone(found.block) }; this.render(); [...this.container.querySelectorAll('.pe-mini input,.pe-mini select,.pe-mini textarea')].find(control=>!control.closest('[hidden]'))?.focus(); return; }
     if (action === 'save') {
       const trigger = [...this.container.querySelectorAll('[data-action="save"]')].find(node => node.dataset.id === id);
       busy(trigger, () => this.onSaveBlock(clone(found.block))).catch(error => { if (!this.destroyed) this.showError(error.message); }); return;
@@ -251,7 +251,8 @@ export class ProgramEditor {
     const workTypes = new Set(children.filter(child => child.type !== 'recovery').map(child => child.kind === 'repeat' ? 'hybrid' : child.type));
     const initialType = workTypes.size > 1 || workTypes.has('hybrid') ? 'hybrid' : [...workTypes][0] || 'run';
     const commonType = typeSelect('repeat_type', initialType, true);
-    panel.append(el('h4', {}, draft.id ? 'Modifier la répétition' : 'Ajouter une répétition'), el('div', { class: 'pe-repeat-settings' }, field('Nombre de répétitions', count), field('Type du bloc', commonType)));
+    const unit = choose('repeat_unit', [['repetitions','Répétitions'],['rounds','Rounds']], block.repeat_unit || 'repetitions');
+    panel.append(el('h4', {}, draft.id ? 'Modifier le bloc répété' : 'Ajouter un bloc répété'), el('div', { class: 'pe-repeat-settings' }, field('Nombre', count), field('Unité', unit), field('Type du bloc', commonType)));
     const lines = el('div', { class: 'pe-sequence-lines' });
     const rows = [];
     const refresh = () => rows.forEach((row, index) => {
@@ -272,18 +273,20 @@ export class ProgramEditor {
         row.read = () => clone(source);
       } else {
         const type = typeSelect(`step_type_${source.id}`, source.type);
-        const phase = choose(`step_phase_${source.id}`, [['work', 'Effort'], ['recovery', 'Récupération']], source.type === 'recovery' ? 'recovery' : 'work');
-        const typeField = field('Type', type), phaseField = field('Effort', phase);
-        row.updateType = () => { typeField.hidden = commonType.value !== 'hybrid'; phaseField.hidden = commonType.value === 'hybrid'; };
-        type.addEventListener('change', () => { phase.value = type.value === 'recovery' ? 'recovery' : 'work'; });
-        phase.addEventListener('change', () => { type.value = phase.value === 'recovery' ? 'recovery' : commonType.value; });
+        const recovery = input(`step_recovery_${source.id}`, '', 'checkbox', {checked:source.type==='recovery',dataset:{field:'recovery'}});
+        const recoveryField = el('label',{class:'pe-recovery'},recovery,el('span',{},'Repos'));
+        const typeField = field('Type', type);
+        row.element.querySelector('.pe-sequence-head').insertBefore(recoveryField,row.element.querySelector('.pe-sequence-actions'));
+        row.updateType = () => { typeField.hidden = commonType.value !== 'hybrid'; recoveryField.hidden = commonType.value === 'hybrid'; };
+        type.addEventListener('change', () => { recovery.checked = type.value === 'recovery'; });
+        recovery.addEventListener('change', () => { type.value = recovery.checked ? 'recovery' : commonType.value; });
         const originalFormat = source.rounds && source.work_seconds != null ? 'rounds' : source.distance_m != null ? source.duration_seconds != null ? 'mixed' : 'distance' : source.duration_seconds != null ? 'time' : 'free';
         const isNew = !block.children.includes(source);
-        const format = choose(`step_format_${source.id}`, [['time', 'Durée'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['rounds', 'Rounds'], ['free', 'Consignes seules']], isNew ? 'time' : originalFormat);
+        const format = choose(`step_format_${source.id}`, [['time', 'Durée'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['rounds', 'Rounds'], ['free', 'Consignes seules']].filter(([value]) => value !== 'rounds' || originalFormat === 'rounds'), isNew ? 'time' : originalFormat);
         const time = input(`step_duration_${source.id}`, secondsText(source.duration_seconds), 'text', { dataset: { field: 'duration' } });
         const meters = input(`step_distance_${source.id}`, source.distance_m, 'text', { inputMode: 'decimal', dataset: { field: 'distance' } });
         const zone = choose(`step_zone_${source.id}`, [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], source.zone == null ? '' : String(source.zone));
-        zone.dataset.field = 'zone'; format.dataset.field = 'format'; type.dataset.field = 'type'; phase.dataset.field = 'phase';
+        zone.dataset.field = 'zone'; format.dataset.field = 'format'; type.dataset.field = 'type';
         const timeField = field('Durée', time), metersField = field('Distance en mètres', meters);
         const rounds = input(`step_rounds_${source.id}`, source.rounds ?? 3, 'number', { min: 1, max: 10000, step: 1 });
         const work = input(`step_work_${source.id}`, secondsText(source.work_seconds ?? 120));
@@ -292,14 +295,19 @@ export class ProgramEditor {
         const drawFormat = () => { timeField.hidden = !['time', 'mixed'].includes(format.value); metersField.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
         format.addEventListener('change', drawFormat); drawFormat();
         const title = input(`step_title_${source.id}`, source.title, 'text', { maxLength: 500 });
-        const description = textarea(`step_description_${source.id}`, source.description, { rows: 2, maxLength: 10000 });
-        const notes = textarea(`step_notes_${source.id}`, source.notes, { rows: 2, maxLength: 10000 });
-        row.element.append(el('div', { class: 'pe-sequence-fields' }, typeField, phaseField, field('Mesure', format), timeField, metersField, field('Zone d’effort', zone)), roundFields,
-          el('details', { class: 'pe-line-options' }, el('summary', {}, 'Nom et consignes'), field('Nom', title), field('Consigne', description), field('Notes', notes)));
+        const originalNotes = [source.description,source.notes].filter(Boolean).join('\n\n');
+        const notes = textarea(`step_notes_${source.id}`, originalNotes, { rows: 2, maxLength: Math.max(10000,originalNotes.length) });
+        const nameField = field('Nom',title);
+        const updateName = () => {nameField.hidden = (commonType.value === 'hybrid' ? type.value : recovery.checked ? 'recovery' : commonType.value) !== 'other';};
+        const updateType = row.updateType; row.updateType = () => {updateType();updateName();};
+        type.addEventListener('change',updateName);recovery.addEventListener('change',updateName);
+        row.element.append(el('div', { class: 'pe-sequence-fields' }, typeField, nameField, field('Mesure', format), timeField, metersField, field('Zone d’effort', zone)), roundFields,
+          el('details', { class: 'pe-line-options' }, el('summary', {}, 'Notes'), field('Notes', notes)));
         row.read = () => {
-          const next = { ...clone(source), type: commonType.value === 'hybrid' ? type.value : phase.value === 'recovery' ? 'recovery' : commonType.value, zone: zone.value ? Number(zone.value) : null, title: title.value.trim(), description: description.value.trim(), notes: notes.value };
+          const next = { ...clone(source), type: commonType.value === 'hybrid' ? type.value : recovery.checked ? 'recovery' : commonType.value, zone: zone.value ? Number(zone.value) : null, title: title.value.trim(), ...(notes.value === originalNotes ? {} : {description:'',notes:notes.value}) };
           if (!next.type) throw new Error('Choisis le type de chaque ligne du bloc hybride.');
-          if (isNew && !next.title || next.type !== source.type && next.title === typeLabel(source.type)) next.title = typeLabel(next.type);
+          if (next.type === 'other' && !next.title) throw new Error('Indique le nom de l’étape Autre.');
+          if (next.type !== 'other' && (isNew || next.type !== source.type)) next.title = typeLabel(next.type);
           if (format.value !== originalFormat) Object.assign(next, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
           if (['time', 'mixed'].includes(format.value)) next.duration_seconds = duration(time.value, 'Durée', source.duration_seconds === 0);
           if (['distance', 'mixed'].includes(format.value)) next.distance_m = numeric(meters.value, 'Distance', { min: source.distance_m === 0 ? 0 : .001, max: 1e6, integer: false });
@@ -318,15 +326,15 @@ export class ProgramEditor {
       const row = addRow(makeBlock(commonType.value === 'hybrid' ? '' : commonType.value));
       row.element.querySelector('input')?.focus();
     }, 'pe-button', { dataset: { action: 'add-repeat-line' } });
-    const title = input('block_title', block.title, 'text', { maxLength: 500, dataset: { field: 'title' } });
-    const description = textarea('block_description', block.description, { rows: 2, maxLength: 10000 });
-    const notes = textarea('block_notes', block.notes, { rows: 2, maxLength: 10000 });
-    panel.append(lines, add, el('p', { class: 'pe-hint' }, 'Toutes les lignes sont parcourues dans l’ordre, puis le bloc recommence. Une récupération ajoutée fait partie de chaque répétition.'),
-      el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Nom et consignes du bloc'), field('Nom', title), field('Consigne', description), field('Notes', notes)));
+    const originalNotes = [block.description,block.notes].filter(Boolean).join('\n\n');
+    const notes = textarea('block_notes', originalNotes, { rows: 2, maxLength: Math.max(10000,originalNotes.length) });
+    panel.append(lines, add, el('p', { class: 'pe-hint' }, 'Le bloc entier se répète, repos inclus.'),
+      el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Notes du bloc'), field('Notes', notes)));
     const apply = () => {
       try {
         if (!commonType.value) throw new Error('Choisis le type du bloc.');
-        const next = { ...clone(block), title: title.value.trim() || (draft.id ? '' : 'Répétition'), description: description.value.trim(), notes: notes.value, repeat_count: numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat }), children: rows.map((row, index) => { try { return row.read(); } catch (failure) { throw new Error(`Étape ${index + 1} : ${failure.message}`); } }) };
+        const next = { ...clone(block), ...(notes.value === originalNotes ? {} : {description:'',notes:notes.value}), repeat_count: numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat }), children: rows.map((row, index) => { try { return row.read(); } catch (failure) { throw new Error(`Étape ${index + 1} : ${failure.message}`); } }) };
+        if (unit.value !== (block.repeat_unit || 'repetitions')) next.repeat_unit = unit.value;
         // The group carries no inherited dose or zone; each child is explicit.
         if (!draft.id) Object.assign(next, { type: 'other', zone: null, intensity: null });
         this.commitMini(next); this.mini = null; this.render(); this.emit();
@@ -349,9 +357,10 @@ export class ProgramEditor {
     const draft = this.mini, block = draft.block;
     const panel = el('section', { class: 'pe-mini', 'aria-label': draft.id ? 'Modifier une étape' : 'Ajouter une étape' });
     const title = input('block_title', block.title, 'text', { maxLength: 500, dataset: { field: 'title' } });
-    panel.append(el('h4', {}, draft.id ? 'Modifier cette ligne' : 'Ajouter une étape'), field('Nom', title));
+    panel.append(el('h4', {}, draft.id ? 'Modifier cette ligne' : 'Ajouter une étape'));
+    const nameField = field('Nom',title);
     const originalFormat = block.rounds && block.work_seconds != null ? 'rounds' : block.distance_m != null ? block.duration_seconds != null ? 'mixed' : 'distance' : block.duration_seconds != null ? 'time' : 'free';
-    const format = choose('block_format', [['time', 'Durée'], ['rounds', 'Rounds'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['free', 'Consignes seules']], originalFormat);
+    const format = choose('block_format', [['time', 'Durée'], ['rounds', 'Rounds'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['free', 'Consignes seules']].filter(([value]) => value !== 'rounds' || originalFormat === 'rounds'), originalFormat);
     const minutes = input('block_duration', secondsText(block.duration_seconds), 'text', { dataset: { field: 'duration' } });
     const rounds = input('block_rounds', block.rounds ?? 3, 'text', { inputMode: 'numeric', dataset: { field: 'rounds' } });
     const work = input('block_work', secondsText(block.work_seconds ?? 120), 'text', { dataset: { field: 'work' } });
@@ -368,7 +377,8 @@ export class ProgramEditor {
     const zone = choose('block_zone', [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], block.zone == null ? '' : String(block.zone));
     const notes = textarea('block_notes', block.notes || '', { maxLength: 10000 });
     const measurementFields = panel.querySelector('.pe-mini-fields');
-    measurementFields.prepend(field('Type', type)); measurementFields.append(field('Zone d’effort', zone));
+    measurementFields.prepend(field('Type', type),nameField); measurementFields.append(field('Zone d’effort', zone));
+    const updateName = () => {nameField.hidden = type.value !== 'other';}; type.addEventListener('change',updateName);updateName();
     const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), field('Notes', notes));
     panel.append(advanced);
     const error = errorBox();
@@ -376,7 +386,8 @@ export class ProgramEditor {
       try {
         const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, notes: notes.value };
         if (!nextBlock.type) throw new Error('Choisis le type de l’étape.');
-        if (!draft.id && !nextBlock.title) nextBlock.title = typeLabel(nextBlock.type);
+        if (nextBlock.type === 'other' && !nextBlock.title) throw new Error('Indique le nom de l’étape Autre.');
+        if (nextBlock.type !== 'other' && (!draft.id || nextBlock.type !== block.type)) nextBlock.title = typeLabel(nextBlock.type);
         if (format.value !== originalFormat) Object.assign(nextBlock, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
         if (['time', 'mixed'].includes(format.value)) nextBlock.duration_seconds = duration(minutes.value, 'Durée', block.duration_seconds === 0);
         if (['distance', 'mixed'].includes(format.value)) nextBlock.distance_m = numeric(meters.value, 'Distance', { min: block.distance_m === 0 ? 0 : 0.001, max: 1e6, integer: false });

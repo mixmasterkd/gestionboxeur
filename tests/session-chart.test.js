@@ -60,7 +60,7 @@ test('ten thousand segments become a bounded distribution with exact duration',a
 test('invalid blocks and hostile text remain safe and readable',async()=>{
   const window=new Window(),previous=globalThis.document;globalThis.document=window.document;
   try{
-    const figure=renderSessionChart({sport:'boxing',blocks:[step('bag',{title:'<img src=x onerror=alert(1)>',duration_seconds:60})]});
+    const figure=renderSessionChart({sport:'boxing',blocks:[step('other',{title:'<img src=x onerror=alert(1)>',duration_seconds:60})]});
     assert.equal(figure.querySelector('img'),null);assert.match(figure.textContent,/<img src=x/);
     const invalid=renderSessionChart({sport:'running',blocks:[step('run',{duration_seconds:-10})]});
     assert.equal(invalid.querySelector('svg'),null);assert.match(invalid.textContent,/Profil indisponible/);

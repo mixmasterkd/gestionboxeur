@@ -61,3 +61,60 @@
 }
 @media(max-width:800px) {.planner-intro > .intro-actions {max-width:none;flex-basis:auto;}}
 @media(max-width:400px) {.planner-intro > .intro-actions {gap:5px;padding:6px;}.planner-intro > .intro-actions .button {font-size:11px;padding:10px 5px;}}
+
+/* Calendar choice: clear entry point and selected person, bounded list. */
+:root .calendar-picker-button {padding:10px 14px;gap:10px;border-radius:12px;background:linear-gradient(135deg,var(--soft),var(--white));border-color:var(--accent-line);box-shadow:0 3px 10px #00000012;font-weight:650;}
+.calendar-picker-button svg {width:20px;height:20px;}
+:root .calendar-picker-button:hover {background:var(--accent-soft);border-color:var(--muted);}
+:root .athlete-picker-dialog {border-radius:20px;border-color:var(--accent-line);box-shadow:0 24px 80px #0005;}
+:root .athlete-picker-dialog .sidebar-heading {padding-bottom:12px;border-bottom:1px solid var(--line);}
+:root .athlete-picker-dialog .search-box {padding:6px 12px;border:1px solid var(--accent-line);border-radius:12px;background:var(--soft);gap:8px;}
+:root .athlete-picker-dialog .search-box:focus-within {outline:2px solid var(--accent-line);outline-offset:2px;}
+:root .athlete-picker-dialog .search-box input {border:0;background:transparent;box-shadow:none;outline:0;}
+:root .athlete-picker-dialog .athlete-list {gap:8px;}
+:root .athlete-picker-dialog .athlete-item {min-height:72px;border:1px solid var(--line);padding:12px;border-radius:12px;background:var(--white);}
+:root .athlete-picker-dialog .athlete-avatar {width:42px;height:42px;flex-shrink:0;border-radius:13px;background:linear-gradient(140deg,var(--accent-soft),var(--soft));color:var(--ink);border:1px solid var(--accent-line);}
+:root .athlete-picker-dialog .athlete-item.active {border-color:var(--accent-line);background:var(--accent-soft);box-shadow:inset 3px 0 var(--muted);}
+:root .athlete-picker-dialog .athlete-item.active::after {content:'✓';font-size:16px;margin-left:auto;color:var(--ink);}
+:root .athlete-picker-dialog .athlete-item .dot {display:none;}
+:root .athlete-picker-dialog .athlete-item:hover {border-color:var(--muted);}
+/* Give the navigation its own quiet depth, without repeating the page texture. */
+@media screen {
+ :root .primary-navigation {background-color:#151a22;background-image:radial-gradient(ellipse at 10% 0,#576c8a40,transparent 58%),radial-gradient(ellipse at 100% 90%,#8c809b12,transparent 65%),repeating-linear-gradient(145deg,transparent 0 52px,#c4ced904 53px 54px);background-size:100% 100%;}
+ :root[data-theme="light"] .primary-navigation {background-color:#edf0f4;background-image:radial-gradient(ellipse at 0 0,#b1c4dc65,transparent 55%),radial-gradient(ellipse at 100% 90%,#c8bfdc30,transparent 65%),repeating-linear-gradient(145deg,transparent 0 52px,#63758c07 53px 54px);background-size:100% 100%;}
+}
+.nav-identity {border-bottom:1px solid var(--line);margin-bottom:20px;}
+:root .session-basics {min-width:0;margin:12px 0 22px;padding:16px;border:1px solid var(--accent-line);border-radius:14px;background:var(--soft);}
+.session-basics legend {padding:0 8px;color:var(--muted);font-size:12px;font-weight:650;}
+.session-basics-grid {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:center;}
+.session-basics-grid > .form-field {margin:0;}
+:root .session-basics .lock-control {align-self:end;display:flex;align-items:center;gap:8px;min-height:46px;padding:10px 12px;margin:0;border:1px solid var(--line);border-radius:10px;background:var(--white);white-space:nowrap;}
+.session-basics .lock-control small {display:none;}
+.session-basics .lock-control input {width:18px;height:18px;min-height:18px;flex-shrink:0;}
+:root .session-library-button {gap:12px;background:var(--white);border:1px solid var(--accent-line);border-radius:12px;padding:12px 16px;min-height:52px;box-shadow:0 3px 10px #0000000c;}
+.session-library-button svg {width:23px;height:23px;}
+.session-library-button > span:last-child {color:var(--muted);margin-left:12px;}
+.program-editor .pe-repeat-settings {grid-template-columns:minmax(70px,.5fr) minmax(130px,.8fr) minmax(160px,1fr);}
+.program-editor .pe-sequence-fields {grid-template-columns:repeat(auto-fit,minmax(130px,1fr));}
+.program-editor .pe-recovery {display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto;padding:4px;}
+.program-editor .pe-recovery input {width:18px;height:18px;min-height:18px;}
+@media(max-width:620px) {
+ .nav-identity {margin:0;border:0;}
+ .session-basics-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+ .session-basics .lock-control {grid-column:1/-1;justify-self:end;}
+ .program-editor .pe-repeat-settings {grid-template-columns:repeat(2,minmax(0,1fr));}
+ .program-editor .pe-repeat-settings > .form-field:last-child {grid-column:1/-1;}
+ .program-editor .pe-sequence-fields {grid-template-columns:repeat(2,minmax(0,1fr));}
+ .program-editor .pe-recovery {font-size:11px;gap:4px;padding:0;}
+}
+:root .athlete-picker-dialog .search-box {width:100%;max-width:none;}
+.session-basics-grid > .form-field {min-width:0;}
+.program-editor .pe-sequence-head {flex-wrap:wrap;}
+.program-editor .pe-sequence-actions {margin-left:auto;}
+@media(max-width:620px) {.program-editor .pe-recovery {min-height:44px;}}
+@media(max-width:620px) {
+ .program-editor .pe-sequence-fields > .form-field:last-child {grid-column:1/-1;}
+ .program-editor .pe-sequence select,.program-editor .pe-sequence input:not([type=checkbox]) {padding:8px;}
+ .program-editor .pe-repeat-settings {grid-template-columns:minmax(55px,.65fr) minmax(110px,1fr);gap:10px;}
+}
+@media(max-width:420px) {.session-basics-grid > .form-field {grid-column:1/-1;}}

@@ -120,8 +120,10 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const lock = lockControl(existing), preview = el('div', { class: 'workout-preview' });
     const graph = el('details', { class: 'session-form-details session-program-preview' }, el('summary', {}, 'Aperçu graphique du programme'), preview);
     const editorMount = el('div'), error = errorBox();
-    const templates = el('div', { class: 'template-tabs' });
-    const body = el('div', { class: 'dialog-body' }, templates, field('Titre de la séance', title), el('div', { class: 'form-grid' }, field('Discipline', sport), templateOnly ? null : field('Date', day)), editorMount, graph, templateOnly ? null : lock.field, error);
+    const templates = el('div', { class: 'session-library-access' });
+    lock.field.title = lock.field.querySelector('small').textContent;
+    const basics = el('fieldset', {class:'session-basics'},el('legend',{},'Séance'),field('Titre de la séance',title),el('div',{class:'session-basics-grid'},field('Discipline',sport),templateOnly ? null : field('Date',day),templateOnly ? null : lock.field));
+    const body = el('div', { class: 'dialog-body' }, templates, basics, editorMount, graph, error);
     const submit = el('button', { type: 'submit', class: 'button primary' }, templateOnly ? 'Enregistrer dans ma bibliothèque' : existing ? 'Enregistrer les modifications' : 'Planifier la séance');
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
     container.replaceChildren(heading(templateOnly ? 'Créer un entraînement' : existing ? 'Modifier la séance' : duplicate ? 'Dupliquer la séance' : 'Planifier une séance', displayName(athlete), dialog, 'sessionDialogTitle'), form);
@@ -139,9 +141,14 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     activeEditor = editor;
     dialog.addEventListener('close', () => { editor.destroy(); if (activeEditor === editor) activeEditor = null; }, { once: true });
     if (openLibrary && coach()) {
-      templates.append(button('Bibliothèque de séances', () => openLibrary({ kind: 'session', onSelect: async template => {
+      const library = button('Bibliothèque', () => openLibrary({ onSelect: async template => {
         if (!isCurrent()) return;
         try {
+          if (template.kind === 'block') {
+            blocksError([...(editor.getValue()), ...(template.blocks || [])]);
+            for (const block of template.blocks || []) editor.appendBlock(block);
+            return;
+          }
           if (editor.hasDraft() || editor.getValue().length || title.value.trim() || editor.getNotes().trim()) {
             if (!await confirmAction('Remplacer le programme ?', 'Le modèle remplacera les blocs et les consignes actuellement saisis. La date et le verrouillage resteront inchangés.', 'Utiliser le modèle')) return;
           }
@@ -151,13 +158,9 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           if (![...sport.options].some(option => option.value === template.sport)) sport.append(el('option', { value: template.sport }, sportName(template.sport)));
           sport.value = template.sport || 'other'; editor.setSport(sport.value); drawPreview(editor.getValue());
         } catch (err) { showError(error, err); }
-      } })), button('Mes blocs', () => openLibrary({ kind: 'block', onSelect: template => {
-        if (!isCurrent()) return;
-        try {
-          blocksError([...(editor.getValue()), ...(template.blocks || [])]);
-          for (const block of template.blocks || []) editor.appendBlock(block);
-        } catch (err) { showError(error, err); }
-      } })));
+      } }), 'button session-library-button');
+      library.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 4h5v16H3zM10 4h4v16h-4zM16 5l3-1 3 15-3 1z"/></svg><span>Bibliothèque</span><span aria-hidden="true">↗</span>';
+      templates.append(library);
     }
     if (coach() && !templateOnly) {
       keep = button('Garder comme modèle', async () => {
