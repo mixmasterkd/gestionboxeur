@@ -1,5 +1,7 @@
 # Base de données
 
+**Correctif du 23 septembre 2026 (Toronto)** : `admin-users` version 4 est active avec `verify_jwt=true`. Le mot de passe interne de l'athlète de test fait désormais 67 octets ASCII au lieu de 74, conformément à la limite de 72 constatée dans Auth. La source déployée a été comparée au correctif, et l'appel non authentifié reste refusé (401). Aucune migration ni donnée n'a été modifiée; la connexion réelle via le bouton reste à confirmer. Le paragraphe suivant décrit la publication initiale.
+
 Le projet `opxsaykcofzbufzzzqwz` est à jour depuis le 22 septembre 2026 (heure de Toronto) : les huit migrations locales sont enregistrées, `admin-users` version 3 est active avec `verify_jwt=true`, et la nouvelle interface est publiée sur GitHub Pages. La sauvegarde applicative et sa restauration isolée ont été vérifiées avant la bascule ; les contrôles de conservation et de droits ont réussi sur la base réelle. Aucun compte de test distant n'a été créé pendant cette publication.
 
 Supabase Auth utilise `https://mixmasterkd.github.io/gestionboxeur/` comme Site URL et `https://mixmasterkd.github.io/gestionboxeur/**` pour les redirections de l'application. Les destinations de récupération et d'invitation ont été vérifiées sans envoi de courriel.

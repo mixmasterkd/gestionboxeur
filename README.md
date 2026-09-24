@@ -126,6 +126,8 @@ Les tests d'interface utilisent **Happy DOM** pour exercer les formulaires et le
 
 ## Mise en production
 
+**Dernière publication — 23 septembre 2026 (Toronto)** : refonte Arena et correctif du compte athlète de test, commit `025b9e79636041458ab2cf3f0a7b8d9cbe34191c`, [workflow réussi](https://github.com/mixmasterkd/gestionboxeur/actions/runs/35953117413). La fonction `admin-users` est maintenant active en **version 4**, avec `verify_jwt=true`. Les 241 tests, les contrôles de sources et les contrôles de CSS compilé passent. Les six pages et douze fichiers CSS/JS publics correspondent exactement à l'artefact publié. Aucune migration supplémentaire, aucun compte créé et aucun courriel envoyé. Le [bilan d'audit](AUDIT.md) détaille les corrections et les limites de la validation visuelle et connectée. Les paragraphes suivants conservent l'historique de la première mise en production.
+
 Le site est publié sur **https://mixmasterkd.github.io/gestionboxeur/**. Le [déploiement du 22 septembre 2026](https://github.com/mixmasterkd/gestionboxeur/actions/runs/35813653825) (heure de Toronto) a réussi à partir du commit applicatif `83ec666fa5ef908b1a73fab1af9ba37595cc6e74`, intégré par la [PR #1](https://github.com/mixmasterkd/gestionboxeur/pull/1). GitHub Pages utilise désormais **GitHub Actions** et HTTPS, avec publication du contenu compilé de `dist/`.
 
 Le workflow `.github/workflows/deploy-pages.yml` reste **manuel uniquement**, sur `main`, avec `backend_ready=true`. Il exécute `npm ci`, les contrôles, les tests et la compilation avant publication. Un push seul ne publie pas le site. Ce workflow ne sauvegarde pas Supabase, ne migre pas la base et ne déploie pas `admin-users`.
