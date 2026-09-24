@@ -41,9 +41,9 @@ test('admin navigation resolves routes correctly from the nested administration 
   const ui = navigation('https://example.test/boxing/admin/');
   try {
     ui.mount({ role: 'coach', isAdmin: true });
-    assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/');
+    assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/roster.html');
     assert.equal(ui.link('Mes listes'), undefined);
-    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Mes athlètes', 'Calendrier', 'Journal', 'Mon profil', 'Administration']);
+    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Mon profil', 'Administration']);
     assert.equal(ui.link('Mon profil').href, 'https://example.test/boxing/profile.html');
     assert.equal(ui.link('Administration').getAttribute('aria-current'), 'page');
     ui.mount({ role: 'coach', isAdmin: true });
@@ -52,12 +52,12 @@ test('admin navigation resolves routes correctly from the nested administration 
 });
 
 test('coach navigation has one athlete entry and keeps old list URLs on that table', () => {
-  for (const path of ['/boxing/', '/boxing/index.html', '/boxing/?liste=1', '/boxing/index.html?liste=1']) {
+  for (const path of ['/boxing/roster.html', '/boxing/roster.html?liste=1']) {
     const ui = navigation(`https://example.test${path}`);
     try {
       ui.mount({ role: 'coach', isAdmin: false });
-      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Mes athlètes', 'Calendrier', 'Journal', 'Mon profil']);
-      assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/');
+      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Mon profil']);
+      assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/roster.html');
       assert.equal(ui.link('Mes athlètes').getAttribute('aria-current'), 'page');
       assert.equal(ui.window.document.querySelectorAll('[aria-current="page"]').length, 1);
       assert.equal(ui.link('Mes listes'), undefined);
@@ -98,7 +98,7 @@ test('production does not present a demo query as an active isolated preview', (
     ui.mount({ role: 'coach', isAdmin: false });
     assert.equal(ui.link('Calendrier').href, 'https://example.test/boxing/planning.html');
     assert.equal(ui.link('Mon profil').title, '');
-    assert.equal(ui.window.document.querySelector('.nav-identity').href, 'https://example.test/boxing/');
+    assert.equal(ui.window.document.querySelector('.nav-identity').href, 'https://example.test/boxing/planning.html');
   } finally { ui.window.happyDOM.abort(); }
 });
 

@@ -113,3 +113,12 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Entraînement : vues Texte et Blocs sous le titre Entraînement, en remplacement de Programme comme nom de vue.
 - Validation : 265 tests réussis, dont déplacement enregistré, échec avec restauration et droits/contexte. Styles compilés des contacts et sélections contrôlés dans les deux thèmes; déplacement réel vérifié dans l’aperçu local.
 - Publication : application `3448b58`, workflow `36018909299` réussi. Les 18 fichiers publics correspondent à l’artefact publié. Contrôle connecté : Sparring par défaut, sélection du poids et contraste des contacts, vues Texte / Blocs confirmés. Le formulaire déjà ouvert par l’utilisateur a été conservé intact.
+
+
+## 24 septembre 2026 — Navigation et vues du répertoire
+
+- Accueil et connexion ouvrent le calendrier; menu Calendrier, Journal, Mes athlètes. Le répertoire est désormais dans roster.html, avec compatibilité des anciens liens de listes et conservation des invitations.
+- Tableau par défaut et Fiches au choix sur mobile et ordinateur; données, filtres, sélection et tri partagés. Tableau mobile à défilement horizontal avec nom fixe. Séparation visuelle des filtres, commandes et lignes.
+- Boutons alignés, cibles principales de 44 px, motif neutre adapté aux deux thèmes. Champ Texte corrigé pour suivre le thème sombre. Paramètres et À jour retirés du haut du répertoire; réglages dans Mon profil.
+- Administration : Fonctions coach activées / non activées remplace les rôles exclusifs Coach / Athlète. Aucune modification des autorisations ni des données.
+- Validation : 271 tests réussis; build et styles compilés contrôlés à 375 et 1280 px dans les deux thèmes. Aperçu local interactif : tableaux et fiches, sélection conservée, contrôles et formulaire mobile. Aucun débordement horizontal de page observé.

@@ -112,7 +112,7 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
   function existingAccountHelp() {
     return el('p', { class: 'permission-help' },
       'Compte déjà actif : partage ton code coach. Après acceptation de la demande, utilise « Rattacher » sur la fiche sans compte dans ',
-      el('a', { href: './' }, 'Mes athlètes'),
+      el('a', { href: 'roster.html' }, 'Mes athlètes'),
       ' pour la relier au profil inscrit et conserver son calendrier.');
   }
   function renderCoach(state, body) {

@@ -16,7 +16,7 @@ let athleteSignupReady = false;
 let athleteSignupUnavailable = 'L’inscription athlète sera disponible après l’activation de la mise à jour de la plateforme.';
 
 function dashboardUrl() {
-  const url = new URL(pendingInvite ? './planning.html' : './index.html', location.href);
+  const url = new URL('./planning.html', location.href);
   if (pendingInvite) url.searchParams.set('invite', pendingInvite);
   return url.href;
 }

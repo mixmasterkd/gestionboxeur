@@ -26,7 +26,7 @@ import { mountNavigation } from './navigation.js';
     const $ = id => document.getElementById(id);
     const els = {
       athleteRows: $("athleteRows"), athleteEmpty: $("athleteEmpty"), coachGrid: $("coachGrid"), coachEmpty: $("coachEmpty"),
-      athleteDialog: $("athleteDialog"), coachDialog: $("coachDialog"), shareDialog: $("shareDialog"), settingsDialog: $("settingsDialog"), toast: $("toast")
+      athleteDialog: $("athleteDialog"), coachDialog: $("coachDialog"), shareDialog: $("shareDialog"), toast: $("toast")
     };
     const attachmentUI = createRosterAttachmentUI({
       document, store: rosterStore,
@@ -79,13 +79,11 @@ import { mountNavigation } from './navigation.js';
     }
     function coachToDb(coach) { return { coach_id: currentUser.id, first_name: coach.firstName, last_name: coach.lastName || null, phone: coach.phone || null, email: coach.email || null }; }
     function setLoaded(loaded) {
-      ['addAthleteButton', 'addCoachButton', 'settingsButton', 'shareButton'].forEach(id => { $(id).disabled = !loaded; });
-      $('saveState').textContent = loaded ? 'À jour' : 'Chargement…';
+      ['addAthleteButton', 'addCoachButton', 'shareButton'].forEach(id => { $(id).disabled = !loaded; });
     }
     function pageError(error) {
       $('pageError').textContent = `Impossible de charger l’effectif : ${error.message || error}. Recharge la page pour réessayer.`;
       $('pageError').classList.remove('hidden');
-      $('saveState').textContent = 'Connexion interrompue';
     }
     async function loadState() {
       const generation = ++loadGeneration;
@@ -236,6 +234,7 @@ import { mountNavigation } from './navigation.js';
         const edit = node("button", { class: "edit athlete-edit", type: "button", ariaLabel: `Modifier la fiche de ${a.firstName} ${a.lastName}` }, "Modifier");
         edit.addEventListener("click", () => openAthlete(a.id)); editTd.append(edit);
         tr.append(editTd);
+        [...tr.children].forEach((cell,index)=>{cell.dataset.label=['Choisir','Athlète','Âge','Sexe','Poids','Combats','Statut','Action'][index];});
         els.athleteRows.append(tr);
       });
       els.athleteEmpty.classList.toggle("hidden", athletes.length > 0);
@@ -251,7 +250,8 @@ import { mountNavigation } from './navigation.js';
         card.append(node("strong", {}, coachName(c)));
         if (c.phone) card.append(node("span", {}, c.phone));
         if (c.email) card.append(node("span", {}, c.email));
-        const edit = node("button", { class: "edit", type: "button" }, c.isSelf ? "Paramètres" : "Modifier"); edit.addEventListener("click", () => c.isSelf ? openSettings() : openCoach(c.id)); card.append(edit);
+        if (c.isSelf) card.append(node('a', {class:'edit',href:'profile.html'}, 'Mon profil'));
+        else {const edit=node('button',{class:'edit',type:'button'},'Modifier');edit.addEventListener('click',()=>openCoach(c.id));card.append(edit);}
         els.coachGrid.append(card);
       });
       els.coachEmpty.classList.toggle("hidden", state.coaches.length > 0);
@@ -382,41 +382,6 @@ import { mountNavigation } from './navigation.js';
       els.coachDialog.close(); saveState(id ? "Coach mis à jour." : "Coach ajouté.");
     }
 
-    function openSettings() {
-      $("settingsError").classList.add("hidden");
-      $("profileName").value = profileData?.full_name || "";
-      $("profilePhone").value = profileData?.phone || "";
-      $("profileEmail").textContent = currentUser.email || "";
-      $("settingsGymName").value = gymSettings?.gym_name || "Mon gym";
-      $("settingsGymAddress").value = gymSettings?.address || "";
-      $("newPassword").value = ""; $("confirmPassword").value = "";
-      $("settingsDialog").showModal();
-    }
-    async function saveSettings(event) {
-      event.preventDefault(); $("settingsError").classList.add("hidden");
-      const fullName = $("profileName").value.trim();
-      const gymName = $("settingsGymName").value.trim();
-      const password = $("newPassword").value;
-      const confirmPassword = $("confirmPassword").value;
-      if (!fullName || !gymName) { $("settingsError").textContent = "Le nom du coach et le nom du gym sont obligatoires."; $("settingsError").classList.remove("hidden"); return; }
-      if (password && password.length < 6) { $("settingsError").textContent = "Le mot de passe doit contenir au moins 6 caractères."; $("settingsError").classList.remove("hidden"); return; }
-      if (password !== confirmPassword) { $("settingsError").textContent = "Les deux mots de passe ne correspondent pas."; $("settingsError").classList.remove("hidden"); return; }
-      const [profileResult, gymResult] = await Promise.all([
-        supabase.from("profiles").update({ full_name: fullName, phone: $("profilePhone").value.trim() || null }).eq("id", currentUser.id).select().single(),
-        rosterStore.mode==='legacy'
-          ? supabase.from("gym_settings").update({ gym_name: gymName, address: $("settingsGymAddress").value.trim() || null }).eq("coach_id", currentUser.id).select().single()
-          : supabase.rpc('save_gym',{p_name:gymName,p_address:$("settingsGymAddress").value.trim()}).then(async result=>result.error?result:await supabase.from('gym_settings').select('id,gym_name,address').eq('coach_id',currentUser.id).single())
-      ]);
-      if (profileResult.error || gymResult.error) { $("settingsError").textContent = (profileResult.error || gymResult.error).message; $("settingsError").classList.remove("hidden"); return; }
-      if (password) {
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) { $("settingsError").textContent = error.message; $("settingsError").classList.remove("hidden"); return; }
-      }
-      profileData = profileResult.data; gymSettings = gymResult.data;
-      state.coaches = [selfCoach(), ...state.coaches.filter(c => !c.isSelf)];
-      applyGymSettings(); els.settingsDialog.close(); saveState("Paramètres enregistrés.");
-    }
-
     function renderCoachChoices() {
       const wrap = $("coachChoices"); wrap.replaceChildren();
       state.coaches.forEach(c => {
@@ -531,6 +496,12 @@ import { mountNavigation } from './navigation.js';
       finally { $('deleteCoachButton').disabled = false; }
     });
     [$("searchInput"), $("statusFilter"), $("sexFilter")].forEach(el => el.addEventListener("input", renderAthletes));
+    $('rosterViewButtons').addEventListener('click',event=>{
+      const view=event.target.closest('[data-view]')?.dataset.view;
+      if(!['table','cards'].includes(view))return;
+      $('athleteDirectory').dataset.rosterView=view;
+      $('rosterViewButtons').querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.view===view)));
+    });
     $('mobileSort').addEventListener('change', () => { sortKey=$('mobileSort').value;renderAthletes(); });
     $('mobileSortDirection').addEventListener('click', () => { sortDirection=sortDirection==='asc'?'desc':'asc';renderAthletes(); });
     document.querySelectorAll(".sort-button").forEach(button => button.addEventListener("click", () => {
@@ -544,7 +515,7 @@ import { mountNavigation } from './navigation.js';
     $("typeButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareType = e.target.dataset.value; setSegment($("typeButtons"), shareType); updateSharePreview(); });
     $("weightButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareWeight = e.target.dataset.value; setSegment($("weightButtons"), shareWeight); updateSharePreview(); });
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
-    $("settingsButton").addEventListener("click", openSettings); $("settingsForm").addEventListener("submit", guardForm(saveSettings, message => { $("settingsError").textContent = message; $("settingsError").classList.remove("hidden"); }));
+
     function clearPrivateState() {
       attachmentRequest++;
       attachmentUI.invalidate();
@@ -552,7 +523,7 @@ import { mountNavigation } from './navigation.js';
       state = { athletes: [], coaches: [] }; currentUser = null; profileData = null; gymSettings = null;
       document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
       document.querySelectorAll('form').forEach(form => form.reset());
-      $('sharePreview').textContent = ''; $('shareGym').value = ''; $('coachChoices').replaceChildren(); $('profileEmail').textContent = '';
+      $('sharePreview').textContent = ''; $('shareGym').value = ''; $('coachChoices').replaceChildren();
       $('pageError').textContent = ''; $('pageError').classList.add('hidden'); $('adminButton').classList.add('hidden');
       renderAll(); setLoaded(false); applyGymSettings();
     }

@@ -16,7 +16,7 @@ npm run dev
 
 Ouvrir l'adresse indiquée par Vite. `.env.local` configure `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY`. La clé publique fournie est destinée au navigateur; une clé `service_role` ne doit jamais apparaître dans une variable `VITE_*`.
 
-L'accueil (`index.html`) ouvre les athlètes et les listes du coach. `planning.html` ouvre le calendrier; les comptes athlètes y sont dirigés après connexion. Les anciens liens `roster.html` sont conservés par redirection.
+L’accueil (`index.html`) et la connexion ouvrent le calendrier (`planning.html`). Le répertoire des athlètes et les listes sont dans `roster.html`. Les anciens liens `?liste=1` restent compatibles. Le menu commence par Calendrier, Journal, Mes athlètes; les paramètres sont accessibles dans Mon profil.
 
 ### Aperçu sans compte ni données réelles
 
@@ -187,7 +187,9 @@ Le bouton Changer ouvre une liste de calendriers avec recherche (accents faculta
 Palette sombre graphite par défaut, texte clair, accents ardoise discrets. Un bouton soleil/lune dans la barre du haut bascule vers le mode clair et mémorise le choix sur l’appareil pour toutes les pages. Les couleurs des efforts et les notes pastel conservent leur sens. Les deux thèmes sont limités à l’écran pour préserver les listes imprimées sur fond blanc.
 
 
-Sur mobile, les athlètes apparaissent en cartes compactes : nom et sélection, quatre renseignements côte à côte, puis statut et Modifier. Un sélecteur de tri remplace les en-têtes de colonnes. Le nom d’un athlète ayant partagé son calendrier ouvre directement ce calendrier; les autres noms ouvrent leur fiche. Rattacher se trouve uniquement dans la fiche, avec protection des modifications non enregistrées.
+Les vues Tableau et Fiches sont disponibles sur téléphone et ordinateur, avec Tableau par défaut. Sur mobile, le tableau défile horizontalement et garde le nom visible. Les fiches regroupent nom et sélection, quatre renseignements côte à côte, puis statut et Modifier. Les deux vues conservent les mêmes filtres, sélections et tri. Le nom d’un athlète ayant partagé son calendrier ouvre directement ce calendrier; les autres noms ouvrent leur fiche. Rattacher se trouve uniquement dans la fiche, avec protection des modifications non enregistrées.
 
 
 La préparation d’une liste s’ouvre sur Sparring, placé avant Combat. Le type de liste et les unités de poids partagent des boutons à état sélectionné explicite (contraste et coche), lisibles dans les deux thèmes. Les coachs contacts utilisent les surfaces et textes du thème actif.
+
+L’administration affiche l’activation des fonctions coach, sans présenter Coach et Athlète comme des rôles exclusifs. Le motif neutre du fond suit les deux thèmes; les commandes principales ont une hauteur minimale de 44 px.

@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { Window } from 'happy-dom';
 
-const pages = ['index.html', 'login.html', 'planning.html', 'profile.html', 'admin/index.html'];
+const pages = ['roster.html', 'login.html', 'planning.html', 'profile.html', 'admin/index.html'];
 for (const page of pages) {
   const file = resolve('dist', page);
   const html = await readFile(file, 'utf8');
@@ -35,7 +35,7 @@ for (const page of pages) {
         assert.equal(completion.display,'inline-grid','completion remains visible in monthly mobile view');
         assert.ok(parseFloat(completion.minHeight)>=36,'monthly completion target remains usable');
       }
-      if (page === 'index.html') {
+      if (page === 'roster.html') {
         const coach=window.document.createElement('div');coach.className='coach-choice';coach.innerHTML='<label class="coach-choice-head"><strong>Coach test</strong></label>';
         window.document.getElementById('coachChoices').append(coach);
         const coachStyle=window.getComputedStyle(coach);
@@ -49,7 +49,15 @@ for (const page of pages) {
           assert.equal(style.color,theme==='dark'?'#181b20':'#f4f5f7','selected option readable');
         }
       }
-      if (page === 'index.html' && width < 620) {
+      if (page === 'roster.html') {
+        const directory=window.document.getElementById('athleteDirectory');
+        assert.equal(window.getComputedStyle(directory.querySelector('.roster')).display,'table','table is the default at every width');
+        assert.notEqual(window.getComputedStyle(directory.querySelector('thead')).display,'none','mobile table keeps its column headers');
+        const cards=directory.cloneNode(true);cards.dataset.rosterView='cards';directory.replaceWith(cards);
+        assert.equal(window.getComputedStyle(cards.querySelector('.roster tbody')).display,'grid','cards remain available at every width');
+        assert.equal(window.getComputedStyle(cards.querySelector('thead')).display,'none','cards use individual field labels');
+      }
+      if (page === 'roster.html' && width < 620) {
         assert.equal(window.getComputedStyle(window.document.querySelector('.share-foot')).marginLeft, '0px', 'share buttons must remain inside the dialog');
       }
       if (page === 'login.html') {

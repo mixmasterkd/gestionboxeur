@@ -91,7 +91,7 @@ test('unlocked sessions can be moved by the athlete or linked coach, but foreign
         await page.app.refreshAccount();
         assert.equal(page.app.state.selectedAthlete,null);
         assert.match(page.$('athleteList').textContent,/fiches sans compte.*Mes athlètes/);
-        assert.equal(page.$('athleteList').querySelector('a').href,'https://example.test/gestionboxeur/');
+        assert.equal(page.$('athleteList').querySelector('a').href,'https://example.test/gestionboxeur/roster.html');
       }
     }finally{await page.close();}
   }
@@ -202,7 +202,7 @@ test('historical schema keeps gym identity and access to lists while blocking in
     assert.equal(page.$('libraryButton').hidden,true);
     assert.equal(page.calls.some(call=>call[0]==='load'),false);
     assert.equal(page.app.canAdd(),false);
-    assert.equal(page.$('planningUnavailable').querySelector('a').href,'https://example.test/gestionboxeur/');
+    assert.equal(page.$('planningUnavailable').querySelector('a').href,'https://example.test/gestionboxeur/roster.html');
     await page.api.client.auth.signOut();
     assert.equal(page.$('gymAddress').textContent,'');
     assert.equal(page.$('gymBrand').textContent,'Mon espace');

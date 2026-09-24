@@ -1,0 +1,30 @@
+/* Decorative CSS only: no asset downloads, animation or texture under content. */
+@media screen {
+ :root { --pattern-dot:#ffffff0b;--pattern-line:#ffffff03; }
+ :root[data-theme="light"] { --pattern-dot:#33415516;--pattern-line:#33415505; }
+ :root body,:root[data-theme="light"] body { background-image:radial-gradient(circle,var(--pattern-dot) .8px,transparent 1px),linear-gradient(var(--pattern-line) 1px,transparent 1px),linear-gradient(90deg,var(--pattern-line) 1px,transparent 1px);background-size:20px 20px,100px 100px,100px 100px; }
+}
+.button,.pe-button,.be-button { display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;line-height:1.35;vertical-align:middle; }
+.actions,.dialog-actions,.dialog-foot,.template-actions,.journal-detail-actions { align-items:center;gap:10px; }
+.icon-button,.close-button,.close,.appearance-toggle { width:44px;height:44px;min-width:44px;min-height:44px;padding:0;display:inline-grid;place-items:center;line-height:1; }
+.topbar-actions,.top-actions,.account-nav { align-items:center;gap:12px; }
+.panel-head { align-items:center; }
+.intro-actions { display:flex;flex-wrap:wrap;align-items:stretch;gap:10px; }
+.intro-actions .button { flex:1 1 160px;min-height:44px;margin:0; }
+.pe-modes { display:flex;align-items:center; }
+.pe-modes .pe-button { min-width:88px; }
+.roster-page .topbar-actions { justify-content:flex-end; }
+@media(max-width:620px) {
+ .roster-page .topbar { flex-direction:row;align-items:center;gap:12px; }
+ .roster-page .topbar .brand { min-width:0;flex:1; }
+ .roster-page .topbar-actions { flex-wrap:nowrap;flex-shrink:0;gap:10px; }
+ .dialog-actions,.dialog-foot { flex-wrap:wrap; }
+ .dialog-actions .button,.dialog-foot .button { flex:1 1 130px; }
+ .panel-head .actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+ .panel-head .actions .button { width:100%;height:100%;min-height:48px;font-size:12px;padding:10px; }
+}
+@media(max-width:350px){.panel-head .actions{grid-template-columns:1fr;}}
+
+.skip-link {color:var(--paper);}
+
+.program-editor .pe-text-input {background:var(--white);color:var(--ink);border-color:var(--line);}

@@ -1,34 +1,67 @@
-.roster .name-button { display:inline-flex;align-items:center;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.4; }
-.roster a.name-button { color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent-line);text-underline-offset:4px; }
-.roster a.name-button:hover { color:var(--accent); }
-.roster .athlete-edit { display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--white);color:var(--ink);font-size:12px;text-transform:none;letter-spacing:0; }
-.roster .athlete-edit:hover { background:var(--soft); }
+/* The directory switches presentation without duplicating rows or state. */
+#athleteDirectory .roster-viewbar { display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 20px;border-block:1px solid var(--line);background:var(--white); }
+#rosterViewButtons { display:flex;gap:4px;width:auto; }
+#rosterViewButtons button { min-width:96px;min-height:44px;text-transform:none;font-size:13px;border:1px solid transparent;border-radius:7px;background:transparent; }
+#rosterViewButtons button[aria-pressed="true"] { background:var(--ink);color:var(--paper); }
+#athleteDirectory .mobile-roster-sort { display:flex;align-items:center;gap:10px;font-size:12px; }
+#athleteDirectory .mobile-roster-sort select { min-width:130px;min-height:44px;padding:8px;border-radius:8px; }
+#athleteDirectory .mobile-roster-sort button { min-width:44px;min-height:44px;background:var(--white);color:var(--ink);border:1px solid var(--line);border-radius:8px; }
+#athleteDirectory .table-wrap { overflow-x:auto;max-width:100%; }
+#athleteDirectory .roster { display:table;width:100%;min-width:780px;border-collapse:separate;border-spacing:0; }
+#athleteDirectory .roster thead { display:table-header-group; }
+#athleteDirectory .roster thead tr { display:table-row; }
+#athleteDirectory .roster thead th { display:table-cell;padding:12px;background:var(--soft);border-bottom:1px solid var(--line); }
+#athleteDirectory .roster tbody { display:table-row-group;padding:0; }
+#athleteDirectory .roster tbody tr { display:table-row;margin:0;background:var(--white);border:0;box-shadow:none; }
+#athleteDirectory .roster tbody tr:nth-child(even) { background:color-mix(in srgb,var(--white) 75%,var(--soft)); }
+#athleteDirectory .roster tbody td { display:table-cell;padding:12px;vertical-align:middle;border:0;border-bottom:1px solid var(--line);font-size:13px; }
+#athleteDirectory .roster tbody td::before { display:none; }
+#athleteDirectory .roster tbody tr:hover { background:var(--soft); }
+#athleteDirectory .roster tbody tr.selected { background:var(--accent-soft); }
+#athleteDirectory .roster tbody tr.selected td:first-child { box-shadow:inset 3px 0 var(--accent); }
+#athleteDirectory .roster .name-button { display:inline-flex;align-items:center;min-height:44px;padding:0;text-align:left;white-space:normal;overflow-wrap:anywhere;line-height:1.4;font-size:14px; }
+#athleteDirectory .roster a.name-button { color:var(--ink);text-decoration:underline;text-decoration-color:var(--accent-line);text-underline-offset:4px; }
+#athleteDirectory .roster .check-cell { width:48px;min-width:48px;text-align:center; }
+#athleteDirectory .roster .check-cell input { width:20px;height:20px;cursor:pointer; }
+#athleteDirectory .athlete-edit { display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 14px;border:1px solid var(--accent-line);border-radius:8px;background:var(--soft);color:var(--ink);font-size:12px;text-transform:none;letter-spacing:0; }
 .attachment-entry { margin:0 0 20px; }
-.mobile-roster-sort { display:none; }
-@media(max-width:620px) {
-  .roster thead { display:none; }
-  .mobile-roster-sort { display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:12px; }
-  .mobile-roster-sort select { flex:1;min-width:0;min-height:44px;padding:8px;border-radius:8px; }
-  .mobile-roster-sort button { min-width:44px;min-height:44px;background:var(--white);color:var(--ink);border:1px solid var(--line);border-radius:8px; }
-  .roster tbody { padding:10px; }
-  .roster tbody tr { grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 10px;border:1px solid var(--line); }
-  .roster tbody td { padding:10px 8px; }
-  .roster tbody td:nth-child(odd) { border-right:0; }
-  .roster tbody td:nth-child(1) { grid-column:4;grid-row:1;display:flex;align-items:center;justify-content:flex-end;padding:4px 12px; }
-  .roster .check-cell input { width:22px;height:22px;margin:11px;cursor:pointer; }
-  .roster tbody td:nth-child(2) { grid-column:1 / 4;grid-row:1;border-right:0;padding-left:12px; }
-  .roster tbody td:nth-child(3) { grid-column:1;grid-row:2; }
-  .roster tbody td:nth-child(4) { grid-column:2;grid-row:2; }
-  .roster tbody td:nth-child(5) { grid-column:3;grid-row:2; }
-  .roster tbody td:nth-child(6) { grid-column:4;grid-row:2;overflow-wrap:anywhere; }
-  .roster tbody td:nth-child(7) { grid-column:1 / 3;grid-row:3;align-content:center;padding-left:12px; }
-  .roster tbody td:nth-child(8) { grid-column:3 / 5;grid-row:3;display:flex;align-items:center;justify-content:flex-end;padding-right:12px; }
-  .roster tbody td:nth-child(1)::before,.roster tbody td:nth-child(2)::before,.roster tbody td:nth-child(7)::before,.roster tbody td:nth-child(8)::before { display:none; }
-  .roster .name-button { font-size:15px;padding:0; }
-  .roster .athlete-name-cell .subtext { display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
-  .roster tbody td { font-size:12px; }
-  .roster tbody td::before { font-size:9px;letter-spacing:0;text-transform:none; }
-  .roster .chip { padding:3px 5px;font-size:11px; }
+#athleteDirectory[data-roster-view="cards"] .table-wrap { overflow:visible; }
+#athleteDirectory[data-roster-view="cards"] .roster { display:block;min-width:0; }
+#athleteDirectory[data-roster-view="cards"] .roster thead { display:none; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody { display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:16px;padding:20px; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody tr { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 4px 14px #0000000c; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td { display:block;min-width:0;padding:12px 10px;font-size:12px; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td::before { display:block;content:attr(data-label);color:var(--muted);font-size:10px;text-transform:none;letter-spacing:0;margin-bottom:6px; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(1) { grid-column:4;grid-row:1;display:flex;align-items:center;justify-content:center;width:auto;box-shadow:none; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(2) { grid-column:1 / 4;grid-row:1; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(3) { grid-column:1;grid-row:2; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(4) { grid-column:2;grid-row:2; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(5) { grid-column:3;grid-row:2; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(6) { grid-column:4;grid-row:2;overflow-wrap:anywhere; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(7) { grid-column:1 / 3;grid-row:3;align-content:center;border:0; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(8) { grid-column:3 / 5;grid-row:3;display:flex;justify-content:flex-end;align-items:center;border:0; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(1)::before,#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(2)::before,#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(7)::before,#athleteDirectory[data-roster-view="cards"] .roster tbody td:nth-child(8)::before { display:none; }
+#athleteDirectory[data-roster-view="cards"] .athlete-name-cell .subtext { display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+#athleteDirectory[data-roster-view="cards"] .roster tbody tr.selected { border-color:var(--accent-line); }
+#athleteDirectory .filters { display:grid;grid-template-columns:minmax(170px,1.4fr) minmax(160px,1fr) minmax(120px,.7fr) auto;gap:12px;padding:20px;background:var(--soft);border-top:1px solid var(--line); }
+#athleteDirectory .filters .field-inline { display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:0;border:0;min-height:0; }
+#athleteDirectory .filters .field-inline span { font-size:11px;font-weight:650;color:var(--ink); }
+#athleteDirectory .filters input,#athleteDirectory .filters select { min-height:44px;height:44px;background:var(--white) !important;border:1px solid var(--accent-line) !important;border-radius:8px;padding:8px 12px;font-size:14px; }
+#athleteDirectory .filters .reset { align-self:end;min-height:44px;background:var(--white);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--ink);font-size:12px;text-decoration:none; }
+@media(max-width:1050px){#athleteDirectory .filters {grid-template-columns:1fr 1fr;}#athleteDirectory .search-field{grid-column:1 / -1;}#athleteDirectory .filters .reset{grid-column:1 / -1;justify-self:end;}}
+@media(max-width:620px){
+ #athleteDirectory .filters {padding:14px;gap:12px;}
+ #athleteDirectory .filters input,#athleteDirectory .filters select {font-size:16px;}
+ #athleteDirectory .roster-viewbar {padding:12px;}
+ #athleteDirectory .mobile-roster-sort {width:100%;}
+ #athleteDirectory .mobile-roster-sort select {flex:1;}
+ #athleteDirectory[data-roster-view="cards"] .roster tbody {padding:12px;}
+ #athleteDirectory[data-roster-view="table"] .roster td:nth-child(2),#athleteDirectory[data-roster-view="table"] .roster th:nth-child(2) {position:sticky;left:0;z-index:1;background:var(--white);min-width:140px;max-width:180px;border-right:1px solid var(--line);}
+ #athleteDirectory[data-roster-view="table"] .roster th:nth-child(2) {background:var(--soft);}
+ #athleteDirectory[data-roster-view="table"] .roster tr.selected td:nth-child(2) {background:var(--accent-soft);}
 }
-@media(min-width:621px) { .filters { grid-template-columns:minmax(160px,1.5fr) minmax(175px,1fr) minmax(130px,.65fr) auto; } }
-@media(max-width:620px) { .filters .field-inline:not(.search-field) { flex-direction:column;align-items:stretch;gap:0;padding:8px 11px 3px; } }
+
+#athleteDirectory[data-roster-view="cards"] .roster tbody tr.selected td:first-child {box-shadow:none;}
+#athleteDirectory .mobile-roster-sort label {white-space:nowrap;}
+#athleteDirectory .sort-button {border:0;background:none;min-height:44px;padding:0;display:inline-flex;align-items:center;}
+.coach-card .edit {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);text-decoration:none;}

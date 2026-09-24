@@ -165,7 +165,7 @@ function rosterMock({ legacy = false, role = "coach", authenticated = true, regi
 
 test('roster reads explicit shared fields and keeps private coach notes out of share lists', async () => {
   const mock = rosterMock();
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     assert.equal(ui.$('addAthleteButton').disabled, false);
     assert.match(ui.$('athleteRows').textContent, /Note confidentielle/);
@@ -181,7 +181,7 @@ test('roster reads explicit shared fields and keeps private coach notes out of s
 
 test('roster accepts a first name alone and sends atomic nullable bio/private relation payload', async () => {
   const mock = rosterMock();
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     ui.$('addAthleteButton').click(); ui.$('firstName').value = 'Alex';
     submit(ui, 'athleteForm'); await settle();
@@ -200,7 +200,7 @@ test('roster accepts a first name alone and sends atomic nullable bio/private re
 
 test('removing an athlete revokes the coach relation without deleting the shared athlete', async () => {
   const mock = rosterMock();
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     ui.$('athleteRows').querySelector('.athlete-edit').click();
     ui.$('deleteAthleteButton').click(); await settle();
@@ -213,7 +213,7 @@ test('removing an athlete revokes the coach relation without deleting the shared
 
 test('registered roster protects identity fields, uses one table and sends only changed coach-editable data',async()=>{
   const mock=rosterMock({registered:true});
-  const ui=await surface('index.html','roster.js',mock.client,'https://gestionboxeur.example/index.html');
+  const ui=await surface('roster.html','roster.js',mock.client,'https://gestionboxeur.example/roster.html');
   try {
     assert.equal(ui.$('accountFilter'),null);
     assert.match(ui.$('athleteRows').querySelector('.roster-calendar-link').href,/planning\.html\?athlete=athlete-id$/);
@@ -246,7 +246,7 @@ test('one roster includes free sheets and registered accounts regardless of cale
     if (name === 'merge_roster_athlete') mock.tables.coach_athletes = mock.tables.coach_athletes.filter(link => link.athlete_id !== args.p_source_id);
     return { data: args.p_target_id, error: null };
   };
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html?liste=1');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html?liste=1');
   try {
     assert.equal(ui.$('athleteRows').children.length, 4);
     assert.equal(ui.$('shareDialog').open, false);
@@ -291,7 +291,7 @@ test('long merged notes survive an unrelated roster edit without trimming or res
   const mock = rosterMock({ registered: true });
   const notes = `  ${'x'.repeat(22000)}\n\n— Notes de la fiche rattachée —\n${'y'.repeat(20000)}  `;
   mock.tables.coach_athletes[0].private_notes = notes;
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     ui.$('athleteRows').querySelector('.athlete-edit').click();
     assert.equal(ui.$('athleteNote').maxLength, notes.length);
@@ -308,7 +308,7 @@ test('long merged notes survive an unrelated roster edit without trimming or res
   } finally { await ui.close(); }
 });
 
-test('administration renders untrusted names and emails as text and includes athlete role', async () => {
+test('administration renders untrusted names and emails as text and presents coaching activation instead of an athlete role', async () => {
   const mock = authMock({ user: { id: 'admin-id' } });
   mock.client.from = () => ({ select() { return this; }, eq() { return this; }, async single() { return { data: { is_admin: true }, error: null }; }, async maybeSingle() { return { data: { gym_name: 'Mon équipe', address: '123, rue du Gym' }, error: null }; } });
   mock.client.functions = { async invoke() { return { data: { users: [{ id: 'unsafe-id', email: 'x\" onclick=\"alert(1)@example.test', full_name: '<img src=x onerror=alert(1)>', account_type: 'athlete' }] }, error: null }; } };
@@ -317,7 +317,8 @@ test('administration renders untrusted names and emails as text and includes ath
     assert.equal(ui.$('userRows').querySelector('img'), null);
     assert.equal(ui.$('userRows').querySelector('[onclick]'), null);
     assert.match(ui.$('userRows').textContent, /<img src=x onerror=alert\(1\)>/);
-    assert.match(ui.$('userRows').textContent, /Athlète/);
+    assert.match(ui.$('userRows').textContent, /Non activées/);
+    assert.doesNotMatch(ui.$('userRows').textContent, /Athlète/);
     assert.equal(ui.$('userRows').querySelectorAll('button').length, 2);
   } finally { await ui.close(); }
 });
@@ -337,7 +338,7 @@ test('administration rejects a non-admin profile before invoking account APIs', 
 
 test('legacy roster keeps eight existing athletes, unavailable statuses, gym address and combat/sparring lists', async () => {
   const mock = rosterMock({ legacy: true });
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html?liste=1');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html?liste=1');
   try {
     assert.equal(ui.$('athleteRows').children.length, 8);
     assert.equal(ui.$('statAvailable').textContent, '1');
@@ -360,7 +361,7 @@ test('legacy roster keeps eight existing athletes, unavailable statuses, gym add
 
 test('legacy roster selection and removal use original owner-scoped storage with precise deletion confirmation', async () => {
   const mock = rosterMock({ legacy: true });
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     const checkbox = ui.$('athleteRows').querySelector('input:not(:disabled)');
     checkbox.checked = false; checkbox.dispatchEvent(new ui.window.Event('change')); await settle();
@@ -384,13 +385,13 @@ test('legacy roster selection and removal use original owner-scoped storage with
 
 test('athlete and invitation route to planning while preserving query and hash', async () => {
   const athlete = rosterMock({ role: 'athlete' });
-  const athleteUi = await surface('index.html', 'roster.js', athlete.client, 'https://gestionboxeur.example/team/index.html?date=2026-09-21#day');
+  const athleteUi = await surface('roster.html', 'roster.js', athlete.client, 'https://gestionboxeur.example/team/roster.html?date=2026-09-21#day');
   try {
     assert.deepEqual(athleteUi.navigations, ['https://gestionboxeur.example/team/planning.html?date=2026-09-21#day']);
     assert.equal(athlete.calls.some(call => call[1] === 'athletes'), false);
   } finally { await athleteUi.close(); }
   const coach = rosterMock();
-  const inviteUi = await surface('index.html', 'roster.js', coach.client, 'https://gestionboxeur.example/team/index.html?invite=opaque%2Btoken&date=2026-09-21#invite');
+  const inviteUi = await surface('roster.html', 'roster.js', coach.client, 'https://gestionboxeur.example/team/roster.html?invite=opaque%2Btoken&date=2026-09-21#invite');
   try {
     assert.deepEqual(inviteUi.navigations, ['https://gestionboxeur.example/team/planning.html?invite=opaque%2Btoken&date=2026-09-21#invite']);
     assert.equal(coach.calls.length, 0);
@@ -399,7 +400,7 @@ test('athlete and invitation route to planning while preserving query and hash',
 
 test('sign-out clears displayed roster notes, gym identity, share preview and cached controls', async () => {
   const mock = rosterMock({ legacy: true });
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     ui.$('shareButton').click();
     mock.emit('SIGNED_OUT'); await settle();
@@ -416,7 +417,7 @@ test('sign-out clears displayed roster notes, gym identity, share preview and ca
 
 test('an explicit invitation survives the unauthenticated roster redirect to login', async () => {
   const mock = rosterMock({ authenticated: false });
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/team/index.html?invite=opaque%2Btoken&date=2026-09-21#invite');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/team/roster.html?invite=opaque%2Btoken&date=2026-09-21#invite');
   try {
     assert.deepEqual(ui.navigations, ['https://gestionboxeur.example/team/login.html?invite=opaque%2Btoken&date=2026-09-21#invite']);
     assert.equal(mock.calls.length, 0);
@@ -425,7 +426,7 @@ test('an explicit invitation survives the unauthenticated roster redirect to log
 
 test('an old pending invitation does not block a coach from opening the roster and lists', async () => {
   const mock = rosterMock({ legacy: true });
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/team/index.html?liste=1', { pendingInvite: 'expired-old-token' });
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/team/roster.html?liste=1', { pendingInvite: 'expired-old-token' });
   try {
     assert.deepEqual(ui.navigations, []);
     assert.equal(ui.$('athleteRows').children.length, 8);
@@ -439,7 +440,7 @@ test('an old pending invitation does not block a coach from opening the roster a
 
 test('attachment inside the edit form preserves unsaved edits instead of comparing stale data', async () => {
   const mock = rosterMock();
-  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
     ui.$('athleteRows').querySelector('.athlete-edit').click();
     ui.$('athleteNote').value = 'Observation non enregistrée';
@@ -456,7 +457,7 @@ test('mobile roster sort uses the same ordering as the table headers', async () 
  const mock=rosterMock();const base=mock.tables.athletes[0];
  mock.tables.athletes=[{...base,id:'a',first_name:'Alex',weight_kg:80},{...base,id:'b',first_name:'Zoe',weight_kg:60}];
  mock.tables.coach_athletes=mock.tables.athletes.map(a=>({athlete_id:a.id,can_view_calendar:false}));
- const ui=await surface('index.html','roster.js',mock.client,'https://gestionboxeur.example/index.html');
+ const ui=await surface('roster.html','roster.js',mock.client,'https://gestionboxeur.example/roster.html');
  try{
   ui.$('mobileSort').value='weight';ui.$('mobileSort').dispatchEvent(new ui.window.Event('change'));
   assert.match(ui.$('athleteRows').firstElementChild.textContent,/Zoe/);
@@ -467,7 +468,7 @@ test('mobile roster sort uses the same ordering as the table headers', async () 
 
 
 test('sharing defaults to Sparring first and exposes synchronized selection for type and weight',async()=>{
- const mock=rosterMock();const ui=await surface('index.html','roster.js',mock.client,'https://gestionboxeur.example/index.html');
+ const mock=rosterMock();const ui=await surface('roster.html','roster.js',mock.client,'https://gestionboxeur.example/roster.html');
  try{
   ui.$('shareButton').click();
   assert.equal(ui.$('typeButtons').firstElementChild.dataset.value,'sparring');
@@ -477,4 +478,24 @@ test('sharing defaults to Sparring first and exposes synchronized selection for 
   ui.$('weightButtons').querySelector('[data-value=kg]').click();assert.equal(ui.$('weightButtons').querySelectorAll('[aria-pressed=true]').length,1);assert.equal(ui.$('weightButtons').querySelector('[aria-pressed=true]').dataset.value,'kg');
   ui.$('shareDialog').close();ui.$('shareButton').click();assert.equal(ui.$('typeButtons').querySelector('[aria-pressed=true]').dataset.value,'sparring');
  }finally{await ui.close();}
+});
+
+
+test('directory views preserve filtered rows, selection and sorting without duplicating controls',async()=>{
+ const mock=rosterMock();const ui=await surface('roster.html','roster.js',mock.client,'https://gestionboxeur.example/roster.html');
+ try{
+  const row=ui.$('athleteRows').firstElementChild;const check=row.querySelector('input');
+  assert.equal(ui.$('athleteDirectory').dataset.rosterView,'table');assert.equal(check.checked,true);
+  ui.$('searchInput').value='Martin';ui.$('searchInput').dispatchEvent(new ui.window.Event('input'));
+  const filtered=ui.$('athleteRows').firstElementChild;
+  ui.$('rosterViewButtons').querySelector('[data-view=cards]').click();
+  assert.equal(ui.$('athleteDirectory').dataset.rosterView,'cards');assert.equal(ui.$('athleteRows').firstElementChild,filtered);assert.equal(filtered.querySelector('input').checked,true);
+  ui.$('rosterViewButtons').querySelector('[data-view=table]').click();assert.equal(ui.$('searchInput').value,'Martin');assert.equal(ui.$('athleteRows').children.length,1);
+  assert.equal(ui.$('settingsButton'),null);assert.equal(ui.$('saveState'),null);assert.equal(ui.$('settingsDialog'),null);
+ }finally{await ui.close();}
+});
+
+test('signing in continues to the personal calendar by default',async()=>{
+ const mock=authMock({user:{id:'person'}});const ui=await surface('login.html','auth.js',mock.client);
+ try{assert.equal(ui.$('continueButton').href,'https://gestionboxeur.example/planning.html');}finally{await ui.close();}
 });

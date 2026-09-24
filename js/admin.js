@@ -56,8 +56,8 @@ function render() {
   rows.replaceChildren();
   for (const user of users) {
     const tr = document.createElement('tr');
-    const role = user.account_type === 'athlete' ? 'Athlète' : 'Coach';
-    tr.append(textCell(user.full_name || '—', true), textCell(role), textCell(user.email || '—'), textCell(formatDate(user.created_at)), textCell(formatDate(user.last_sign_in_at)));
+    const coachingLabel = user.account_type === 'coach' ? 'Activées' : 'Non activées';
+    tr.append(textCell(user.full_name || '—', true), textCell(coachingLabel), textCell(user.email || '—'), textCell(formatDate(user.created_at)), textCell(formatDate(user.last_sign_in_at)));
     const actions = document.createElement('td');
     const reset = document.createElement('button');
     reset.className = 'edit'; reset.type = 'button'; reset.textContent = 'Réinitialiser le mot de passe';

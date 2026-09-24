@@ -40,7 +40,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   nav.setAttribute('aria-label', 'Menu principal');
   const identity = document.createElement('a');
   identity.className = 'nav-identity';
-  identity.href = route(athlete || previewRole ? 'planning.html' : '');
+  identity.href = route('planning.html');
   identity.innerHTML = '<span class="nav-track" aria-hidden="true"></span><span class="nav-role"></span>';
   identity.querySelector('.nav-role').textContent = athlete ? 'Mon compte' : 'Fonctions coach';
   nav.append(identity);
@@ -51,11 +51,11 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
       { icon: 'profile', text: 'Mon profil', href: 'profile.html', active: onProfile },
     ]
     : [
-      { icon: 'athletes', text: 'Mes athlètes', href: '', active: !onPlanning && !onProfile && !inAdmin },
       { icon: 'calendar', text: 'Calendrier', href: 'planning.html', active: onPlanning&&!onJournal, calendar:true },
+      { icon: 'athletes', text: 'Mes athlètes', href: 'roster.html', active: path.endsWith('/roster.html') },
       { icon: 'gym', text: 'Mon profil', href: 'profile.html', active: onProfile },
     ];
-  items.splice(athlete?1:2,0,{icon:'journal',text:'Journal',href:'planning.html#journal',active:onJournal,journal:true});
+  items.splice(1,0,{icon:'journal',text:'Journal',href:'planning.html#journal',active:onJournal,journal:true});
   if (isAdmin) items.push({ icon: 'admin', text: 'Administration', short: 'Admin', href: 'admin/', active: inAdmin });
   const links = document.createElement('div');
   links.className = 'nav-links';

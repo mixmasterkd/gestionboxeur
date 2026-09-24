@@ -114,7 +114,7 @@ function renderAthleteList() {
   }
   if(!list.length) {
     $('athleteList').append(el('p',{class:'empty-message'},query?'Aucun athlète correspondant.':'Aucun compte athlète lié. Les fiches sans compte sont dans « Mes athlètes ».'));
-    if(isCoach())$('athleteList').append(el('a',{href:'./',class:'button secondary'},'Ouvrir Mes athlètes'));
+    if(isCoach())$('athleteList').append(el('a',{href:'roster.html',class:'button secondary'},'Ouvrir Mes athlètes'));
   }
 }
 async function refreshCalendar({throwOnError=false}={}) {

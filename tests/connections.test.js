@@ -66,7 +66,7 @@ test('coach view lists pending and accepted connections without private notes or
     assert.match(ui.content.textContent, /Fiche sans compte/);
     assert.match(ui.content.textContent, /Nouveau compte.*invitation.*conservant cette fiche/);
     assert.match(ui.content.textContent, /Compte déjà actif.*code coach.*acceptation.*Rattacher.*conserver son calendrier/);
-    assert.equal(ui.content.querySelector('.permission-help a').href, 'https://gestionboxeur.example/project/');
+    assert.equal(ui.content.querySelector('.permission-help a').href, 'https://gestionboxeur.example/project/roster.html');
     assert.doesNotMatch(ui.content.textContent, /Secret coach note|Another private note/);
     assert.equal(ui.content.querySelector('img'), null);
     assert.equal(ui.calls.length, 0);
