@@ -68,7 +68,7 @@ import { mountNavigation } from './navigation.js';
     function coachFromDb(row) { return { id: row.id, firstName: row.first_name, lastName: row.last_name || "", phone: row.phone || "", email: row.email || "" }; }
     function selfCoach() {
       const pieces = (profileData?.full_name || currentUser?.user_metadata?.full_name || "Moi").trim().split(/\s+/);
-      return { id: currentUser.id, firstName: pieces.shift() || "Moi", lastName: pieces.join(" "), phone: profileData?.phone || "", email: currentUser.email || "", isSelf: true };
+      return { id: currentUser.id, firstName: pieces.shift() || "Moi", lastName: pieces.join(" "), phone: profileData?.phone || "", email: profileData?.contact_email || currentUser.email || "", isSelf: true };
     }
     function applyGymSettings() {
       $("gymBrand").textContent = gymSettings?.gym_name || "Mon gym";
@@ -123,6 +123,11 @@ import { mountNavigation } from './navigation.js';
       ]);
       if (generation !== loadGeneration) return;
       if (coachesResult.error || gymResult.error) throw (coachesResult.error || gymResult.error);
+      if(rosterStore.mode==='modern') {
+        const contact=await supabase.from('athletes').select('email').eq('user_id',currentUser.id).limit(1);
+        if(generation!==loadGeneration)return;if(contact.error)throw contact.error;
+        profileData.contact_email=contact.data?.[0]?.email||null;
+      }
       gymSettings = gymResult.data;
       state = { athletes: athletes.map(({ row, relation }) => athleteFromDb(row, relation)), coaches: [selfCoach(), ...coachesResult.data.map(coachFromDb)] };
       $('pageError').classList.add('hidden');

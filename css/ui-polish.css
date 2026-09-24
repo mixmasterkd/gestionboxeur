@@ -179,3 +179,9 @@
 .athlete-add-dialog .form-field input {width:100%;}
 .athlete-add-dialog .connection-card {padding:16px;border:1px solid var(--line);border-radius:12px;}
 .athlete-add-dialog .muted {font-size:13px;line-height:1.6;}
+
+.profile-security-actions {padding:0 26px 26px;}
+#sportsToggle {flex-shrink:0;}
+#contactEmailHelp {font-size:12px;line-height:1.6;margin:0 0 18px;}
+#accountEmail {overflow-wrap:anywhere;}
+@media(max-width:620px){.profile-security-actions {padding:0 18px 23px;} .profile-security-actions .button {width:100%;white-space:normal;}}

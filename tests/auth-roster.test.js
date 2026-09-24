@@ -184,6 +184,15 @@ test('roster reads explicit shared fields and keeps private coach notes out of s
   } finally { await ui.close(); }
 });
 
+test('own coach contact uses contact email with account email only as fallback',async()=>{
+  const mock=rosterMock();const original=mock.client.from;
+  mock.client.from=table=>{const q=original(table),select=q.select,then=q.then;let fields; q.select=function(value){fields=value;return select.call(this,value);};q.then=function(resolve,reject){if(table==='athletes'&&fields==='email')return Promise.resolve({data:[{email:'contact@example.test'}],error:null}).then(resolve,reject);return then.call(this,resolve,reject);};return q;};
+  const ui=await surface('roster.html','roster.js',mock.client);try{
+    assert.match(ui.$('coachGrid').textContent,/contact@example.test/);assert.doesNotMatch(ui.$('coachGrid').textContent,/coach@example.test/);
+    assert.ok(mock.calls.some(c=>c[0]==='eq'&&c[1]==='athletes'&&c[2]==='user_id'&&c[3]==='coach-id'));
+  }finally{await ui.close();}
+});
+
 test('roster accepts a first name alone and sends atomic nullable bio/private relation payload', async () => {
   const mock = rosterMock();
   const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');

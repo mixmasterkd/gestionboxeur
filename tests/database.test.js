@@ -219,6 +219,19 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       assert.equal(await scalar('select count(*)::int from public.session_templates'),1);
     });
 
+    await t.test('coach contact profile is independent from optional sports data and Auth credentials',async()=>{
+      await login(coach1);
+      await db.query('select public.save_athlete_profile($1)',[JSON.stringify({birth_date:null,email:'contact@example.test',phone:'555-1234'})]);
+      assert.equal(await scalar('select email from public.athletes where user_id=$1',[coach1]),'contact@example.test');
+      assert.equal(await scalar('select birth_date from public.athletes where user_id=$1',[coach1]),null);
+      await db.query('select public.save_athlete_profile($1)',[JSON.stringify({weight_kg:81,fights:3,wins:2,losses:1})]);
+      assert.equal(await scalar('select email from public.athletes where user_id=$1',[coach1]),'contact@example.test');
+      await db.query('select public.save_athlete_profile($1)',[JSON.stringify({email:'other-contact@example.test'})]);
+      assert.equal(Number(await scalar('select weight_kg from public.athletes where user_id=$1',[coach1])),81);
+      await denied(()=>db.query('select public.save_athlete_profile($1)',[JSON.stringify({email:'invalid address'})]));
+      await admin();assert.notEqual(await scalar('select email from auth.users where id=$1',[coach1]),'other-contact@example.test');
+    });
+
     await t.test('registered identity belongs to athlete while linked coach edits sports results; free sheets have no calendar',async()=>{
       await login(coach1);
       await db.query('select public.update_roster_athlete($1,$2)',[legacyAthlete,JSON.stringify({weight_kg:72.5,fights:8,wins:5,losses:3,private_notes:'Note propre',selected:true})]);

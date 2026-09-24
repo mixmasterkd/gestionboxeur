@@ -16,15 +16,26 @@
     <p id="profileSuccess" class="success hidden" role="status"></p>
     <div class="intro-actions"><a class="button secondary" href="planning.html#coachs">Mes coachs</a><button id="enableCoachingButton" class="button secondary" type="button" hidden>Activer les fonctions coach</button></div>
     <section class="panel hidden" id="athletePanel">
-      <div class="panel-head"><h2>Informations personnelles et sportives</h2><span class="pill" id="profileAge"></span></div>
-      <p class="muted">Tu contrôles ton identité. Tes coachs liés peuvent mettre à jour ton poids et ton bilan de combats pour préparer leurs listes.</p>
+      <div class="panel-head"><h2>Informations personnelles</h2><span class="pill" id="profileAge"></span></div>
       <form id="athleteProfileForm">
         <div class="form-grid profile-grid">
           <label class="field"><span>Prénom</span><input id="profileFirstName" required maxlength="160" autocomplete="given-name"></label>
           <label class="field"><span>Nom de famille</span><input id="profileLastName" maxlength="160" autocomplete="family-name"></label>
-          <label class="field"><span>Date de naissance · obligatoire</span><input id="profileBirthDate" type="date" required autocomplete="bday"></label>
+          <label class="field"><span>Date de naissance</span><input id="profileBirthDate" type="date" required autocomplete="bday"></label>
           <label class="field"><span>Genre</span><select id="profileSex"><option value="">À compléter</option><option value="M">M — Masculin</option><option value="F">F — Féminin</option></select></label>
           <label class="field"><span>Téléphone</span><input id="profilePhone" type="tel" autocomplete="tel" maxlength="60"></label>
+          <label class="field"><span>Courriel de contact</span><input id="profileEmail" type="email" maxlength="320" autocomplete="email" aria-describedby="contactEmailHelp"></label>
+        </div>
+        <p class="muted" id="contactEmailHelp">Ce courriel sert à te joindre. Le courriel de connexion reste celui de ton compte.</p>
+        <button id="saveProfileButton" class="button button-dark" type="submit">Enregistrer mes informations personnelles</button>
+        <p id="personalStatus" class="hidden" role="status"></p>
+      </form>
+    </section>
+    <section class="panel hidden" id="sportsPanel">
+      <div class="panel-head"><h2>Informations sportives</h2><button id="sportsToggle" type="button" class="button secondary" aria-expanded="false" aria-controls="sportsProfileForm" hidden>Afficher</button></div>
+      <p id="sportsHint" class="muted">Ces informations servent à préparer les listes d’athlètes.</p>
+      <form id="sportsProfileForm">
+        <div class="form-grid profile-grid">
           <label class="field"><span>Disponibilité pour les listes</span><select id="profileStatus"><option value="available">Disponible</option><option value="unavailable">Indisponible</option><option value="injured">Blessé</option><option value="sick">Malade</option><option value="not_ready">Pas prêt</option></select></label>
           <label class="field"><span>Poids</span><input id="profileWeight" type="number" min="0.1" max="1500" step="0.1" inputmode="decimal"></label>
           <label class="field"><span>Unité</span><select id="profileWeightUnit"><option value="kg">KG</option><option value="lb">LBS</option></select></label>
@@ -32,7 +43,8 @@
           <label class="field"><span>Victoires</span><input id="profileWins" type="number" min="0" step="1" inputmode="numeric"></label>
           <label class="field"><span>Défaites</span><input id="profileLosses" type="number" min="0" step="1" inputmode="numeric"></label>
         </div>
-        <button id="saveProfileButton" class="button button-dark" type="submit">Enregistrer mon profil</button>
+        <button id="saveSportsButton" class="button button-dark" type="submit">Enregistrer mes informations sportives</button>
+        <p id="sportsStatus" class="hidden" role="status"></p>
       </form>
     </section>
     <section class="panel hidden" id="coachPanel">
@@ -42,6 +54,11 @@
         <div class="form-grid"><label class="field"><span>Nom du gym</span><input id="coachGymName" required maxlength="160" autocomplete="organization"></label><label class="field"><span>Adresse du gym</span><input id="coachGymAddress" required maxlength="500" autocomplete="street-address"></label></div>
         <button id="saveGymButton" class="button button-dark" type="submit">Enregistrer mon gym</button>
       </form>
+    </section>
+    <section class="panel hidden" id="securityPanel">
+      <div class="panel-head"><h2>Mot de passe</h2></div>
+      <p class="muted">Le lien de réinitialisation sera envoyé au courriel de ton compte : <strong id="accountEmail"></strong>.</p>
+      <div class="profile-security-actions"><button id="resetPasswordButton" class="button secondary" type="button">Recevoir un lien de réinitialisation</button><p id="passwordStatus" class="hidden" role="status"></p></div>
     </section>
   </main>
   <script type="module" src="js/profile.js"></script>

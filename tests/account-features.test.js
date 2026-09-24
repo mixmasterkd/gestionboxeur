@@ -50,12 +50,12 @@ test('returning from athlete test removes only per-tab test credentials',async()
 });
 
 async function settle(){for(let i=0;i<20;i++)await Promise.resolve();await new Promise(setImmediate);}
-async function profileSurface(role='athlete'){
+async function profileSurface(role='athlete',{contactEmail=null,resetError=null,birthDate='2000-03-04'}={}){
   const window=new Window({url:'https://example.test/team/profile.html',settings:{disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});
   window.document.write(await readFile(new URL('../profile.html',import.meta.url),'utf8'));
   const calls=[],nav=[];let authCallback;
-  const rows={profiles:{id:'current-user',account_type:role,full_name:'Alex Test',phone:'555-0000',is_admin:false,gym_id:'crew'},gyms:[{id:'crew',name:'Le Crew',address:'123 rue Exemple',is_default:true}],athletes:{id:'own-athlete',first_name:'Alex',last_name:'Test',birth_date:'2000-03-04',sex:'F',weight_kg:70,weight_unit:'lb',fights:4,wins:2,losses:2,gym_id:'crew'},gym_settings:{gym_name:'Le Crew',address:'123 rue Exemple'}};
-  window.__client={auth:{async getSession(){return {data:{session:{user:{id:'current-user'}}},error:null};},onAuthStateChange(fn){authCallback=fn;},async signOut(){authCallback('SIGNED_OUT');return {error:null};}},
+  const rows={profiles:{id:'current-user',account_type:role,full_name:'Alex Test',phone:'555-0000',is_admin:false,gym_id:'crew'},gyms:[{id:'crew',name:'Le Crew',address:'123 rue Exemple',is_default:true}],athletes:{id:'own-athlete',first_name:'Alex',last_name:'Test',birth_date:birthDate,email:contactEmail,sex:'F',weight_kg:70,weight_unit:'lb',fights:4,wins:2,losses:2,gym_id:'crew'},gym_settings:{gym_name:'Le Crew',address:'123 rue Exemple'}};
+  window.__client={auth:{async getSession(){return {data:{session:{user:{id:'current-user',email:'account@example.test'}}},error:null};},async resetPasswordForEmail(email,options){calls.push(['resetPasswordForEmail',email,JSON.parse(JSON.stringify(options))]);return {data:{},error:resetError};},onAuthStateChange(fn){authCallback=fn;},async signOut(){authCallback('SIGNED_OUT');return {error:null};}},
     from(table){const q={select(){return q;},eq(...args){calls.push(['filter',table,...args]);return q;},order(){return q;},single(){return q;},maybeSingle(){return q;},then(resolve,reject){return Promise.resolve({data:rows[table],error:null}).then(resolve,reject);}};return q;},
     async rpc(name,args){calls.push([name,JSON.parse(JSON.stringify(args))]);return {data:'saved',error:null};}};
   window.__navigation=args=>nav.push(args);window.__navigate=()=>{};
@@ -67,13 +67,13 @@ test('athlete profile reads own identity and saves normalized sports data withou
   const ui=await profileSurface();try{
     assert.equal(ui.$('athletePanel').classList.contains('hidden'),false);assert.equal(ui.$('coachPanel').classList.contains('hidden'),true);
     assert.ok(ui.calls.some(c=>c[0]==='filter'&&c[1]==='athletes'&&c[2]==='user_id'&&c[3]==='current-user'));
-    assert.equal(ui.$('profileWeight').value,'154.3');ui.$('profileWeight').value='165.3';
+    assert.equal(ui.$('profileWeight').value,'154.3');ui.$('profileWeight').value='165.3';ui.$('profileWeight').step='any'; // Happy DOM miscomputes decimal step validity.
     ui.$('profileStatus').value='unavailable';
-    ui.$('athleteProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
+    ui.$('sportsProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
     const data=ui.calls.find(c=>c[0]==='save_athlete_profile')[1].p_data;
-    assert.ok(Math.abs(data.weight_kg-75)<0.1);assert.equal(data.birth_date,'2000-03-04');assert.equal(data.weight_unit,'lb');assert.equal(data.user_id,undefined);assert.equal(data.is_admin,undefined);assert.equal(data.coach_id,undefined);
+    assert.ok(Math.abs(data.weight_kg-75)<0.1);assert.equal(data.birth_date,undefined);assert.equal(data.email,undefined);assert.equal(data.weight_unit,'lb');assert.equal(data.user_id,undefined);assert.equal(data.is_admin,undefined);assert.equal(data.coach_id,undefined);
     assert.equal(data.status,'unavailable');assert.equal(data.gym_id,undefined);assert.equal(ui.$('profileGym'),null);
-    assert.equal(ui.$('profileSuccess').classList.contains('hidden'),false);
+    assert.equal(ui.$('sportsStatus').classList.contains('hidden'),false);
   }finally{await ui.close();}
 });
 test('coach profile exposes own sports profile and saves gym separately',async()=>{
@@ -90,5 +90,39 @@ test('personal account can request coaching activation only for itself',async()=
   assert.equal(ui.$('enableCoachingButton').hidden,false);
   ui.$('enableCoachingButton').click();await settle();
   assert.deepEqual(ui.calls.find(call=>call[0]==='enable_coaching'),['enable_coaching',{}]);
+ }finally{await ui.close();}
+});
+
+
+test('coach personal contact saves independently of unused sports fields and defaults to account email',async()=>{
+ const ui=await profileSurface('coach',{birthDate:null});try{
+  assert.equal(ui.$('profileEmail').value,'account@example.test');assert.equal(ui.$('profileBirthDate').required,false);
+  assert.equal(ui.$('sportsProfileForm').hidden,true);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'false');
+  ui.$('profileWins').value='900';ui.$('profileWeight').value='-1';
+  ui.$('profileEmail').value='contact@example.test';ui.$('athleteProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
+  const patch=ui.calls.find(c=>c[0]==='save_athlete_profile')[1].p_data;
+  assert.equal(patch.email,'contact@example.test');assert.equal(patch.birth_date,null);
+  assert.deepEqual(Object.keys(patch).sort(),['birth_date','email','first_name','last_name','phone','sex']);
+  assert.equal(ui.$('personalStatus').className,'success');
+  ui.$('sportsToggle').click();assert.equal(ui.$('sportsProfileForm').hidden,false);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'true');
+  ui.$('sportsToggle').click();assert.equal(ui.$('sportsProfileForm').hidden,true);
+ }finally{await ui.close();}
+});
+
+test('saved contact email is displayed but password recovery always uses the account email',async()=>{
+ const ui=await profileSurface('coach',{contactEmail:'contact@example.test'});try{
+  assert.equal(ui.$('profileEmail').value,'contact@example.test');
+  ui.$('profileEmail').value='unsaved@example.test';ui.$('resetPasswordButton').click();ui.$('resetPasswordButton').click();await settle();
+  assert.deepEqual(ui.calls.filter(c=>c[0]==='resetPasswordForEmail'),[['resetPasswordForEmail','account@example.test',{redirectTo:'https://example.test/team/login.html?mode=recovery'}]]);
+  assert.equal(ui.$('passwordStatus').className,'success');assert.equal(ui.$('resetPasswordButton').disabled,true);
+  assert.equal(ui.calls.some(c=>c[0]==='save_athlete_profile'),false);
+ }finally{await ui.close();}
+});
+
+test('failed password email can be retried and signout clears profile details',async()=>{
+ const ui=await profileSurface('coach',{resetError:{message:'Envoi indisponible'}});try{
+  ui.$('resetPasswordButton').click();await settle();assert.equal(ui.$('resetPasswordButton').disabled,false);assert.equal(ui.$('passwordStatus').className,'form-error');
+  ui.$('logoutButton').click();await settle();for(const id of ['athletePanel','sportsPanel','securityPanel'])assert.equal(ui.$(id).classList.contains('hidden'),true);
+  assert.equal(ui.$('accountEmail').textContent,'');assert.equal(ui.$('profileEmail').value,'');
  }finally{await ui.close();}
 });
