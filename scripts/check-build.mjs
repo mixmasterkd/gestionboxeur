@@ -9,10 +9,11 @@ const pages = ['index.html', 'login.html', 'planning.html', 'profile.html', 'adm
 for (const page of pages) {
   const file = resolve('dist', page);
   const html = await readFile(file, 'utf8');
-  for (const width of [375, 1280]) {
+  for (const width of [375, 1280]) for (const theme of ["dark", "light"]) {
     const window = new Window({ width, settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
     try {
       window.document.write(html);
+      window.document.documentElement.setAttribute("data-theme", theme);
       for (const link of [...window.document.querySelectorAll('link[rel="stylesheet"]')]) {
         const style = window.document.createElement('style');
         style.textContent = await readFile(resolve(dirname(file), link.getAttribute('href')), 'utf8');
@@ -21,9 +22,9 @@ for (const page of pages) {
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);
       const computed = window.getComputedStyle(button);
-      assert.equal(computed.backgroundColor, '#d7dfe9', `${page} at ${width}px: the current palette must win`);
-      assert.equal(computed.color, '#18202b', `${page}: readable primary action`);
-      assert.equal(window.getComputedStyle(window.document.body).backgroundColor, '#181b20', `${page}: graphite surface`);
+      assert.equal(computed.backgroundColor, theme === 'dark' ? '#d7dfe9' : '#263246', `${page} at ${width}px: the current palette must win`);
+      assert.equal(computed.color, theme === 'dark' ? '#18202b' : '#fff', `${page}: readable primary action`);
+      assert.equal(window.getComputedStyle(window.document.body).backgroundColor, theme === 'dark' ? '#181b20' : '#f4f5f7', `${page}: graphite surface`);
       assert.ok(parseFloat(computed.minHeight) >= 44, `${page}: usable action height`);
       if (page === 'planning.html') {
         assert.equal(window.getComputedStyle(window.document.querySelector('.date-navigation')).display, width < 620 ? 'grid' : 'flex', 'compiled calendar responsiveness');

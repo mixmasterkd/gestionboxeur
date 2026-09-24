@@ -202,7 +202,7 @@ test('removing an athlete revokes the coach relation without deleting the shared
   const mock = rosterMock();
   const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
   try {
-    ui.$('athleteRows').querySelector('.name-button').click();
+    ui.$('athleteRows').querySelector('.athlete-edit').click();
     ui.$('deleteAthleteButton').click(); await settle();
     const call = mock.calls.find(call => call[0] === 'rpc');
     assert.equal(call[1], 'archive_roster_athlete');
@@ -217,7 +217,7 @@ test('registered roster protects identity fields, uses one table and sends only 
   try {
     assert.equal(ui.$('accountFilter'),null);
     assert.match(ui.$('athleteRows').querySelector('.roster-calendar-link').href,/planning\.html\?athlete=athlete-id$/);
-    ui.$('resetFilters').click();ui.$('athleteRows').querySelector('.name-button').click();
+    ui.$('resetFilters').click();ui.$('athleteRows').querySelector('.athlete-edit').click();
     for(const id of ['firstName','lastName','birthDate','sex','status'])assert.equal(ui.$(id).disabled,true);
     ui.$('weight').value='160';ui.$('weightUnit').value='lb';ui.$('firstName').value='Untrusted change';
     submit(ui,'athleteForm');await settle();
@@ -252,14 +252,17 @@ test('one roster includes free sheets and registered accounts regardless of cale
     assert.equal(ui.$('shareDialog').open, false);
     assert.equal(ui.$('accountFilter'), null);
     assert.equal(ui.$('athleteRows').querySelectorAll('a.roster-calendar-link').length, 1);
-    assert.match(ui.$('athleteRows').textContent, /Calendrier non partagé/);
+    assert.equal(ui.$('athleteRows').querySelectorAll('button.roster-calendar-link').length, 0);
+    assert.equal(ui.$('athleteRows').querySelector('a.name-button').textContent.trim(), 'Alex');
     ui.$('shareButton').click();
     assert.match(ui.$('sharePreview').textContent, /Zoé/);
     assert.equal((ui.$('sharePreview').textContent.match(/Ruslan/g) || []).length, 2);
     assert.doesNotMatch(ui.$('sharePreview').textContent, /Privé/);
     ui.$('shareDialog').close();
     const row = [...ui.$('athleteRows').children].find(row => row.textContent.includes('ruslan-free'));
-    row.querySelector('button.roster-calendar-link').click();
+    row.querySelector('.athlete-edit').click();
+    assert.equal(ui.$('attachAthleteButton').hidden, false);
+    ui.$('attachAthleteButton').click();
     await settle();
     assert.equal(mock.calls.some(call => call[0] === 'rpc'), false);
     assert.equal(ui.$('rosterLinkTarget').value, '');
@@ -280,6 +283,7 @@ test('one roster includes free sheets and registered accounts regardless of cale
     assert.equal(ui.$('athleteRows').children.length, 3);
     assert.equal(ui.$('athleteRows').querySelectorAll('a.roster-calendar-link').length, 1);
     assert.equal(ui.$('shareDialog').open, false);
+    assert.equal(ui.$('athleteDialog').open, false);
   } finally { await ui.close(); }
 });
 
@@ -289,14 +293,14 @@ test('long merged notes survive an unrelated roster edit without trimming or res
   mock.tables.coach_athletes[0].private_notes = notes;
   const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
   try {
-    ui.$('athleteRows').querySelector('.name-button').click();
+    ui.$('athleteRows').querySelector('.athlete-edit').click();
     assert.equal(ui.$('athleteNote').maxLength, notes.length);
     assert.equal(ui.$('athleteNote').value, notes);
     ui.$('weight').value = '70';
     submit(ui, 'athleteForm'); await settle();
     const payload = mock.calls.find(call => call[1] === 'update_roster_athlete')[2].p_data;
     assert.equal(Object.hasOwn(payload, 'private_notes'), false);
-    ui.$('athleteRows').querySelector('.name-button').click();
+    ui.$('athleteRows').querySelector('.athlete-edit').click();
     ui.$('athleteNote').value = `  ${'z'.repeat(21000)}  `;
     submit(ui, 'athleteForm'); await settle();
     const edit = mock.calls.filter(call => call[1] === 'update_roster_athlete').at(-1)[2].p_data;
@@ -430,4 +434,33 @@ test('an old pending invitation does not block a coach from opening the roster a
     assert.equal(ui.$('shareDialog').open, true);
     assert.match(ui.$('sharePreview').textContent, /COMBAT/);
   } finally { await ui.close(); }
+});
+
+
+test('attachment inside the edit form preserves unsaved edits instead of comparing stale data', async () => {
+  const mock = rosterMock();
+  const ui = await surface('index.html', 'roster.js', mock.client, 'https://gestionboxeur.example/index.html');
+  try {
+    ui.$('athleteRows').querySelector('.athlete-edit').click();
+    ui.$('athleteNote').value = 'Observation non enregistrée';
+    ui.$('attachAthleteButton').click(); await settle();
+    assert.equal(ui.window.document.querySelector('.roster-link-dialog'), null);
+    assert.match(ui.$('athleteError').textContent, /Enregistre tes modifications/);
+    assert.equal(ui.$('athleteNote').value, 'Observation non enregistrée');
+    assert.equal(ui.$('athleteDialog').open, true);
+  } finally { await ui.close(); }
+});
+
+
+test('mobile roster sort uses the same ordering as the table headers', async () => {
+ const mock=rosterMock();const base=mock.tables.athletes[0];
+ mock.tables.athletes=[{...base,id:'a',first_name:'Alex',weight_kg:80},{...base,id:'b',first_name:'Zoe',weight_kg:60}];
+ mock.tables.coach_athletes=mock.tables.athletes.map(a=>({athlete_id:a.id,can_view_calendar:false}));
+ const ui=await surface('index.html','roster.js',mock.client,'https://gestionboxeur.example/index.html');
+ try{
+  ui.$('mobileSort').value='weight';ui.$('mobileSort').dispatchEvent(new ui.window.Event('change'));
+  assert.match(ui.$('athleteRows').firstElementChild.textContent,/Zoe/);
+  ui.$('mobileSortDirection').click();assert.match(ui.$('athleteRows').firstElementChild.textContent,/Alex/);
+  assert.equal(ui.window.document.querySelector('[data-sort="weight"]').closest('th').getAttribute('aria-sort'),'descending');
+ }finally{await ui.close();}
 });

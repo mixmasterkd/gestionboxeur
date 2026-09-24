@@ -66,3 +66,21 @@ function mountPreviewBanner(){
   const switcher=document.createElement('a');switcher.href=`planning.html?demo=${role==='coach'?'athlete':'coach'}`;switcher.textContent=role==='coach'?'Voir côté athlète →':'Voir côté coach →';
   const exit=document.createElement('a');exit.href='login.html';exit.textContent='Se connecter';banner.append(text,switcher,exit);document.body.prepend(banner);
 }
+
+let folders=[],journalEntries=[],journalUpdates=[];
+export async function getLibraryFolders(){return clone(folders);}
+export async function saveLibraryFolder(name,id){if(id){const folder=folders.find(f=>f.id===id);if(!folder)throw new Error('Dossier introuvable.');folder.name=name;return clone(folder);}const folder={id:crypto.randomUUID(),owner_id:user.id,name};folders.push(folder);return clone(folder);}
+export async function deleteLibraryFolder(id){folders=folders.filter(f=>f.id!==id);templates.forEach(t=>{if(t.folder_id===id)t.folder_id=null;});}
+export async function moveTemplate(template,folderId){return save(templates,{folder_id:folderId},template);}
+export async function loadJournal(athleteId){const entries=journalEntries.filter(e=>e.athlete_id===athleteId);return clone({entries,updates:journalUpdates.filter(u=>entries.some(e=>e.id===u.entry_id))});}
+function journalUpdate(entryId,kind,content=''){const item={id:crypto.randomUUID(),entry_id:entryId,kind,content,created_by:user.id,author_name:role==='coach'?'Camille · Coach':'Alex Morin',created_at:new Date().toISOString()};journalUpdates.push(item);return clone(item);}
+export async function addJournalComment(entryId,content){return journalUpdate(entryId,'comment',content);}
+export async function saveJournalEntry(payload,existing){
+ const now=new Date().toISOString();
+ if(existing){const entry=journalEntries.find(e=>e.id===existing.id);if(!entry||entry.updated_at!==existing.updated_at)throw new Error('Ce sujet a changé.');
+ if(payload.status&&payload.status!==entry.status)journalUpdate(entry.id,'status',payload.status);
+ if('archived' in payload&&payload.archived!==entry.archived)journalUpdate(entry.id,payload.archived?'archived':'restored');
+ if('body' in payload&&(payload.body!==entry.body||payload.title!==entry.title))journalUpdate(entry.id,'edited',payload.body);
+ Object.assign(entry,clone(payload),{updated_at:now});return clone(entry);}
+ const entry={...clone(payload),id:crypto.randomUUID(),created_by:user.id,author_name:role==='coach'?'Camille · Coach':'Alex Morin',created_at:now,updated_at:now,archived:false};journalEntries.push(entry);journalUpdate(entry.id,'created',entry.body);return clone(entry);
+}

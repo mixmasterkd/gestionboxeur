@@ -265,6 +265,7 @@
 
 
 <link rel="stylesheet" href="css/roster-page.css">
+<script type="module" src="js/appearance.js"></script>
 </head>
 <body class="roster-page">
   <a class="skip-link" href="#rosterTitle">Aller à mes athlètes</a>
@@ -305,6 +306,7 @@
       </div>
 
       <div class="table-wrap">
+        <div class="mobile-roster-sort"><label for="mobileSort">Trier par</label><select id="mobileSort"><option value="name">Athlète</option><option value="age">Âge</option><option value="sex">Sexe</option><option value="weight">Poids</option><option value="fights">Combats</option><option value="status">Statut</option></select><button type="button" id="mobileSortDirection" aria-label="Tri croissant : inverser">↑</button></div>
         <table class="roster">
           <thead><tr>
             <th class="check-cell">Choisir</th>
@@ -339,6 +341,7 @@
       <form id="athleteForm" novalidate>
         <p class="hint">Un prénom suffit pour créer une fiche sans compte. Les détails sont facultatifs.</p>
         <input id="athleteId" type="hidden">
+        <button id="attachAthleteButton" class="button attachment-entry" type="button" hidden>Rattacher un compte</button>
         <div class="form-grid cols-2">
           <label><span>Prénom *</span><input id="firstName" maxlength="200" required autocomplete="given-name"></label>
           <label><span>Nom — facultatif</span><input id="lastName" maxlength="200" autocomplete="family-name"></label>

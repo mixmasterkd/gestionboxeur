@@ -57,7 +57,7 @@ export class ProgramEditor {
     this.container = container; this.blocks = normalized(blocks);
     this.sport = sport; this.onChange = onChange; this.onSaveBlock = onSaveBlock;
     this.notes = notes;
-    this.mode = 'program'; this.textDraft = ''; this.textErrors = []; this.mini = null;
+    this.mode = 'text'; this.textDraft = serializeSessionText(this.blocks, this.notes); this.textErrors = []; this.mini = null;
     this.sortables = []; this.helpOpen = false; this.destroyed = false;
     this.group = `program-${makeBlock().id}`;
     this.render();
@@ -112,7 +112,7 @@ export class ProgramEditor {
     this.sortables.forEach(s => s.destroy()); this.sortables = [];
     this.container.classList.add('program-editor');
     const modes = el('div', { class: 'pe-modes', role: 'group', 'aria-label': 'Mode de création du programme' });
-    for (const [mode, label] of [['program', 'Programme'], ['text', 'Texte']]) modes.append(button(label, () => this.switchMode(mode), 'pe-button', { 'aria-pressed': String(this.mode === mode), disabled: !!this.mini, dataset: { mode } }));
+    for (const [mode, label] of [['text', 'Texte'], ['program', 'Programme']]) modes.append(button(label, () => this.switchMode(mode), 'pe-button', { 'aria-pressed': String(this.mode === mode), disabled: !!this.mini, dataset: { mode } }));
     const header = el('header', { class: 'pe-heading' }, el('div', {}, el('h3', {}, 'Programme')), modes);
     this.errors = errorBox(); this.errors.classList.add('pe-error');
     this.summary = el('p', { class: 'pe-summary', role: 'status' });
@@ -187,8 +187,9 @@ export class ProgramEditor {
       const main = this.action('', 'edit', block.id, `Modifier ${block.title || typeLabel(block.type)}`); main.classList.add('pe-line');
       main.append(el('strong', {}, block.title || (block.kind === 'repeat' ? 'Répétition' : typeLabel(block.type))), el('span', { class: 'pe-dose' }, dose(block)));
       if (block.description) main.append(el('small', { class: 'pe-instructions' }, block.description));
-      const actions = el('div', { class: 'pe-row-actions' }, this.action('↑', 'up', block.id, 'Monter cette étape'), this.action('↓', 'down', block.id, 'Descendre cette étape'));
+      const actions = el('div', { class: 'pe-row-actions' });
       const more = el('details', { class: 'pe-row-more' }, el('summary', { 'aria-label': `Actions pour ${block.title || typeLabel(block.type)}` }, '•••'));
+      more.append(this.action('↑ Monter', 'up', block.id), this.action('↓ Descendre', 'down', block.id));
       more.append(this.action('Dupliquer', 'duplicate', block.id), this.action('Supprimer', 'delete', block.id));
       if (this.onSaveBlock) more.append(this.action('Garder comme bloc', 'save', block.id));
       actions.append(more); row.append(el('div', { class: 'pe-row-head' }, handle, main, actions));
@@ -266,15 +267,14 @@ export class ProgramEditor {
     const types = BLOCK_TYPES.map(item => [item.id, item.label]); if (!types.some(([type]) => type === block.type)) types.push([block.type, block.type]);
     const type = choose('block_type', types, block.type);
     const zone = choose('block_zone', [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], block.zone == null ? '' : String(block.zone));
-    const movement = input('block_repetitions', block.repetitions ?? '', 'text', { inputMode: 'numeric' });
     const notes = textarea('block_notes', block.notes || '', { maxLength: 10000 });
     if (!repeating || !draft.id) panel.append(el('div', { class: 'pe-mini-fields' }, field('Type', type), field(repeating ? 'Zone des efforts' : 'Zone d’effort', zone)));
-    const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), el('div', { class: 'pe-mini-fields' }, field('Répétitions de mouvement', movement)), field('Notes', notes));
+    const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), field('Notes', notes));
     panel.append(advanced);
     const error = errorBox();
     const apply = () => {
       try {
-        const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, repetitions: movement.value.trim() ? numeric(movement.value, 'Répétitions de mouvement') : null, notes: notes.value };
+        const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, notes: notes.value };
         if (!draft.id && !nextBlock.title) nextBlock.title = repeating ? 'Intervalles' : typeLabel(nextBlock.type);
         if (repeating) {
           nextBlock.repeat_count = numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat });

@@ -1,3 +1,4 @@
+import { createJournalUI } from './journal.js';
 import { applyEventColor } from './event-colors.js';
 import Sortable from 'sortablejs';
 import { client, loadAccount, loadCalendar, rpc, saveSession } from './data.js';
@@ -11,7 +12,7 @@ import { createLibraryUI } from './library.js';
 import { mountNavigation } from './navigation.js';
 import { renderSessionChart } from './session-chart.js';
 
-const state = { user:null, profile:null, gym:null, planningAvailable:true, coach:null, relations:[], athletes:[], selectedAthlete:null, relation:null, sessions:[],events:[],feedback:[],runningWeekSessions:null,runningWeekError:false,view:'week',anchor:todayLocal() };
+const state = { surface:location.hash==='#journal'?'journal':'calendar', user:null, profile:null, gym:null, planningAvailable:true, coach:null, relations:[], athletes:[], selectedAthlete:null, relation:null, sessions:[],events:[],feedback:[],runningWeekSessions:null,runningWeekError:false,view:'week',anchor:todayLocal() };
 let calendarTicket=0, accountTicket=0, dragSaving=false, sortables=[], destroyed=false;
 const isCoach=()=>state.profile?.account_type==='coach';
 const ownsCalendar=()=>!!state.user?.id && state.selectedAthlete?.user_id===state.user.id;
@@ -21,6 +22,7 @@ const canEdit=session=>canView() && session.athlete_id===state.selectedAthlete.i
 const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi});
 const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:()=>sessionUI.editTemplate(),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
 const connectionsUI=createConnectionsUI({getState:()=>state,refreshAccount,refreshCalendar});
+const journalUI=createJournalUI({getState:()=>state,api:dataApi});
 const calendarViews=new Set(['today','week','month']);
 function viewPreferenceKey() {
   if(!state.user?.id)return null;
@@ -55,7 +57,7 @@ async function refreshAccount() {
   return true;
 }
 function renderAccount() {
-  mountNavigation({role:state.profile.account_type,isAdmin:state.profile.is_admin});
+  mountNavigation({role:state.profile.account_type,isAdmin:state.profile.is_admin,section:state.surface});
   $('accountName').textContent=state.profile.full_name || state.user.email;
   $('gymBrand').textContent=isCoach()?(state.gym?.gym_name||'Mon gym'):'Mon entraînement';
   $('gymAddress').textContent=isCoach()?(state.gym?.address||''):'';
@@ -83,7 +85,15 @@ function renderAccount() {
   $('athleteSubtitle').textContent=!ownsCalendar()&&isCoach()?'Séances et événements de cet athlète.':'Séances, événements et bilans.';
   if(!isCoach()&&!state.selectedAthlete) {$('calendarStatus').textContent='Aucun profil athlète lié. Ouvre ton lien d’invitation ou reconnecte-toi après la création de ton compte.';$('calendarSection').hidden=false;}
   renderAthleteList();
+  renderSurface();
 }
+function renderSurface(){
+ const journal=state.surface==='journal';
+ $('journalSection').hidden=!journal;$('calendarSection').hidden=journal||!state.selectedAthlete;
+ document.querySelector('.intro-actions').hidden=journal;$('athleteSubtitle').hidden=journal;
+ if(journal){$('athleteTitle').textContent=ownsCalendar()?'Mon journal':state.selectedAthlete?'Journal · '+displayName(state.selectedAthlete):'Journal';journalUI.refresh();}
+}
+function setSurface(surface){state.surface=surface;const url=new URL(location.href);url.hash=surface==='journal'?'journal':'';history.replaceState(history.state,'',url);if(surface==='calendar')journalUI.invalidate();renderAccount();}
 function searchName(value) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr'); }
 function renderAthleteList() {
   const query=searchName($('athleteSearch').value.trim());
@@ -235,7 +245,7 @@ async function init() {
   const {data,error}=await client.auth.getSession();if(error)throw error;
   if(!data.session){location.replace(`login.html${invitation?'?invite='+encodeURIComponent(invitation):''}`);return;}
   state.user=data.session.user;
-  client.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){destroyed=true;calendarTicket++;accountTicket++;clearCalendar();state.user=null;state.gym=null;state.sessions=[];state.events=[];state.feedback=[];state.athletes=[];$('athleteList').replaceChildren();$('gymBrand').textContent='Mon espace';$('gymAddress').textContent='';$('gymAddress').hidden=true;$('accountName').textContent='';document.title='Planification';document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('workspace').hidden=true;$('planningUnavailable').hidden=true;location.replace('login.html');}});
+  client.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){destroyed=true;journalUI.invalidate();calendarTicket++;accountTicket++;clearCalendar();state.user=null;state.gym=null;state.sessions=[];state.events=[];state.feedback=[];state.athletes=[];$('athleteList').replaceChildren();$('gymBrand').textContent='Mon espace';$('gymAddress').textContent='';$('gymAddress').hidden=true;$('accountName').textContent='';document.title='Planification';document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('workspace').hidden=true;$('planningUnavailable').hidden=true;location.replace('login.html');}});
   if(invitation){
     try{await rpc('accept_invitation',{p_token:invitation});sessionStorage.removeItem('pendingInvite');const clean=new URL(location.href);clean.searchParams.delete('invite');history.replaceState({},'',clean);$('connectionBanner').textContent='Invitation acceptée. Ton calendrier est maintenant partagé avec ton coach.';$('connectionBanner').hidden=false;}
     catch(error){$('connectionBanner').textContent=error.message||'Impossible d’accepter cette invitation.';$('connectionBanner').hidden=false;}
@@ -245,6 +255,8 @@ async function init() {
   if(new URL(location.href).searchParams.get('coachs')==='1'&&state.planningAvailable)connectionsUI.open();
   if(state.planningAvailable)await refreshCalendar();
 }
+$('journalButton').addEventListener('click',()=>setSurface('journal'));
+$('calendarButton').addEventListener('click',()=>setSurface('calendar'));
 $('athleteSearch').addEventListener('input',renderAthleteList);
 $('athletePickerButton').addEventListener('click',()=>{
   if(!isCoach())return;

@@ -1,0 +1,7 @@
+body { min-width:0; }
+.appearance-toggle { display:inline-grid;place-items:center;flex:0 0 44px;width:44px;min-height:44px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--white);color:var(--ink);cursor:pointer; }
+.appearance-toggle:hover { background:var(--soft);border-color:var(--accent-line); }
+.appearance-toggle:focus-visible { outline:2px solid var(--accent);outline-offset:3px; }
+.auth-appearance { position:absolute;top:16px;right:20px; }
+.auth-page { padding-top:76px; }
+@media print { .appearance-toggle,.auth-appearance { display:none !important; } }

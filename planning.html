@@ -5,6 +5,7 @@
 
 
 <link rel="stylesheet" href="css/planning-page.css">
+<script type="module" src="js/appearance.js"></script>
 </head>
 <body class="planning-page">
 <a class="skip-link" href="#main">Aller au calendrier</a>
@@ -25,7 +26,9 @@
 <div class="calendar-toolbar"><div class="date-navigation"><button id="previousButton" class="icon-button" aria-label="Période précédente" type="button">←</button><h2 id="periodTitle"></h2><button id="nextButton" class="icon-button" aria-label="Période suivante" type="button">→</button><button id="todayButton" class="today-button" type="button">Aujourd’hui</button></div><div id="viewButtons" class="segmented" role="group" aria-label="Vue du calendrier"><button data-view="today" id="todayViewButton" type="button" aria-pressed="false">Jour</button><button data-view="week" type="button" aria-pressed="true">Semaine</button><button data-view="month" type="button" aria-pressed="false">Mois</button></div></div>
 <div class="week-overview"><div><strong id="sessionTotal">0</strong><span>SÉANCES · PÉRIODE</span></div><div><strong id="durationTotal">—</strong><span>DURÉE CONNUE · PÉRIODE</span></div><div class="running-week-total"><strong id="runningTotal">—</strong><span>COURSE PRÉVUE · SEMAINE</span><small id="runningWeekRange"></small><small id="distanceTotal" hidden></small><small id="runningWeekHint"></small></div><p id="periodHint">Totaux des séances de la période.</p></div>
 <p id="calendarStatus" class="calendar-status" role="status"></p><div id="calendar" class="calendar" aria-live="polite"></div><p class="calendar-footnote" id="calendarFootnote">Les séances sont organisées par date, sans horaire imposé.</p>
-</section></main></div>
+</section><section id="journalSection" aria-label="Journal" hidden></section></main></div>
+<button id="journalButton" type="button" hidden>Journal</button><button id="calendarButton" type="button" hidden>Calendrier</button>
+<dialog id="journalDialog" class="app-dialog detail-dialog" aria-labelledby="journalTitle"><div id="journalContent"></div></dialog>
 <dialog id="athletePickerDialog" class="app-dialog athlete-picker-dialog" aria-labelledby="athletePickerTitle"><aside id="athleteSidebar" class="athlete-sidebar" hidden aria-label="Choix de l’athlète">
 <div class="sidebar-heading"><h2 id="athletePickerTitle">Choisir un calendrier</h2><button id="closeAthletePicker" class="close-button" type="button" aria-label="Fermer le choix de calendrier">×</button></div>
 <label class="search-box"><span aria-hidden="true">⌕</span><input id="athleteSearch" type="search" aria-label="Rechercher un athlète"></label><div id="athleteList" class="athlete-list"></div>

@@ -11,7 +11,7 @@ const editors = new Set();
 function fixture(options = {}) {
   const mount = document.createElement('div'); document.body.append(mount);
   let changes = 0;
-  const editor = new ProgramEditor(mount, { ...options, onChange() { changes++; } }); editors.add(editor);
+  const editor = new ProgramEditor(mount, { ...options, onChange() { changes++; } }); editors.add(editor); editor.switchMode('program');
   return { editor, mount, changes: () => changes };
 }
 function change(node, value) { node.value = String(value); node.dispatchEvent(new window.Event(node.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); }
@@ -166,4 +166,11 @@ test('editing a legacy zero dose or extra advanced timing preserves existing val
     const { editor, mount } = fixture({ blocks: [block] }); click(mount, 'edit'); click(mount, 'apply-mini');
     assert.deepEqual(editor.getValue(), [block]);
   }
+});
+
+test('new editor opens with blank text on the left and hides movement repetition controls without erasing legacy values',()=>{
+ const mount=document.createElement('div');document.body.append(mount);const editor=new ProgramEditor(mount);editors.add(editor);
+ assert.equal(editor.mode,'text');assert.equal(mount.querySelector('.pe-text-input').value,'');
+ assert.deepEqual([...mount.querySelectorAll('[data-mode]')].map(n=>n.dataset.mode),['text','program']);
+ editor.switchMode('program');click(mount,'add-step');assert.equal(mount.querySelector('[name=block_repetitions]'),null);
 });

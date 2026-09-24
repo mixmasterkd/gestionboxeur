@@ -1,7 +1,7 @@
 import { SPORTS, summarizeBlocks, formatDuration, makeBlock } from './domain.js';
 import { getStarterTemplates } from './starter-templates.js';
 import { renderWorkout } from './editor.js';
-import { $, el, button, heading, errorBox, showError, confirmAction, toast } from './ui.js';
+import { $, el, button, heading, errorBox, showError, confirmAction, toast, field, input, select, busy } from './ui.js';
 
 const freshBlocks = blocks => (blocks || []).map(block => ({ ...structuredClone(block), id: makeBlock().id, children: freshBlocks(block.children) }));
 const copyTemplate = template => ({ ...structuredClone(template), blocks: freshBlocks(template.blocks) });
@@ -35,35 +35,49 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     if (!authorized()) { body.append(el('p', {}, 'La bibliothèque est réservée aux coachs.')); return; }
 
     if (onCreateTemplate && kind !== 'block' && !onSelect) body.append(button('＋ Créer un entraînement', () => { if (!authorized()) return; dialog.close(); onCreateTemplate(); }, 'button primary'));
-    let source = 'personal', filter = kind || 'all', templates = [], loading = true;
+    let source = 'personal', folder = 'personal', filter = kind || 'all', templates = [], folders = [], loading = true;
     const starter = getStarterTemplates(), statuses = new Map(), deletedIds = new Set();
     if (!copiesByCoach.has(ownerId)) copiesByCoach.set(ownerId, new Map());
     if (!pendingByCoach.has(ownerId)) pendingByCoach.set(ownerId, new Set());
     const copies = copiesByCoach.get(ownerId);
     const pending = pendingByCoach.get(ownerId);
     const search = el('input', { type: 'search', 'aria-label': 'Rechercher un modèle' });
-    const sources = el('div', { class: 'library-sources', role: 'group', 'aria-label': 'Source des modèles' });
+    const sources = el('div', { class: 'library-sources' });
+    const folderSelect = select('library_folder', [], '', {'aria-label':'Dossier'});
+    const folderForm = el('div', {class:'library-folder-form',hidden:true});
+    const folderName = input('folder_name','', 'text', {maxLength:80,'aria-label':'Nom du dossier'});
+    let editingFolder = null;
+    const folderSave=button('Enregistrer',async()=>{if(!active())return;try{await busy(folderSave,async()=>{
+      const name=folderName.value.trim();if(!name)throw new Error('Indique le nom du dossier.');
+      const saved=await (await getApi()).saveLibraryFolder(name,editingFolder);if(!active())return;
+      folders=[...folders.filter(f=>f.id!==saved.id),saved];folder=saved.id;source='personal';folderForm.hidden=true;redraw();
+    });}catch(error){if(active())showError(errors,error);}},'button primary');
+    folderForm.append(field('Nom du dossier',folderName),folderSave,button('Annuler',()=>{folderForm.hidden=true;}));
+    sources.append(folderSelect,button('＋ Dossier',()=>{editingFolder=null;folderName.value='';folderForm.hidden=false;folderName.focus();}),button('Renommer',()=>{const current=folders.find(f=>f.id===folder);if(!current)return;editingFolder=current.id;folderName.value=current.name;folderForm.hidden=false;folderName.focus();},'button secondary',{dataset:{action:'rename-folder'}}));
+    folderSelect.addEventListener('change',()=>{folder=folderSelect.value;source=folder.startsWith('base:')?'starter':'personal';redraw();});
     const tabs = el('div', { class: 'template-tabs', role: 'group', 'aria-label': 'Type de modèle' });
     const grid = el('div', { class: 'template-grid' });
     const notice = el('p', { class: 'library-notice muted', role: 'status' });
-    body.append(el('p', { class: 'muted library-intro' }, 'Retrouve tes modèles ou pars d’une séance du kit. Chaque utilisation ouvre une copie que tu peux ajuster.'), errors,
-      sources, el('div', { class: 'library-toolbar' }, search, tabs), notice, grid);
+    body.append(errors, sources, folderForm, el('div', { class: 'library-toolbar' }, search, tabs), notice, grid);
 
     const own = template => template.coach_id === ownerId;
     const existingCopy = template => templates.find(item => own(item) && fingerprint(item) === fingerprint(template));
     const redraw = () => {
       if (!active()) return;
       grid.replaceChildren();
-      sources.querySelectorAll('button').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.source === source)));
+      folderSelect.replaceChildren(...[['personal','Mes entraînements'],['unfiled','Sans dossier'],['base:running','Jog - Base'],['base:boxing','Boxe - Base'],['base:other','Préparation physique - Base'],...folders.map(f=>[f.id,f.name])].map(([value,label])=>el('option',{value},label)));
+      folderSelect.value=folder;
+      sources.querySelector('[data-action="rename-folder"]').hidden=!folders.some(f=>f.id===folder);
       tabs.querySelectorAll('button').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.kind === filter)));
-      notice.textContent = source === 'starter' ? 'Le kit de départ est disponible sans enregistrement. « Garder dans mes modèles » ajoute seulement le modèle choisi.' : 'Tes séances et tes blocs enregistrés restent privés à ton compte.';
-      const items = source === 'starter' ? starter : templates.filter(own);
+      notice.textContent = source === 'starter' ? 'Séances de base · utilise-les directement ou garde une copie dans tes dossiers.' : '';
+      const baseGroup = t=>t.sport==='running'?'running':['boxing','sparring'].includes(t.sport)?'boxing':'other';
+      const items = source === 'starter' ? starter.filter(t=>folder==='base:'+baseGroup(t)) : templates.filter(t=>own(t)&&(folder==='personal'||folder==='unfiled'&&!t.folder_id||t.folder_id===folder));
       const query = search.value.trim().toLocaleLowerCase('fr');
       const list = items.filter(template => (filter === 'all' || template.kind === filter) && `${template.title} ${template.description || ''}`.toLocaleLowerCase('fr').includes(query));
       if (!list.length) {
         const empty = source === 'personal' && loading ? 'Chargement de tes modèles…'
-          : query ? 'Aucun modèle correspondant.' : source === 'starter' && filter === 'block' ? 'Le kit contient des séances complètes. Retrouve tes blocs enregistrés dans « Mes modèles ».'
-            : source === 'personal' ? 'Ta bibliothèque est encore vide. Découvre le kit de départ ou enregistre une séance depuis sa fiche.' : 'Aucun modèle de ce type.';
+          : query ? 'Aucun modèle correspondant.' : source === 'starter' && filter === 'block' ? 'Ce dossier contient des séances complètes.'
+            : source === 'personal' ? 'Aucun entraînement dans ce dossier.' : 'Aucun modèle de ce type.';
         grid.append(el('p', { class: 'empty-message' }, empty)); return;
       }
       for (const template of list) {
@@ -104,6 +118,9 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
           actions.append(keep);
           if (status) card.append(el('p', { class: `template-status${status.error ? ' form-error' : ''}`, role: status.error ? 'alert' : 'status' }, status.message));
         } else if (own(template)) {
+          const move=select('template_folder',[{value:'',label:'Sans dossier'},...folders.map(f=>({value:f.id,label:f.name}))],template.folder_id||'',{'aria-label':`Dossier de ${template.title}`});
+          move.addEventListener('change',async()=>{if(!active())return;move.disabled=true;try{const updated=await (await getApi()).moveTemplate(template,move.value||null);if(active()){templates=templates.map(t=>t.id===updated.id?updated:t);redraw();}}catch(error){if(active()){move.value=template.folder_id||'';showError(errors,error);}}finally{move.disabled=false;}});
+          actions.append(move);
           const remove = button(pending.has(template.id) ? 'Suppression…' : 'Supprimer', async () => {
             if (!active() || !own(template) || pending.has(template.id)) return;
             pending.add(template.id); redraw();
@@ -127,24 +144,24 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     currentView = { ownerId, active, redraw,
       saved(starterId, model) {
         templates = [model, ...templates.filter(item => item.id !== model.id)];
-        statuses.set(starterId, { message: 'Ajouté à tes modèles. Tu peux maintenant le retrouver dans « Mes modèles ».' });
+        statuses.set(starterId, { message: 'Ajouté à tes modèles. Tu peux maintenant le retrouver dans « Mes entraînements ».' });
       },
       deleted(id) { deletedIds.add(id); templates = templates.filter(item => item.id !== id); },
     };
-    for (const [value, label] of [['personal', 'Mes modèles'], ['starter', 'Kit de départ']]) sources.append(button(label, () => { source = value; redraw(); }, 'button secondary', { dataset: { source: value } }));
     if (!kind) for (const [value, label] of [['all', 'Tout'], ['session', 'Séances'], ['block', 'Blocs']]) tabs.append(button(label, () => { filter = value; redraw(); }, 'button secondary', { dataset: { kind: value } }));
     search.addEventListener('input', redraw); redraw();
     try {
       const backend = await getApi();
       if (!active()) return;
-      const loaded = await backend.getTemplates();
+      const [loaded, loadedFolders] = await Promise.all([backend.getTemplates(), backend.getLibraryFolders()]);
       if (!active()) return;
+      folders = loadedFolders.filter(f=>f.owner_id===ownerId);
       templates = [...templates, ...loaded.filter(item => !deletedIds.has(item.id) && !templates.some(saved => saved.id === item.id))];
       for (const [starterId, copyId] of copies) if (!templates.some(item => item.id === copyId)) copies.delete(starterId);
     } catch (error) {
       if (!active()) return;
-      showError(errors, new Error(`Tes modèles personnels n’ont pas pu être chargés. Le kit de départ reste disponible. ${error?.message || ''}`.trim()));
-      source = 'starter';
+      showError(errors, new Error(`Tes modèles personnels n’ont pas pu être chargés. Les dossiers de base restent disponibles. ${error?.message || ''}`.trim()));
+      source = 'starter'; folder='base:running';
     } finally { loading = false; if (active()) redraw(); }
   }
   return { open, invalidate: () => { ticket++; } };

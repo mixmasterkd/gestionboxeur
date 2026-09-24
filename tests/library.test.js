@@ -17,6 +17,7 @@ function fixture({ athlete = false, templates = [], canAdd = () => true, api = {
   document.body.innerHTML = '<dialog id="libraryDialog"><div id="libraryContent"></div></dialog><dialog id="confirmDialog"><h2 id="confirmTitle"></h2><p id="confirmText"></p><button id="confirmYes"></button></dialog><div id="toast" hidden></div>';
   const state = { user: { id: athlete ? 'athlete1' : 'coach1' }, profile: { account_type: athlete ? 'athlete' : 'coach' }, selectedAthlete: { id: 'a1' } };
   const calls = [], backend = {
+    getLibraryFolders: async()=>[],
     getTemplates: async () => { calls.push(['get']); return structuredClone(templates); },
     saveTemplate: async payload => { calls.push(['save', payload]); return { ...payload, id: 'saved-1' }; },
     deleteTemplate: async id => { calls.push(['delete', id]); }, ...api,
@@ -24,7 +25,7 @@ function fixture({ athlete = false, templates = [], canAdd = () => true, api = {
   const ui = createLibraryUI({ getState: () => state, canAdd, onCreateTemplate, onUseTemplate: onUseTemplate || (copy => calls.push(['use', copy])), api: backend });
   return { ui, state, calls, backend };
 }
-const source = value => document.querySelector(`.library-sources [data-source="${value}"]`).click();
+const source = value => {const select=document.querySelector('[name=library_folder]');select.value=value==='starter'?'base:running':value;select.dispatchEvent(new window.Event('change'));};
 const card = id => document.querySelector(`.template-card[data-template-id="${id}"]`);
 const action = (id, name) => card(id).querySelector(`[data-action="${name}"]`);
 const confirm = value => document.getElementById('confirmDialog').close(value ? 'confirm' : 'cancel');
@@ -37,7 +38,7 @@ test('coach library separates private models and the starter kit without automat
   assert.equal(document.querySelectorAll('.template-card').length, 1);
   assert.equal(card('foreign'), null);
   source('starter');
-  assert.equal(document.querySelectorAll('.template-card').length, 13);
+  assert.equal(document.querySelectorAll('.template-card').length, getStarterTemplates().filter(t=>t.sport==='running').length);
   assert.equal(document.querySelectorAll('[data-action="delete-template"]').length, 0);
   assert.deepEqual(calls, [['get']]);
 });
@@ -46,9 +47,9 @@ test('kit remains usable while private models load or fail', async () => {
   const pending = deferred();
   const { ui, calls } = fixture({ api: { getTemplates: () => pending.promise } });
   const opening = ui.open(); await tick(); source('starter');
-  assert.equal(document.querySelectorAll('.template-card').length, 13);
+  assert.equal(document.querySelectorAll('.template-card').length, getStarterTemplates().filter(t=>t.sport==='running').length);
   pending.reject(new Error('Service indisponible')); await opening;
-  assert.match(document.querySelector('[role="alert"]').textContent, /kit de départ reste disponible/);
+  assert.match(document.querySelector('[role="alert"]').textContent, /dossiers de base restent disponibles/);
   action('starter-jog-10', 'use-template').click();
   assert.equal(calls[0][0], 'use');
 });
@@ -188,4 +189,14 @@ test('library creates workouts without a selected athlete and keeps block select
     await ui.open(options);
     assert.equal([...document.querySelectorAll('button')].some(button => button.textContent.includes('Créer un entraînement')), false);
   }
+});
+
+test('library shows base folders and persists custom folder creation and template moves',async()=>{
+ const folder={id:'f1',owner_id:'coach1',name:'Combat'},moves=[];
+ const {ui}=fixture({templates:[ownTemplate()],api:{getLibraryFolders:async()=>[folder],saveLibraryFolder:async name=>({id:'f2',owner_id:'coach1',name}),moveTemplate:async(t,id)=>{moves.push(id);return {...t,folder_id:id};}}});
+ await ui.open();assert.doesNotMatch(document.getElementById('libraryContent').textContent,/Kit de départ/i);
+ assert.match(document.querySelector('[name=library_folder]').textContent,/Jog - Base.*Boxe - Base/);
+ const move=document.querySelector('[name=template_folder]');move.value='f1';move.dispatchEvent(new window.Event('change'));await tick();assert.deepEqual(moves,['f1']);
+ source('f1');assert.ok(card('personal-1'));
+ [...document.querySelectorAll('button')].find(b=>b.textContent==='＋ Dossier').click();document.querySelector('[name=folder_name]').value='Technique';[...document.querySelectorAll('button')].find(b=>b.textContent==='Enregistrer').click();await tick();assert.equal(document.querySelector('[name=library_folder]').value,'f2');
 });

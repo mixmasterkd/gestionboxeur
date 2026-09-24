@@ -1,0 +1,25 @@
+.journal-toolbar,.journal-filters,.journal-detail-actions,.library-folder-form { display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 18px; }
+.journal-toolbar { justify-content:space-between; }
+.journal-filters .form-field {flex:1;min-width:140px;margin:0;}
+.journal-filters input { flex:1;min-width:140px;padding:10px 12px; }
+.journal-filters select { max-width:100%;padding:10px; }
+.journal-sharing { font-size:12px;line-height:1.6; }
+.journal-board { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px; }
+.journal-column { padding:16px;background:var(--white);border:1px solid var(--line);border-radius:12px;min-width:0; }
+.journal-column h2 { font-weight:650;font-size:15px;line-height:1.5;display:flex;justify-content:space-between;gap:10px;margin:0 0 16px; }
+.journal-count { color:var(--muted);font-size:12px; }
+.journal-card { display:block;width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--soft);color:var(--ink);padding:14px;margin-bottom:12px;overflow-wrap:anywhere; }
+.journal-card:hover { border-color:var(--accent-line); }
+.journal-card strong { font-size:14px; }
+.journal-card p { font-size:12px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap; }
+.journal-card small,.journal-timeline-entry small,.journal-update small { color:var(--muted);font-size:11px; }
+.journal-timeline-entry,.journal-update { border-left:2px solid var(--accent-line);padding:12px 18px;margin:0 0 16px;background:var(--white);border-radius:0 8px 8px 0; }
+.journal-timeline-entry p,.journal-text { white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:14px; }
+.journal-entry-link { display:block;background:none;border:0;color:var(--ink);font-weight:650;padding:10px 0;text-align:left;overflow-wrap:anywhere; }
+.journal-detail-actions .form-field { min-width:150px;margin:0; }
+.library-sources { display:flex;flex-wrap:wrap;gap:8px;margin:16px 0; }
+.library-sources select { flex:1;min-width:160px;padding:10px; }
+.template-actions select { max-width:100%;padding:8px; }
+.library-folder-form { padding:14px;border:1px solid var(--line);border-radius:10px; }
+.library-folder-form .form-field { flex:1;min-width:140px; }
+@media(max-width:800px){.journal-board{grid-template-columns:1fr}.journal-toolbar .segmented{width:auto}.journal-toolbar .segmented button{padding:10px}.journal-column{padding:14px}.journal-detail-actions{align-items:stretch}.journal-detail-actions .form-field{width:100%}}

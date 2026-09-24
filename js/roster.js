@@ -20,6 +20,8 @@ import { mountNavigation } from './navigation.js';
     let toastTimer;
     let loadGeneration = 0;
     let attachmentRequest = 0;
+    let athleteFormSnapshot = "";
+    const formSnapshot = () => JSON.stringify([...document.querySelectorAll("#athleteForm input, #athleteForm select, #athleteForm textarea")].map(field => [field.id, field.value, field.checked]));
 
     const $ = id => document.getElementById(id);
     const els = {
@@ -33,7 +35,7 @@ import { mountNavigation } from './navigation.js';
       onRefresh: async () => {
         const owner = currentUser?.id, generation = loadGeneration + 1;
         setLoaded(false);
-        try { await loadState(); }
+        try { await loadState(); els.athleteDialog.close(); }
         catch (error) {
           if (currentUser?.id === owner && loadGeneration === generation) { state.athletes = []; renderAthletes(); pageError(error); }
           throw error;
@@ -141,6 +143,7 @@ import { mountNavigation } from './navigation.js';
       const el = document.createElement(tag);
       Object.entries(attrs).forEach(([key, value]) => {
         if (key === "class") el.className = value;
+        else if (key === "ariaLabel") el.setAttribute("aria-label", value);
         else if (key.startsWith("data-")) el.setAttribute(key, value);
         else if (key in el) el[key] = value;
         else el.setAttribute(key, value);
@@ -175,6 +178,9 @@ import { mountNavigation } from './navigation.js';
       return sortDirection === "asc" ? result : -result;
     }
     function updateSortHeaders() {
+      $('mobileSort').value=sortKey;
+      $('mobileSortDirection').textContent=sortDirection==='asc'?'↑':'↓';
+      $('mobileSortDirection').setAttribute('aria-label',sortDirection==='asc'?'Tri croissant : inverser':'Tri décroissant : inverser');
       document.querySelectorAll(".sort-button").forEach(button => {
         const active = button.dataset.sort === sortKey;
         button.querySelector(".sort-arrow").textContent = active ? (sortDirection === "asc" ? "▲" : "▼") : "↕";
@@ -203,9 +209,12 @@ import { mountNavigation } from './navigation.js';
         });
         checkTd.append(check); tr.append(checkTd);
 
-        const nameTd = node("td");
-        const nameButton = node("button", { class: "name-button", type: "button" }, `${a.firstName} ${a.lastName}`);
-        nameButton.addEventListener("click", () => openAthlete(a.id));
+        const nameTd = node("td", { class: "athlete-name-cell" });
+        const calendarAvailable = a.userId && a.canViewCalendar;
+        const nameButton = calendarAvailable
+          ? node("a", { class: "name-button roster-calendar-link", href: `planning.html?athlete=${encodeURIComponent(a.id)}`, title: `Ouvrir le calendrier de ${a.firstName} ${a.lastName}` }, `${a.firstName} ${a.lastName}`)
+          : node("button", { class: "name-button", type: "button" }, `${a.firstName} ${a.lastName}`);
+        if (!calendarAvailable) nameButton.addEventListener("click", () => openAthlete(a.id));
         nameTd.append(nameButton);
         if (a.note) nameTd.append(node("span", { class: "subtext" }, a.note));
         tr.append(nameTd);
@@ -223,10 +232,9 @@ import { mountNavigation } from './navigation.js';
         tr.append(weightTd);
         tr.append(node("td", {}, recordText(a)));
         const statusTd = node("td"); statusTd.append(node("span", { class: `status ${a.status}` }, statusLabels[a.status])); tr.append(statusTd);
-        const editTd = node("td"); const edit = node("button", { class: "edit", type: "button" }, "Modifier"); edit.addEventListener("click", () => openAthlete(a.id)); editTd.append(edit);
-        if(a.userId && a.canViewCalendar) editTd.append(node('a', {class:'roster-calendar-link',href:`planning.html?athlete=${encodeURIComponent(a.id)}`}, 'Calendrier →'));
-        else if(a.userId) editTd.append(node('span', {class:'subtext'}, 'Calendrier non partagé'));
-        else if(rosterStore.mode==='modern') {const attach=node('button',{type:'button',class:'roster-calendar-link'},'Rattacher…');attach.addEventListener('click',()=>openRosterAttachment(a.id,attach));editTd.append(attach);}
+        const editTd = node("td", { class: "athlete-actions-cell" });
+        const edit = node("button", { class: "edit athlete-edit", type: "button", ariaLabel: `Modifier la fiche de ${a.firstName} ${a.lastName}` }, "Modifier");
+        edit.addEventListener("click", () => openAthlete(a.id)); editTd.append(edit);
         tr.append(editTd);
         els.athleteRows.append(tr);
       });
@@ -267,6 +275,8 @@ import { mountNavigation } from './navigation.js';
         $("sex").value = a.sex; $("status").value = a.status; $("weight").value = a.weightKg ?? ""; $("weightUnit").value = "kg";
         $("fights").value = a.fights; $("wins").value = a.wins ?? ""; $("losses").value = a.losses ?? ""; $("athleteNote").value = a.note;
       } else { $("sex").value = ""; $("status").value = "available"; $("weightUnit").value = "kg"; $("fights").value = 0; }
+      $('attachAthleteButton').hidden = !id || registered || rosterStore.mode !== 'modern';
+      athleteFormSnapshot = formSnapshot();
       updateWeightConversion(); els.athleteDialog.showModal(); setTimeout(() => $(registered?'weight':'firstName').focus(), 0);
     }
     async function openRosterAttachment(id, button) {
@@ -282,7 +292,7 @@ import { mountNavigation } from './navigation.js';
         attachmentUI.open(id);
       } catch (error) {
         if (currentUser?.id === owner && generation === loadGeneration && request === attachmentRequest) showToast(`Rattachement indisponible : ${error.message}`);
-      } finally { button.disabled = false; button.textContent = 'Rattacher…'; }
+      } finally { button.disabled = false; button.textContent = 'Rattacher un compte'; }
     }
     async function openAthleteInvitation(athlete) {
       const dialog=node('dialog',{'aria-labelledby':'rosterInviteTitle'}),box=node('div',{class:'dialog-box'}),header=node('header',{class:'dialog-head'});
@@ -294,7 +304,7 @@ import { mountNavigation } from './navigation.js';
         const {data,error}=await supabase.rpc('create_invitation',{p_athlete_id:athlete.id});if(error)throw error;
         if(!dialog.open||currentUser?.id!==userId)return;
         const url=new URL('planning.html',location.href);url.searchParams.set('invite',data.token);
-        status.textContent='Partage ce lien pour une nouvelle inscription : l’athlète conservera cette fiche. Si son compte est déjà utilisé, passe plutôt par ton code coach, accepte sa demande, puis utilise « Rattacher » dans le tableau. Le lien est valable 7 jours et remplace le précédent.';
+        status.textContent='Partage ce lien pour une nouvelle inscription : l’athlète conservera cette fiche. Si son compte est déjà utilisé, passe plutôt par ton code coach, accepte sa demande, puis utilise « Rattacher un compte » dans la fiche de modification. Le lien est valable 7 jours et remplace le précédent.';
         const label=node('label'),field=node('input',{type:'text',readOnly:true,value:url.href});label.append(node('span',{},'Lien personnel d’invitation'),field);content.append(label);
         const copy=node('button',{type:'button',class:'button'},'Copier le lien');copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(url.href);copy.textContent='Lien copié';}catch{field.focus();field.select();status.textContent='Sélectionne et copie le lien ci-dessous.';}});content.append(copy);
       }catch(error){if(dialog.open&&currentUser?.id===userId)status.textContent=error.message||'Impossible de créer le lien.';}
@@ -482,6 +492,10 @@ import { mountNavigation } from './navigation.js';
         finally { button.disabled = false; }
       };
     }
+    $('attachAthleteButton').addEventListener('click', () => {
+      if (formSnapshot() !== athleteFormSnapshot) { athleteError('Enregistre tes modifications avant de rattacher ce compte.'); return; }
+      openRosterAttachment($('athleteId').value, $('attachAthleteButton'));
+    });
     $("addAthleteButton").addEventListener("click", () => openAthlete()); $("athleteForm").addEventListener("submit", saveAthlete);
     $("weight").addEventListener("input", updateWeightConversion); $("weightUnit").addEventListener("change", updateWeightConversion);
     $('deleteAthleteButton').addEventListener('click', async () => {
@@ -517,6 +531,8 @@ import { mountNavigation } from './navigation.js';
       finally { $('deleteCoachButton').disabled = false; }
     });
     [$("searchInput"), $("statusFilter"), $("sexFilter")].forEach(el => el.addEventListener("input", renderAthletes));
+    $('mobileSort').addEventListener('change', () => { sortKey=$('mobileSort').value;renderAthletes(); });
+    $('mobileSortDirection').addEventListener('click', () => { sortDirection=sortDirection==='asc'?'desc':'asc';renderAthletes(); });
     document.querySelectorAll(".sort-button").forEach(button => button.addEventListener("click", () => {
       if (sortKey === button.dataset.sort) sortDirection = sortDirection === "asc" ? "desc" : "asc";
       else { sortKey = button.dataset.sort; sortDirection = "asc"; }

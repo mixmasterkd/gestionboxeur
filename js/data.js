@@ -82,3 +82,20 @@ export const getTemplates=()=>preview?preview.getTemplates():result(client.from(
 export const saveTemplate=t=>preview?preview.saveTemplate(t):result(client.from('session_templates').insert(t).select().single());
 export const deleteTemplate=id=>preview?preview.deleteTemplate(id):result(client.from('session_templates').delete().eq('id',id).select('id').single());
 export { client };
+
+export const getLibraryFolders=()=>preview?preview.getLibraryFolders():result(client.from('library_folders').select('*').order('name'));
+export const saveLibraryFolder=(name,id)=>preview?preview.saveLibraryFolder(name,id):result(id?client.from('library_folders').update({name}).eq('id',id).select().single():client.from('library_folders').insert({name}).select().single());
+export const deleteLibraryFolder=id=>preview?preview.deleteLibraryFolder(id):result(client.from('library_folders').delete().eq('id',id).select('id').single());
+export const moveTemplate=(template,folderId)=>preview?preview.moveTemplate(template,folderId):result(client.from('session_templates').update({folder_id:folderId}).eq('id',template.id).eq('updated_at',template.updated_at).select().single());
+async function allJournalRows(query) {
+ const rows=[];
+ for(let offset=0;;offset+=500){const page=await result(query().range(offset,offset+499));rows.push(...page);if(page.length<500)return rows;}
+}
+export async function loadJournal(athleteId) {
+ if(preview)return preview.loadJournal(athleteId);
+ const entries=await allJournalRows(()=>client.from('journal_entries').select('*').eq('athlete_id',athleteId).order('created_at').order('id'));
+ const updates=entries.length?await allJournalRows(()=>client.from('journal_updates').select('*,journal_entries!inner(athlete_id)').eq('journal_entries.athlete_id',athleteId).order('created_at').order('id')):[];
+ return {entries,updates};
+}
+export const saveJournalEntry=(payload,existing)=>preview?preview.saveJournalEntry(payload,existing):result(existing?client.from('journal_entries').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single():client.from('journal_entries').insert(payload).select().single());
+export const addJournalComment=(entryId,content)=>preview?preview.addJournalComment(entryId,content):result(client.from('journal_updates').insert({entry_id:entryId,content}).select().single());

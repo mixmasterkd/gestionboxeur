@@ -1,0 +1,91 @@
+/* Light counterpart of graphite. Effort charts and pastel notes retain their colors. */
+@media screen {
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ink: #222c3a; --paper: #f4f5f7; --white: #ffffff; --muted: #536174;
+    --line: #d3d9e2; --soft: #e9edf2; --accent: #334155; --accent-dark: #334155;
+    --accent-hover: #1e293b; --accent-soft: #e6ecf4; --accent-line: #91a2b9;
+    --danger: #ae3442; --shadow: 0 8px 30px #17202b0d; --arena-night: #f7f8fa;
+  }
+  :root[data-theme="light"], :root[data-theme="light"] body { background: var(--paper); color: var(--ink); }
+  :root[data-theme="light"] .preview-sheet { background: #fff; color: #111; }
+  :root[data-theme="light"] ::selection { background: #334155; color: #ffffff; }
+  :root[data-theme="light"] button, :root[data-theme="light"] a { color: inherit; }
+  :root[data-theme="light"] .topbar, :root[data-theme="light"] .app-header, :root[data-theme="light"] .auth-page { background: var(--paper); }
+  :root[data-theme="light"] .primary-navigation { background: #f7f8fa; border-color: var(--line); }
+  :root[data-theme="light"] .nav-links a { color: var(--muted); }
+  :root[data-theme="light"] .nav-links a:hover { color: var(--ink); background: var(--soft); }
+  :root[data-theme="light"] .nav-links [aria-current="page"], :root[data-theme="light"] .nav-links [aria-current="page"]:hover { background: #e6ecf4; color: #222c3a; border-color: #91a2b9; box-shadow: none; }
+  :root[data-theme="light"] .nav-track::after { box-shadow: none; }
+  :root[data-theme="light"] .nav-explore { background: #ffffff; border-color: #c3cdd9; box-shadow: none; }
+  :root[data-theme="light"] .nav-explore:hover { background: #e6ecf4; }
+  :root[data-theme="light"] .button, :root[data-theme="light"] .pe-button, :root[data-theme="light"] .be-button { box-shadow: none; }
+  :root[data-theme="light"] .button-dark, :root[data-theme="light"] .button.primary, :root[data-theme="light"] .button-accent, :root[data-theme="light"] .pe-primary, :root[data-theme="light"] .be-interval-fields > .be-button, :root[data-theme="light"] .test-session-banner button {
+    background: #263246; color: #ffffff; border-color: #263246; box-shadow: none;
+  }
+  :root[data-theme="light"] .button-dark:hover:not(:disabled), :root[data-theme="light"] .button.primary:hover:not(:disabled), :root[data-theme="light"] .button-accent:hover:not(:disabled), :root[data-theme="light"] .pe-primary:hover, :root[data-theme="light"] .be-interval-fields > .be-button:hover { background: #182335; color: #ffffff; border-color: #182335; box-shadow: none; }
+  :root[data-theme="light"] .button.secondary, :root[data-theme="light"] .button:not(.button-dark):not(.primary):not(.button-accent):not(.danger-button), :root[data-theme="light"] .pe-button:not(.pe-primary), :root[data-theme="light"] .be-button { background: var(--white); color: var(--ink); border-color: var(--line); }
+  :root[data-theme="light"] .button.secondary:hover:not(:disabled), :root[data-theme="light"] .pe-button:hover:not(.pe-primary), :root[data-theme="light"] .be-button:hover { background: var(--soft); border-color: #8394ac; }
+  :root[data-theme="light"] .button.danger-button { background: #a32e3b; border-color: #b24550; color: #ffffff; }
+  :root[data-theme="light"] .danger, :root[data-theme="light"] .pe-row-more [data-action="delete"] { color: var(--danger); }
+  :root[data-theme="light"] .count { color: var(--ink); background: var(--soft); }
+  :root[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]), :root[data-theme="light"] select, :root[data-theme="light"] textarea, :root[data-theme="light"] .field input, :root[data-theme="light"] .field select, :root[data-theme="light"] .form-field input, :root[data-theme="light"] .form-field select, :root[data-theme="light"] .form-field textarea, :root[data-theme="light"] .be-field input, :root[data-theme="light"] .be-field select, :root[data-theme="light"] .be-field textarea, :root[data-theme="light"] .pe-mini input, :root[data-theme="light"] .pe-mini select, :root[data-theme="light"] .pe-mini textarea {
+    color: var(--ink); background: #ffffff; border-color: #9ba8b9;
+  }
+  :root[data-theme="light"] input:disabled, :root[data-theme="light"] select:disabled, :root[data-theme="light"] textarea:disabled { background: #e9edf2; color: #697386; }
+  :root[data-theme="light"] input[type="checkbox"], :root[data-theme="light"] input[type="radio"] { accent-color: #334155; }
+  :root[data-theme="light"] .be-title input:focus { background: #ffffff !important; }
+  :root[data-theme="light"] .auth-card, :root[data-theme="light"] .panel, :root[data-theme="light"] .coach-card, :root[data-theme="light"] .app-dialog, :root[data-theme="light"] .dialog-box, :root[data-theme="light"] .connection-card, :root[data-theme="light"] .feeling-choice span, :root[data-theme="light"] .template-card, :root[data-theme="light"] .template-card[data-source="starter"], :root[data-theme="light"] .pe-row, :root[data-theme="light"] .be-card { background: var(--white); color: var(--ink); border-color: var(--line); }
+  :root[data-theme="light"] .dialog-head, :root[data-theme="light"] .dialog-heading, :root[data-theme="light"] .dialog-head.dark, :root[data-theme="light"] .dialog-foot, :root[data-theme="light"] .dialog-actions, :root[data-theme="light"] .panel-foot, :root[data-theme="light"] .filters, :root[data-theme="light"] .roster-summary.stats, :root[data-theme="light"] .stats, :root[data-theme="light"] .be-card-head, :root[data-theme="light"] .be-repeat > .be-card-head { background: #f0f2f5; color: var(--ink); border-color: var(--line); }
+  :root[data-theme="light"] .dialog-head.dark .dialog-title { color: var(--ink); }
+  :root[data-theme="light"] .dark .close { color: var(--ink); background: var(--soft); border-color: var(--line); }
+  :root[data-theme="light"] .roster-summary .stat strong, :root[data-theme="light"] .week-overview strong, :root[data-theme="light"] .pe-line strong { color: var(--ink); }
+  :root[data-theme="light"] .roster-summary .stat span { color: var(--muted); }
+  :root[data-theme="light"] th, :root[data-theme="light"] .roster thead, :root[data-theme="light"] .roster thead th { color: var(--muted); background: #edf0f4; border-color: var(--line); }
+  :root[data-theme="light"] tbody tr, :root[data-theme="light"] .roster tbody tr { background: var(--white); }
+  :root[data-theme="light"] tbody tr:hover, :root[data-theme="light"] .roster tbody tr:hover { background: #e9edf2; }
+  :root[data-theme="light"] tbody tr.selected, :root[data-theme="light"] .roster tbody tr.selected { background: #e6ecf4; border-color: #91a2b9; box-shadow: inset 3px 0 #334155; }
+  :root[data-theme="light"] .roster tbody td, :root[data-theme="light"] .field-inline, :root[data-theme="light"] .stat + .stat { border-color: var(--line); }
+  :root[data-theme="light"] .status, :root[data-theme="light"] .chip, :root[data-theme="light"] .status.available, :root[data-theme="light"] .account-badge.registered { background: #edf0f5; border-color: #cad3de; color: var(--ink); }
+  :root[data-theme="light"] .brand-location, :root[data-theme="light"] .gym-address, :root[data-theme="light"] .topbar .text-button, :root[data-theme="light"] .quiet-button, :root[data-theme="light"] .auth-links .link-button, :root[data-theme="light"] .roster-shortcut, :root[data-theme="light"] .pe-list:empty::before, :root[data-theme="light"] .auth-card .muted, :root[data-theme="light"] .page-heading p, :root[data-theme="light"] .session-author, :root[data-theme="light"] .session-meta, :root[data-theme="light"] .week-overview span, :root[data-theme="light"] .running-week-total small, :root[data-theme="light"] .running-week-total #distanceTotal, :root[data-theme="light"] .empty-day, :root[data-theme="light"] .roster tbody td::before, :root[data-theme="light"] .template-source, :root[data-theme="light"] .session-intro, :root[data-theme="light"] .feedback-read, :root[data-theme="light"] .lock-control small, :root[data-theme="light"] .completion-status, :root[data-theme="light"] .completion-status.pending, :root[data-theme="light"] .library-notice, :root[data-theme="light"] .template-status, :root[data-theme="light"] .pe-heading p, :root[data-theme="light"] .pe-hint, :root[data-theme="light"] .pe-text-hint, :root[data-theme="light"] .pe-instructions, :root[data-theme="light"] .pe-dose, :root[data-theme="light"] .pe-summary, :root[data-theme="light"] .pe-text-status, :root[data-theme="light"] .pe-help p, :root[data-theme="light"] .pe-help dd, :root[data-theme="light"] .pe-help dt, :root[data-theme="light"] .pe-help > summary, :root[data-theme="light"] .pe-help-advanced summary, :root[data-theme="light"] .pe-mini-advanced > summary, :root[data-theme="light"] .pe-mini .form-field > span, :root[data-theme="light"] .pe-row-more > summary, :root[data-theme="light"] .be-field > span, :root[data-theme="light"] .be-muted, :root[data-theme="light"] .be-advanced summary, :root[data-theme="light"] .be-interval-builder h4, :root[data-theme="light"] .be-interval-builder > .be-muted, :root[data-theme="light"] .workout-dose, :root[data-theme="light"] .workout-instructions, :root[data-theme="light"] .workout-chart-note, :root[data-theme="light"] .workout-legend span, :root[data-theme="light"] .session-chart figcaption, :root[data-theme="light"] .session-chart-note, :root[data-theme="light"] .session-chart-legend span, :root[data-theme="light"] .roster-link-candidates small, :root[data-theme="light"] .roster-link-comparison h3, :root[data-theme="light"] .roster-link-comparison dt, :root[data-theme="light"] .roster-link-choices label > span { color: var(--muted); }
+  :root[data-theme="light"] .topbar .text-button:hover, :root[data-theme="light"] .pe-line strong { color: var(--ink); }
+  :root[data-theme="light"] .athlete-sidebar, :root[data-theme="light"] .search-box, :root[data-theme="light"] .week-overview, :root[data-theme="light"] .day, :root[data-theme="light"] .month .day, :root[data-theme="light"] .pe-help, :root[data-theme="light"] .pe-mini, :root[data-theme="light"] .pe-repeat, :root[data-theme="light"] .workout-step, :root[data-theme="light"] .be-interval-builder, :root[data-theme="light"] .workout-repeat, :root[data-theme="light"] .lock-control, :root[data-theme="light"] .session-completion, :root[data-theme="light"] .session-chart, :root[data-theme="light"] .workout-chart, :root[data-theme="light"] .roster-link-dialog .check-label, :root[data-theme="light"] .pe-help pre { background: var(--white); border-color: var(--line); color: var(--ink); }
+  :root[data-theme="light"] .athlete-item:hover, :root[data-theme="light"] .athlete-item.active { background: var(--soft); border-color: var(--line); }
+  :root[data-theme="light"] .athlete-avatar, :root[data-theme="light"] .active .athlete-avatar { background: #e1e7f0; color: var(--ink); }
+  :root[data-theme="light"] .athlete-item .dot { background: #5e708b; }
+  :root[data-theme="light"] .day.today, :root[data-theme="light"] .month .day.today { background: #f0f4fa; border-color: #9aabc2; }
+  :root[data-theme="light"] .month .day.outside-month { background: #eceff3; }
+  :root[data-theme="light"] .day-heading, :root[data-theme="light"] .session-author { border-color: var(--line); }
+  :root[data-theme="light"] .today .date-number { background: #334155; color: #ffffff; }
+  :root[data-theme="light"] .session-card { background: #ffffff; color: var(--ink); border-color: #d3d9e2; box-shadow: none; }
+  :root[data-theme="light"] .session-card:hover { border-color: #8191a7; box-shadow: none; }
+  :root[data-theme="light"] .session-card.is-completed { border-color: #759483; box-shadow: inset 2px 0 #397153; }
+  :root[data-theme="light"] .lock-badge, :root[data-theme="light"] .lock-badge.locked, :root[data-theme="light"] .lock-badge.unlocked { background: #edf0f4; color: #526075; }
+  :root[data-theme="light"] .sport-tag[data-sport="running"] { color: #356744; }
+  :root[data-theme="light"] .sport-tag[data-sport="boxing"] { color: #835939; }
+  :root[data-theme="light"] .sport-tag[data-sport="sparring"], :root[data-theme="light"] .sport-tag[data-sport="strength"] { color: #73518f; }
+  :root[data-theme="light"] .sport-tag[data-sport="mobility"] { color: #306b79; }
+  :root[data-theme="light"] .add-day { color: var(--muted); border-color: #9ba8b9; }
+  :root[data-theme="light"] .add-day:hover { background: var(--soft); color: var(--ink); }
+  :root[data-theme="light"] .today-button { color: var(--muted); }
+  :root[data-theme="light"] .segmented, :root[data-theme="light"] .pe-modes, :root[data-theme="light"] .chart-axis, :root[data-theme="light"] .detail-meta span, :root[data-theme="light"] .feedback-pill, :root[data-theme="light"] .feedback-score, :root[data-theme="light"] .code-box, :root[data-theme="light"] .connection-status, :root[data-theme="light"] .completion-pill, :root[data-theme="light"] .completion-pill.pending, :root[data-theme="light"] .workout-totals, :root[data-theme="light"] .workout-notes, :root[data-theme="light"] .be-summary, :root[data-theme="light"] .chart-tooltip, :root[data-theme="light"] .pe-row-more[open], :root[data-theme="light"] .pe-addbar .pe-button, :root[data-theme="light"] .be-addbar .be-button { background: var(--soft); color: var(--ink); border-color: var(--line); }
+  :root[data-theme="light"] .segmented button, :root[data-theme="light"] .chart-axis button { color: var(--muted); }
+  :root[data-theme="light"] .segmented [aria-pressed="true"], :root[data-theme="light"] .pe-modes .pe-button[aria-pressed="true"], :root[data-theme="light"] .library-sources [aria-pressed="true"], :root[data-theme="light"] .chart-axis button[aria-pressed="true"] { background: #334155; color: #ffffff; border-color: #64748b; }
+  :root[data-theme="light"] .button.completion-button[aria-pressed="true"], :root[data-theme="light"] .button.completion-button[aria-pressed="true"]:hover { background: #e4f0e9; color: #2c6142; border-color: #749b83; }
+  :root[data-theme="light"] .completion-status.completed { color: #316744; }
+  :root[data-theme="light"] .session-chart-compact { background: transparent; }
+  :root[data-theme="light"] .session-chart-axis, :root[data-theme="light"] .workout-chart svg text { fill: var(--muted); }
+  :root[data-theme="light"] .session-chart-grid { stroke: #c2ccd8; }
+  :root[data-theme="light"] .event-card:not([data-color]), :root[data-theme="light"] .note-box:not([data-color]) { background: #e6ecf4; color: var(--ink); border-color: #a2b2c9; }
+  :root[data-theme="light"] .event-label { color: inherit; }
+  :root[data-theme="light"] .test-session-banner, :root[data-theme="light"] .local-preview-banner, :root[data-theme="light"] .invite-notice, :root[data-theme="light"] .banner { background: #e6ecf4; color: #334155; border-color: #91a2b9; }
+  :root[data-theme="light"] .local-preview-banner button { background: var(--white); color: var(--ink); border-color: var(--line); }
+  :root[data-theme="light"] .form-error, :root[data-theme="light"] .error, :root[data-theme="light"] .error-banner { background: #fff0ef; color: #a32939; border-color: #d5a0a8; }
+  :root[data-theme="light"] .pe-text-status p, :root[data-theme="light"] .pe-text-status ul { color: #a32939; }
+  :root[data-theme="light"] .success { background: #e6f2e9; color: #285d3c; border-color: #8bad96; }
+  :root[data-theme="light"] .app-toast, :root[data-theme="light"] .toast { background: #263246; border: 1px solid #6c7a8e; color: #ffffff; }
+  :root[data-theme="light"] .space-card { background: #f0f2f5; border-color: #b6c3d4; }
+  :root[data-theme="light"] .space-card.is-current, :root[data-theme="light"] .space-card.is-current:hover { background: #e0e8f4; color: #182335; border-color: #879bb8; }
+  :root[data-theme="light"] .space-card.is-current small, :root[data-theme="light"] .space-card.is-current .space-card-top, :root[data-theme="light"] .space-card.is-current .space-description, :root[data-theme="light"] .space-card.is-current .space-arrow { color: #475a74; }
+
+}
