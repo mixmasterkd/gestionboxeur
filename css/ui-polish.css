@@ -155,3 +155,27 @@
  :root .post-session-review .feeling-choice small {font-size:10px;}
  :root .session-card-footer .completion-button {min-height:44px;}
 }
+
+:root .athlete-add-dialog {width:min(620px,calc(100% - 24px));border:1px solid var(--line);border-radius:18px;}
+.athlete-add-choices {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}
+:root .athlete-add-choice {display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:12px;padding:20px;border:1px solid var(--accent-line);border-radius:14px;background:var(--soft);color:var(--ink);line-height:1.5;}
+.athlete-add-choice strong {font-size:16px;}
+.athlete-add-choice > span:last-child {font-size:13px;color:var(--muted);}
+.athlete-add-icon {font-size:25px;}
+:root .athlete-add-choice:hover {background:var(--accent-soft);border-color:var(--muted);}
+.athlete-add-dialog .connection-card {margin-top:16px;}
+.athlete-add-dialog .connection-card > button {margin-top:12px;}
+#incomingInvitationsNotice {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+@media(max-width:500px) {.athlete-add-choices {grid-template-columns:1fr;}}
+.athlete-add-dialog {padding:0;max-height:calc(100dvh - 24px);overflow:auto;}
+.athlete-add-dialog .dialog-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.athlete-add-dialog .dialog-heading h2 {margin:0;}
+.athlete-add-dialog .dialog-heading .eyebrow {font-size:11px;color:var(--muted);}
+.athlete-add-dialog .close-button {flex-shrink:0;width:44px;min-height:44px;border:1px solid var(--line);border-radius:50%;background:var(--soft);color:var(--ink);font-size:23px;}
+.athlete-add-dialog .dialog-body {padding:24px;}
+.athlete-add-dialog form {padding:0;margin:20px 0;}
+.athlete-add-dialog .form-field {display:block;margin:0 0 12px;}
+.athlete-add-dialog .form-field > span {display:block;margin-bottom:8px;font-size:13px;}
+.athlete-add-dialog .form-field input {width:100%;}
+.athlete-add-dialog .connection-card {padding:16px;border:1px solid var(--line);border-radius:12px;}
+.athlete-add-dialog .muted {font-size:13px;line-height:1.6;}

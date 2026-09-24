@@ -37,7 +37,7 @@ async function setup(state, responder = async name => name === 'athlete_coaches'
   const refreshed = [];
   const copied = [];
   Object.defineProperty(window.navigator, 'clipboard', { value: { async writeText(value) { copied.push(value); } } });
-  window.__rpc = async (name, args) => { calls.push({ name, args }); return responder(name, args); };
+  window.__rpc = async (name, args) => { if(name!=='my_coaching_invitations')calls.push({ name, args }); return responder(name, args); };
   window.__state = state;
   window.__confirmResult = true;
   window.__confirmCalls = [];
@@ -231,5 +231,16 @@ test('coach personal connections always use their own profile even when viewing 
  try{
    await ui.api.open({personal:true});
    assert.ok(ui.calls.some(call=>call.name==='athlete_coaches'&&call.args.p_athlete_id==='personal'));
+ }finally{await ui.close();}
+});
+
+test('incoming coach invitation is visible and acceptance targets only that invitation',async()=>{
+ let accepted=false;
+ const ui=await setup(initialAthlete(),async(name)=>name==='my_coaching_invitations'?(accepted?[]:[{id:'invite-1',direction:'incoming',coach_name:'Camille'}]):name==='athlete_coaches'?[]:name==='respond_coaching_invitation'?(accepted=true):null);
+ try {
+  await ui.api.open();const section=ui.content.querySelector('.incoming-coaching-invitations');assert.ok(section);assert.match(section.textContent,/calendrier et tes bilans/);
+  await ui.click('Accepter ce coach',section);
+  const write=ui.calls.find(c=>c.name==='respond_coaching_invitation');assert.deepEqual(JSON.parse(JSON.stringify(write.args)),{p_invitation_id:'invite-1',p_accept:true});
+  assert.equal(ui.content.querySelector('.incoming-coaching-invitations'),null);
  }finally{await ui.close();}
 });

@@ -1,6 +1,7 @@
 import { client as supabase } from "./config.js";
 import { createRosterStore } from "./roster-store.js";
 import { createRosterAttachmentUI } from './roster-attachment.js';
+import { createAthleteAddUI } from './roster-add.js';
 import { mountNavigation } from './navigation.js';
 
   (() => {
@@ -42,6 +43,8 @@ import { mountNavigation } from './navigation.js';
         }
       },
     });
+
+    const athleteAddUI = createAthleteAddUI({client:supabase,getUserId:()=>currentUser?.id,onCreateSheet:()=>openAthlete()});
 
     function uid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
     function todayLocal() {
@@ -260,7 +263,7 @@ import { mountNavigation } from './navigation.js';
 
     function openAthlete(id = "") {
       $("athleteForm").reset(); $("athleteId").value = id; $("athleteError").classList.add("hidden");
-      $("athleteDialogTitle").textContent = id ? "Modifier la fiche" : "Ajouter un athlète";
+      $("athleteDialogTitle").textContent = id ? "Modifier la fiche" : "Créer une fiche";
       $("deleteAthleteButton").classList.toggle("hidden", !id);
       $("deleteAthleteButton").textContent = rosterStore.mode === "legacy" ? "Supprimer la fiche" : "Retirer de mon effectif";
       const registered = !!state.athletes.find(a=>a.id===id)?.userId;
@@ -461,7 +464,7 @@ import { mountNavigation } from './navigation.js';
       if (formSnapshot() !== athleteFormSnapshot) { athleteError('Enregistre tes modifications avant de rattacher ce compte.'); return; }
       openRosterAttachment($('athleteId').value, $('attachAthleteButton'));
     });
-    $("addAthleteButton").addEventListener("click", () => openAthlete()); $("athleteForm").addEventListener("submit", saveAthlete);
+    $("addAthleteButton").addEventListener("click", () => athleteAddUI.open()); $("athleteForm").addEventListener("submit", saveAthlete);
     $("weight").addEventListener("input", updateWeightConversion); $("weightUnit").addEventListener("change", updateWeightConversion);
     $('deleteAthleteButton').addEventListener('click', async () => {
       const id = $('athleteId').value;

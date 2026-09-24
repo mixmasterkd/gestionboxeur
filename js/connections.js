@@ -12,7 +12,7 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
   const dialog = $('connectionsDialog');
   const content = $('connectionsContent');
   let generation = 0;
-  let pending = false, personalView = false;
+  let pending = false, personalView = false, noticeGeneration = 0;
 
   dialog.addEventListener('close', () => {
     generation++;
@@ -221,6 +221,31 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
       list.append(card);
     }
   }
+  async function renderInvitations(body,state,version) {
+    const invitations=await rpc('my_coaching_invitations');
+    if(!isCurrent(version,state.user.id))return;
+    const incoming=(invitations||[]).filter(item=>item.direction==='incoming');
+    if(!incoming.length)return;
+    const list=el('section',{class:'incoming-coaching-invitations'},el('h3',{},'Invitations de coachs'));
+    for(const item of incoming) {
+      const error=errorBox(),card=el('article',{class:'connection-card'},el('h3',{},item.coach_name),
+        el('p',{},'Ce coach propose de te suivre. En acceptant, tu lui permets de voir ton calendrier et tes bilans, d’ajouter des séances et de modifier les éléments déverrouillés. Tu pourras ajuster ces accès dans Mes coachs.'));
+      const respond=accept=>perform(error,()=>rpc('respond_coaching_invitation',{p_invitation_id:item.id,p_accept:accept}),accept?'Invitation acceptée. Le coach peut maintenant te suivre.':'Invitation refusée.');
+      card.append(el('div',{class:'intro-actions'},button('Accepter ce coach',()=>respond(true),'button primary'),button('Refuser',()=>respond(false))),error);list.append(card);
+    }
+    body.prepend(list);
+  }
+  async function refreshNotice() {
+    const userId=getState().user?.id, noticeVersion=++noticeGeneration;if(!userId)return;
+    try {
+      const invitations=await rpc('my_coaching_invitations');if(getState().user?.id!==userId||noticeVersion!==noticeGeneration)return;
+      const count=(invitations||[]).filter(item=>item.direction==='incoming').length;
+      let notice=$('incomingInvitationsNotice');
+      if(!notice&&$('connectionBanner')){notice=el('div',{id:'incomingInvitationsNotice',class:'banner connection-banner',role:'status'});$('connectionBanner').after(notice);}
+      if(!notice)return;notice.hidden=!count;
+      notice.replaceChildren(el('span',{},`${count} invitation${count>1?'s':''} de coach à consulter`),button('Voir les invitations',()=>open({personal:true}),'button secondary'));
+    }catch{/* Invitations remain available from Mes coachs if this notice cannot load. */}
+  }
   async function render() {
     const version = ++generation;
     const state = getState();
@@ -230,6 +255,7 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
     try {
       if (isCoach && !personalView) renderCoach(state, body);
       else await renderAthlete(state, body, version);
+      await renderInvitations(body,state,version);
     } catch (error) {
       if (isCurrent(version, state.user?.id)) {
         const alert = errorBox(); showError(alert, error); body.append(alert, button('Réessayer', () => open()));
@@ -286,5 +312,5 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
   async function inviteAthlete() {
     await generateInvitation(selectedAthlete(getState()));
   }
-  return { open, inviteAthlete };
+  return { open, inviteAthlete, refreshNotice };
 }

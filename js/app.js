@@ -54,6 +54,7 @@ async function refreshAccount() {
   state.selectedAthlete=(location.hash==='#coachs'?available.find(a=>a.user_id===state.user.id):null)||available.find(a=>a.id===state.selectedAthlete?.id)||available.find(a=>a.id===fromURL)||available[0]||null;
   state.relation=state.relations.find(r=>r.athlete_id===state.selectedAthlete?.id && r.coach_id===state.user.id)||null;
   renderAccount();
+  void connectionsUI.refreshNotice?.();
   return true;
 }
 function renderAccount() {

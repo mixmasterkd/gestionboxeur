@@ -17,10 +17,15 @@ async function surface(html, script, client, url = 'https://gestionboxeur.exampl
   window.__navigate = value => navigations.push(new URL(value, window.location.href).href);
   window.__client = client;
   window.__createRosterStore = createRosterStore;
+  if(script==='roster.js') {
+    const uiSource=(await readFile(new URL('../js/ui.js',import.meta.url),'utf8')).replace(/^export /gm,'');
+    const addSource=(await readFile(new URL('../js/roster-add.js',import.meta.url),'utf8')).replace(/^import .*;$/gm,'').replace(/^export /gm,'');
+    window.eval(`${uiSource}\n${addSource}\nwindow.__createAthleteAddUI=createAthleteAddUI;`);
+  }
   window.__createRosterAttachmentUI = createRosterAttachmentUI;
   window.confirm = () => true;
-  const source = (await readFile(new URL(`../js/${script}`, import.meta.url), 'utf8')).replace(/^import \{ createRosterStore \} from ['"].\/roster-store.js['"];?/m, 'const createRosterStore = window.__createRosterStore;').replace(/^import \{ mountNavigation \}.*$/m, 'const mountNavigation = () => {};').replace(/^import \{ beginTestSession \}.*$/m, 'const beginTestSession = async () => {};').replace(/^import \{ isTestSession \}.*$/m, 'const isTestSession = () => false;').replace(/^import \{ returnFromTestSession \}.*$/m, 'const returnFromTestSession = async () => {};').replaceAll('location.replace(', 'window.__navigate(');
-  window.eval(source.replace(/^import \{ createRosterAttachmentUI \}.*$/m, 'const createRosterAttachmentUI = window.__createRosterAttachmentUI;').replace(/^import \{ client(?: as supabase)? \} from ['"].\/config.js['"];?/m,
+  const source = (await readFile(new URL(`../js/${script}`, import.meta.url), 'utf8')).replace(/^import \{ createRosterStore \} from ['"].\/roster-store.js['"];?/m, 'const createRosterStore = window.__createRosterStore; const createAthleteAddUI = window.__createAthleteAddUI;').replace(/^import \{ mountNavigation \}.*$/m, 'const mountNavigation = () => {};').replace(/^import \{ beginTestSession \}.*$/m, 'const beginTestSession = async () => {};').replace(/^import \{ isTestSession \}.*$/m, 'const isTestSession = () => false;').replace(/^import \{ returnFromTestSession \}.*$/m, 'const returnFromTestSession = async () => {};').replaceAll('location.replace(', 'window.__navigate(');
+  window.eval(source.replace(/^import \{ createAthleteAddUI \}.*$/m, '').replace(/^import \{ createRosterAttachmentUI \}.*$/m, 'const createRosterAttachmentUI = window.__createRosterAttachmentUI;').replace(/^import \{ client(?: as supabase)? \} from ['"].\/config.js['"];?/m,
     script === 'roster.js' ? 'const supabase = window.__client;' : 'const client = window.__client;'));
   await settle();
   return { window, navigations, $: id => window.document.getElementById(id), close: () => window.happyDOM.abort() };
@@ -158,7 +163,7 @@ function rosterMock({ legacy = false, role = "coach", authenticated = true, regi
       };
       return query;
     },
-    async rpc(name, args) { calls.push(['rpc', name, args]); return { data: 'athlete-id', error: null }; },
+    async rpc(name, args) { if(name==='my_coaching_invitations')return {data:[],error:null}; calls.push(['rpc', name, args]); return { data: 'athlete-id', error: null }; },
   };
   return { client, calls, tables, emit: (...args) => authCallback(...args) };
 }
@@ -183,9 +188,9 @@ test('roster accepts a first name alone and sends atomic nullable bio/private re
   const mock = rosterMock();
   const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
-    ui.$('addAthleteButton').click(); ui.$('firstName').value = 'Alex';
+    ui.$('addAthleteButton').click(); ui.window.document.querySelector('[aria-label="Créer une fiche"]').click(); ui.$('firstName').value = 'Alex';
     submit(ui, 'athleteForm'); await settle();
-    const call = mock.calls.find(call => call[0] === 'rpc');
+    const call = mock.calls.find(call => call[1] === 'create_roster_athlete');
     assert.equal(call[1], 'create_roster_athlete');
     assert.equal(call[2].p_data.first_name, 'Alex');
     assert.equal(call[2].p_data.last_name, '');
@@ -224,7 +229,7 @@ test('registered roster protects identity fields, uses one table and sends only 
     const payload=mock.calls.find(call=>call[0]==='rpc'&&call[1]==='update_roster_athlete')[2].p_data;
     assert.deepEqual(Object.keys(payload).sort(),['fights','losses','selected','weight_kg','wins']);
     assert.equal(payload.weight_kg,72.6);
-    ui.$('addAthleteButton').click();assert.equal(ui.$('firstName').disabled,false);
+    ui.$('addAthleteButton').click(); ui.window.document.querySelector('[aria-label="Créer une fiche"]').click();assert.equal(ui.$('firstName').disabled,false);
   }finally{await ui.close();}
 });
 

@@ -1,0 +1,65 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,readdir} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+
+test('coach invitations require athlete consent and preserve existing calendars and permissions',async()=>{
+ const db=new PGlite();
+ const coach='11000000-0000-4000-8000-000000000001',athlete='11000000-0000-4000-8000-000000000002',other='11000000-0000-4000-8000-000000000003';
+ const scalar=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0]||{})[0];
+ const admin=()=>db.exec('reset role');
+ const login=async id=>{await admin();await db.query("select set_config('request.jwt.claim.sub',$1,false),set_config('request.jwt.claim.role','authenticated',false)",[id]);await db.exec('set role authenticated');};
+ try {
+  await db.exec(`create role anon nologin;create role authenticated nologin;create role service_role nologin bypassrls;create schema auth;
+   create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb not null default '{}');
+   create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+   create function auth.role() returns text language sql stable as $$select nullif(current_setting('request.jwt.claim.role',true),'')$$;
+   grant usage on schema public,auth to anon,authenticated,service_role;
+   grant execute on function auth.uid(),auth.role() to anon,authenticated,service_role;
+   alter default privileges in schema public grant all on tables to public,anon,authenticated,service_role;`);
+  const dir=new URL('../supabase/migrations/',import.meta.url);
+  for(const name of (await readdir(dir)).filter(n=>n.endsWith('.sql')).sort())await db.exec(await readFile(new URL(name,dir),'utf8'));
+  for(const [id,role,name,email] of [[coach,'coach','Camille','coach@example.test'],[athlete,'athlete','Alex','alex@example.test'],[other,'coach','Sam','sam@example.test']])
+   await db.query('insert into auth.users(id,email,raw_user_meta_data)values($1,$2,$3)',[id,email,JSON.stringify({account_type:role,full_name:name,birth_date:'2000-01-01'})]);
+  const athleteId=await scalar('select id from public.athletes where user_id=$1',[athlete]);
+  await login(athlete);
+  const sessionId=await scalar("insert into public.training_sessions(athlete_id,title,date)values($1,'Histoire conservée',current_date)returning id",[athleteId]);
+  await assert.rejects(()=>db.query("select * from public.find_athlete_by_email('coach@example.test')"),/coach requis/);
+  await login(coach);
+  assert.deepEqual((await db.query("select * from public.find_athlete_by_email(' ALEX@EXAMPLE.TEST ')")).rows,[{athlete_id:athleteId,display_name:'Alex',connection_status:'available'}]);
+  assert.equal((await db.query("select * from public.find_athlete_by_email('coach@example.test')")).rows.length,0);
+  const invite=await scalar("select public.invite_existing_athlete('alex@example.test')");
+  assert.equal(await scalar("select public.invite_existing_athlete('alex@example.test')"),invite);
+  assert.equal((await db.query('select * from public.training_sessions where id=$1',[sessionId])).rows.length,0);
+  assert.equal((await db.query('select id from public.athletes where id=$1',[athleteId])).rows.length,0);
+  assert.equal((await db.query('select * from public.my_coaching_invitations()')).rows[0].direction,'outgoing');
+  await assert.rejects(()=>db.query('select public.respond_coaching_invitation($1,true)',[invite]),/Seul/);
+  await assert.rejects(()=>db.query("update public.coaching_invitations set status='accepted' where id=$1",[invite]),/permission denied/);
+  await login(other);assert.equal((await db.query('select * from public.coaching_invitations')).rows.length,0);
+  assert.equal((await db.query('select * from public.my_coaching_invitations()')).rows.length,0);
+  await assert.rejects(()=>db.query('select public.respond_coaching_invitation($1,true)',[invite]),/Seul/);
+  await login(athlete);assert.equal((await db.query('select * from public.my_coaching_invitations()')).rows[0].direction,'incoming');
+  await db.query('select public.respond_coaching_invitation($1,true)',[invite]);
+  await assert.rejects(()=>db.query('select public.respond_coaching_invitation($1,true)',[invite]),/déjà traitée/);
+  assert.equal(await scalar('select id from public.athletes where user_id=$1',[athlete]),athleteId);
+  assert.equal(await scalar('select title from public.training_sessions where id=$1',[sessionId]),'Histoire conservée');
+  await login(coach);assert.equal(await scalar('select title from public.training_sessions where id=$1',[sessionId]),'Histoire conservée');
+  await assert.rejects(()=>db.query("select public.invite_existing_athlete('alex@example.test')"),/déjà/);
+  await login(other);const second=await scalar("select public.invite_existing_athlete('alex@example.test')");
+  await login(athlete);await db.query('select public.respond_coaching_invitation($1,false)',[second]);
+  await login(other);assert.equal((await db.query('select * from public.training_sessions where id=$1',[sessionId])).rows.length,0);
+  await assert.rejects(()=>db.query("select public.invite_existing_athlete('alex@example.test')"),/Attends/);
+  await admin();await db.query("update public.coaching_invitations set responded_at=now()-interval '2 days' where id=$1",[second]);
+  await login(other);await db.query("select public.invite_existing_athlete('alex@example.test')");
+  await admin();await db.query("update public.coaching_invitations set expires_at=now()-interval '1 day' where id=$1",[second]);
+  await login(athlete);await assert.rejects(()=>db.query('select public.respond_coaching_invitation($1,true)',[second]),/expirée/);
+  await admin();await db.query("update public.coaching_invitations set expires_at=now()+interval '1 day' where id=$1",[second]);
+  await db.query("insert into public.coach_athletes(coach_id,athlete_id,status,can_view_feedback)values($1,$2,'accepted',false)",[other,athleteId]);
+  await login(athlete);await db.query('select public.respond_coaching_invitation($1,true)',[second]);
+  await login(other);assert.equal(await scalar('select can_view_feedback from public.coach_athletes where coach_id=$1 and athlete_id=$2',[other,athleteId]),false);
+  await login(coach);const toCoach=await scalar("select public.invite_existing_athlete('sam@example.test')");
+  await db.query('select public.cancel_coaching_invitation($1)',[toCoach]);
+  await login(other);await assert.rejects(()=>db.query('select public.respond_coaching_invitation($1,true)',[toCoach]),/déjà traitée/);
+  await admin();await db.exec('set role anon');await assert.rejects(()=>db.query('select * from public.my_coaching_invitations()'),/permission denied/);
+ }finally{await db.close();}
+});

@@ -45,6 +45,7 @@ export async function getTemplates(){return clone(templates);}
 export async function saveTemplate(item){return save(templates,item);}
 export async function deleteTemplate(id){templates=templates.filter(t=>t.id!==id);}
 export async function rpc(name,args){
+  if(name==='my_coaching_invitations')return [];
   if(name==='athlete_coaches')return clone(relations.map(r=>({...r,display_name:'Camille · Coach'})));
   if(name==='set_session_completed'){
     const session=sessions.find(item=>item.id===args.p_session_id);
