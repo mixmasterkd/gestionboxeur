@@ -84,7 +84,7 @@ function renderAccount() {
   $('calendarSection').hidden=!state.selectedAthlete;
   $('athleteTitle').textContent=ownsCalendar()?'Mon calendrier':isCoach()?(state.selectedAthlete?displayName(state.selectedAthlete):'Calendrier d’entraînement'):'Mon calendrier';
   $('viewEyebrow').textContent='PLANIFICATION DES ENTRAÎNEMENTS';
-  $('athleteSubtitle').textContent=!ownsCalendar()&&isCoach()?'Séances et événements de cet athlète.':'Séances, événements et bilans.';
+  $('athleteSubtitle').textContent=!ownsCalendar()&&isCoach()?'Séances et notes de cet athlète.':'Séances, notes et bilans.';
   if(!isCoach()&&!state.selectedAthlete) {$('calendarStatus').textContent='Aucun profil athlète lié. Ouvre ton lien d’invitation ou reconnecte-toi après la création de ton compte.';$('calendarSection').hidden=false;}
   renderAthleteList();
   renderSurface();
@@ -264,7 +264,7 @@ function renderCalendar() {
       const sessions=orderedSessions(state.sessions.filter(s=>s.date===date));sessions.forEach(s=>content.append(sessionCard(s)));
       content.append(el('div',{class:'empty-day'},'Aucune séance prévue'));day.append(content);
       const actions=el('footer',{class:'day-actions'});
-      if(canAdd())actions.append(button(state.view==='month'?'＋':'＋ Séance',()=>sessionUI.editSession(null,date),'add-day',{'aria-label':`Planifier une séance le ${dateLabel(date)}`}),button(state.view==='month'?'＋ Note':'＋ Événement',()=>sessionUI.editEvent(null,date),'add-day',{'aria-label':`Ajouter un événement le ${dateLabel(date)}`}));
+      if(canAdd())actions.append(button(state.view==='month'?'＋':'＋ Séance',()=>sessionUI.editSession(null,date),'add-day',{'aria-label':`Planifier une séance le ${dateLabel(date)}`}),button('＋ Note',()=>sessionUI.editEvent(null,date),'add-day',{'aria-label':`Ajouter une note le ${dateLabel(date)}`}));
       day.append(actions);week.append(day);calendarSortable(content);
     }
     week.append(lanes);calendar.append(week);calendarSortable(lanes,{bands:true});

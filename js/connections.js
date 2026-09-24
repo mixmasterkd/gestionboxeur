@@ -3,7 +3,7 @@ import { $, el, button, field, input, heading, errorBox, showError, confirmActio
 
 const PERMISSIONS = [
   ['can_view_calendar', 'Voir mon calendrier'],
-  ['can_add_sessions', 'Ajouter des séances et événements'],
+  ['can_add_sessions', 'Ajouter des séances et notes'],
   ['can_edit_own_sessions', 'Modifier et déplacer les éléments déverrouillés'],
   ['can_view_feedback', 'Voir mes retours et mon RPE'],
 ];

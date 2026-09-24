@@ -44,13 +44,13 @@ function save(list,payload,existing) {
 export async function saveSession(payload,existing){return save(sessions,existing?payload:{...payload,completed_at:null},existing);}
 export async function saveEvent(payload,existing){
  const stored=existing?events.find(event=>event.id===existing.id):null;
- if(stored?.is_private&&stored.created_by!==user.id)throw new Error('Cet événement n’est plus accessible.');
+ if(stored?.is_private&&stored.created_by!==user.id)throw new Error('Cette note n’est plus accessible.');
  if(stored&&'is_private' in payload&&payload.is_private!==stored.is_private&&stored.created_by!==user.id)throw new Error('Seul l’auteur peut changer la confidentialité de cette note.');
  if(!stored&&payload.is_private&&payload.created_by!==user.id)throw new Error('La note privée doit appartenir à son auteur.');
  return save(events,existing?payload:{is_private:false,...payload},existing);
 }
 export async function deleteSession(item){sessions=sessions.filter(s=>s.id!==item.id);feedback=feedback.filter(f=>f.session_id!==item.id);}
-export async function deleteEvent(item){const event=events.find(e=>e.id===item.id);if(event?.is_private&&event.created_by!==user.id)throw new Error('Cet événement n’est plus accessible.');events=events.filter(e=>e.id!==item.id);}
+export async function deleteEvent(item){const event=events.find(e=>e.id===item.id);if(event?.is_private&&event.created_by!==user.id)throw new Error('Cette note n’est plus accessible.');events=events.filter(e=>e.id!==item.id);}
 export async function getTemplates(){return clone(templates);}
 export async function saveTemplate(item){return save(templates,item);}
 export async function deleteTemplate(id){templates=templates.filter(t=>t.id!==id);}

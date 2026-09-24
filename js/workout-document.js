@@ -147,7 +147,7 @@ export function parseTrainingText(text, { sport = 'other' } = {}) {
   const fail = (line, message) => result.errors.push({ line, message });
   if (typeof text !== 'string') { fail(1, 'L’entraînement doit être du texte.'); return result; }
   if (text.length > TRAINING_TEXT_LIMIT) { fail(1, `Le texte ne peut pas dépasser ${TRAINING_TEXT_LIMIT.toLocaleString('fr-CA')} caractères.`); return result; }
-  let group = null, groupLine = null, groupActivity = null, count = 0, segments = 0;
+  let group = null, groupLine = null, groupActivity = null, precedingActivity = null, count = 0, segments = 0;
   const finishGroup = () => {
     if (group && !group.children.length) {
       result.blocks.splice(result.blocks.indexOf(group), 1); count--;
@@ -156,6 +156,9 @@ export function parseTrainingText(text, { sport = 'other' } = {}) {
     group = null; groupLine = null; groupActivity = null;
   };
   for (const { raw, ...position } of textLines(text)) {
+    // Only the immediately preceding activity-only line can label a neutral
+    // group. Blank lines, instructions and steps interrupt this adjacency.
+    const activityBefore = precedingActivity; precedingActivity = null;
     const line = { ...position, kind: raw.trim() ? 'text' : 'blank' }; result.lines.push(line);
     if (!raw.trim()) { finishGroup(); continue; }
     const repeat = repeatHeader(raw);
@@ -167,10 +170,14 @@ export function parseTrainingText(text, { sport = 'other' } = {}) {
       if (repeat.activity?.title.length > 500) { fail(line.line, 'Le nom de l’activité ne peut pas dépasser 500 caractères.'); continue; }
       if (count >= WORKOUT_LIMITS.blocks || result.blocks.length >= WORKOUT_LIMITS.siblings) { fail(line.line, 'Le nombre maximal de blocs est atteint.'); continue; }
       group = { ...makeBlock('repeat'), repeat_count: repetitions, ...(repeat.rounds ? { repeat_unit: 'rounds' } : {}) };
-      groupActivity = repeat.activity;
+      groupActivity = repeat.activity || activityBefore;
       line.blockId = group.id; groupLine = line; result.blocks.push(group); count++; continue;
     }
-    if (!/^\s*-/.test(raw)) continue;
+    if (!/^\s*-/.test(raw)) {
+      const activity = names.get(normalize(raw));
+      if (activity && activity.type !== 'other') precedingActivity = activity;
+      continue;
+    }
     line.kind = 'step';
     try {
       const block = parseStep(raw, sport, groupActivity); if (!block) { line.kind = 'text'; continue; }

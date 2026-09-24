@@ -76,6 +76,33 @@ test('Round and Répétition produce the same sequence mechanics and include the
   }
 });
 
+test('new rounds put their common activity above the count and keep compact source lines linked to the graph',()=>{
+  const {editor,mount}=fixture({sport:'boxing'});click(mount,'add-rounds');
+  assert.equal(mount.querySelector('[data-field=duration]').value,'');assert.equal(mount.querySelector('[data-field=effort-kind]').value,'');
+  fill(mount,'duration','3min');effort(rows(mount)[0],'rpe',4,6);fill(mount,'description','Jab et déplacement');click(mount,'add-repeat-line');
+  const recovery=rows(mount)[1];change(recovery.querySelector('[data-field=duration]'),'1min');effort(recovery,'repos');click(mount,'apply-mini');
+  assert.equal(editor.getDocument().text,'Shadow\n3 rounds\n- 3min @ RPE 4-6/10 - Jab et déplacement\n- 1min @ Repos\n\n');
+  const [group]=editor.getValue();assert.equal(group.repeat_count,3);assert.deepEqual(group.children.map(block=>block.type),['shadow','shadow']);assert.equal(summarizeBlocks([group]).duration_seconds,720);
+  assert.deepEqual(editor.lines.filter(line=>line.kind==='step').map(line=>line.blockId),group.children.map(block=>block.id));
+  const saved=fixture({blocks:editor.getValue(),document:editor.getDocument(),sport:'boxing'}).editor;assert.deepEqual(saved.getValue(),editor.getValue());
+  editor.editStep(group.children[1].id);assert.equal(mount.querySelector('[data-field=duration]').value,"1'");fill(mount,'duration','90s');click(mount,'apply-mini');
+  assert.equal(editor.getValue()[0].children[1].id,group.children[1].id);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,810);assert.match(editor.getDocument().text,/^Shadow\n3 rounds\n- 3min @ RPE 4-6\/10 - Jab et déplacement\n- Shadow 1min30s @ Repos/);
+});
+
+test('known activity titles compact common repetitions while free titles and custom activities keep explicit steps',()=>{
+  for(const [common,title,expected] of [['shadow','Shadow Boxing','Shadow Boxing\n2x\n- 30s'],['shadow','Échauffement technique','Échauffement technique\n2x\n- Shadow 30s'],['other','','2x\n- Mon atelier 30s']]){
+    const {editor,mount}=fixture({sport:'boxing'});click(mount,'add-repeat');change(mount.querySelector('[name=repeat_type]'),common);
+    change(mount.querySelector('[name=optional_heading]'),title);if(common==='other')fill(mount,'title','Mon atelier');fill(mount,'duration','30s');click(mount,'apply-mini');
+    assert.equal(editor.getDocument().text,`${expected}\n\n`);assert.equal(editor.getValue()[0].children[0].type,common);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,60);
+  }
+});
+
+test('a common activity without any dose stays explicit instead of disappearing from the group',()=>{
+  const {editor,mount}=fixture({sport:'boxing'});click(mount,'add-rounds');fill(mount,'format','free');click(mount,'apply-mini');
+  assert.equal(editor.getDocument().text,'Shadow\n3 rounds\n- Shadow\n\n');assert.equal(editor.getValue()[0].children.length,1);assert.equal(editor.getValue()[0].children[0].duration_seconds,null);
+  assert.equal(editor.getValue()[0].children[0].effort,null);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,0);
+});
+
 test('activity choices prioritize the chosen sport and rounds exclude running and conditioning',()=>{
   for(const [sport,first,expected] of [['running','🏃 Course','run'],['boxing','🥊 Boxe','shadow']]){
     const {editor,mount}=fixture({sport});click(mount,'add-step');
@@ -121,7 +148,7 @@ test('a group inserted between existing steps has blank boundaries and cannot ab
   write(editor,'- Jog 10min\n- Marche 5min');editor.textInput.select(editor.getDocument().text.indexOf('- Marche'));
   click(mount,'add-repeat');fill(mount,'repeat_count',2);fill(mount,'duration','1min');click(mount,'apply-mini');
   const document=editor.getDocument().text,blocks=editor.getValue();
-  assert.match(document,/- Jog 10min\n\n2x\n- Course 1min\n\n- Marche 5min/);
+  assert.match(document,/- Jog 10min\n\nCourse\n2x\n- 1min\n\n- Marche 5min/);
   assert.deepEqual(blocks.map(block=>block.kind),['step','repeat','step']);assert.equal(blocks[1].children.length,1);
   assert.equal(summarizeBlocks(blocks).duration_seconds,1020);
 });
@@ -208,7 +235,7 @@ test('new nested groups are not offered and nested text produces a visible warni
 
 test('help documents the agreed units, effort ranges, blank group boundary, final rest and formatting meaning',()=>{
   const {mount}=fixture();const help=mount.querySelector('.pe-help');assert.equal(help.open,false);
-  for(const pattern of [/m signifie toujours minutes/,/400mtr/,/1'30"/,/120-150 bpm/,/5:30-6:30\/km/,/Z2-Z4/,/RPE 6\/10/,/Vert-Jaune/,/vraie ligne vide/,/dernier repos/,/Un seul niveau/,/sans bandes intermédiaires/,/colorier une phrase ne change pas l’effort/])assert.match(help.textContent,pattern);
+  for(const pattern of [/m signifie toujours minutes/,/400mtr/,/1'30"/,/120-150 bpm/,/5:30-6:30\/km/,/Z2-Z4/,/RPE 6\/10/,/Vert-Jaune/,/vraie ligne vide/,/dernier repos/,/Un seul niveau/,/sans bandes intermédiaires/,/colorier une phrase ne change pas l’effort/,/ligne juste avant le nombre/,/Shadow\n3 rounds\n- 3min/])assert.match(help.textContent,pattern);
   assert.equal(mount.querySelector('.pe-text-input').textContent,'');
 });
 

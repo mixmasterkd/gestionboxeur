@@ -8,7 +8,7 @@ const step = values => ({ ...makeBlock('bag'), title: 'Sac', ...values });
 const repeat = (count, children, values = {}) => ({ ...makeBlock('repeat'), repeat_count: count, children, ...values });
 function parse(text, options) { const result = parseTrainingText(text, options); assert.deepEqual(result.errors, [], JSON.stringify(result.errors)); return result; }
 
-test('free text and titles remain at their offsets and never establish an inherited activity', () => {
+test('free text and titles remain at their offsets without inheriting activity outside a contextual group', () => {
   const text = 'Travail technique\r\nCourse\r\n- 3min @Z3 - Garder les mains hautes\r\n\r\nUne remarque finale.';
   const result = parse(text, { sport: 'boxing' });
   assert.equal(result.blocks.length, 1); assert.equal(result.blocks[0].type, 'other'); assert.equal(result.blocks[0].title, 'Boxe');
@@ -216,4 +216,74 @@ test('spaced effort ranges consume both bounds before an optional instruction or
   assert.equal(parse('- Sac 3min @ Z3 - 3 coups rapides').blocks[0].description, '3 coups rapides');
   assert.ok(parseTrainingText('- Sac 3min @ Z2 - Z9').errors.length);
   assert.ok(parseTrainingText('- Sac 3min @ RPE4 - 11 - Jab').errors.length);
+});
+
+
+test('an exact activity title immediately above a neutral round header scopes untyped steps and includes the last rest', () => {
+  const text = 'Shadow boxing\n3 rounds\n- 3 minutes @ RPE 4-6\n- Repos 1 minute';
+  const result = parse(text, { sport: 'running' }), group = result.blocks[0];
+  assert.equal(result.blocks.length, 1); assert.equal(group.repeat_count, 3); assert.equal(group.repeat_unit, 'rounds');
+  assert.deepEqual(group.children.map(block => [block.type, block.duration_seconds]), [['shadow', 180], ['recovery', 60]]);
+  assert.deepEqual([group.children[0].effort.kind, group.children[0].effort.min, group.children[0].effort.max], ['rpe', 4, 6]);
+  assert.equal(group.children[1].effort.label, 'Repos'); assert.equal(summarizeBlocks(result.blocks).duration_seconds, 720);
+  assert.deepEqual(summarizeBlocks(result.blocks).segments.map(block => block.duration_seconds), [180, 60, 180, 60, 180, 60]);
+  assert.deepEqual(result.lines.map(line => line.kind), ['text', 'repeat', 'step', 'step']);
+  assert.equal(text.slice(result.lines[0].start, result.lines[0].end), 'Shadow boxing');
+  for (const heading of ['Shadow', 'SHADOW BOXING', '  shadow   boxing  ']) {
+    const inherited = parse(`${heading}\r\n3rounds\r\n- 3min\r\n- Repos 1min`, { sport: 'running' });
+    assert.equal(inherited.blocks[0].children[0].type, 'shadow');
+  }
+});
+
+test('an adjacent Jog title scopes distance repetitions without inferring a duration or overriding explicit activities', () => {
+  const result = parse('Jog\n5 x\n- 400mtr @ Z2-Z4\n- Marche 200 mètres\n- 100mtr Course\n- 50mtr', { sport: 'boxing' });
+  const group = result.blocks[0]; assert.equal(group.repeat_count, 5); assert.equal(group.repeat_unit, undefined);
+  assert.deepEqual(group.children.map(block => block.type), ['jog', 'walk', 'run', 'jog']);
+  assert.deepEqual(group.children.map(block => block.distance_m), [400, 200, 100, 50]);
+  assert.ok(group.children.every(block => block.duration_seconds === null));
+  const summary = summarizeBlocks(result.blocks); assert.equal(summary.distance_m, 3750); assert.equal(summary.duration_seconds, 0);
+  const explicit = parse('Shadow\n3 rounds\n- Shadow3min @ RPE 4-6\n- Repos 1min');
+  assert.deepEqual(explicit.blocks[0].children.map(block => block.type), ['shadow', 'recovery']);
+});
+
+test('only adjacent known activity titles establish a group scope; prose and blank lines never do', () => {
+  for (const title of ['Travail au sac', 'Échauffement technique', 'Shadow @ RPE 6', 'Autre']) {
+    const result = parse(`${title}\n3 rounds\n- 1min`, { sport: 'running' });
+    assert.equal(result.blocks[0].children[0].type, 'run', title);
+  }
+  for (const between of ['\n', '\nUne consigne\n', '\n   \n', '\n- Repos 30s\n']) {
+    const result = parse(`Shadow\n${between}3 rounds\n- 1min`, { sport: 'running' });
+    const group = result.blocks.find(block => block.kind === 'repeat'); assert.equal(group.children[0].type, 'run', between);
+  }
+  const result = parse('Shadow\n3 rounds\n- 1min\nCourse\n- 30s\n\n- 1min\n\n2x\n- 15s', { sport: 'running' });
+  assert.deepEqual(result.blocks[0].children.map(block => block.type), ['shadow', 'shadow']);
+  assert.equal(result.blocks[1].type, 'run'); assert.equal(result.blocks[2].children[0].type, 'run');
+  assert.equal(parse('Shadow\n- 1min', { sport: 'running' }).blocks[0].type, 'run');
+});
+
+test('an explicit one-line group heading takes priority over the activity title above it', () => {
+  for (const heading of ['Jog 3x', '3 rounds de Jog', '3 x de Jog']) {
+    const result = parse(`Shadow\n${heading}\n- 1min`, { sport: 'boxing' });
+    assert.equal(result.blocks[0].children[0].type, 'jog');
+  }
+});
+
+test('editing an adjacent activity title updates inherited steps while keeping IDs, hidden fields and explicit overrides', () => {
+  const previousText = 'Shadow boxing\n3 rounds\n- 3 minutes @ RPE 4-6\n- Repos 1 minute\n- 30s';
+  const original = parse(previousText, { sport: 'boxing' }).blocks;
+  original[0].children[0].future = { retain: true }; original[0].children[0].notes = 'Garder la note';
+  const updatedText = previousText.replace('Shadow boxing', 'Sac');
+  const result = reconcileTrainingBlocks(parse(updatedText, { sport: 'boxing' }), original, previousText);
+  assert.equal(result.blocks[0].id, original[0].id);
+  assert.deepEqual(result.blocks[0].children.map(block => block.id), original[0].children.map(block => block.id));
+  assert.deepEqual(result.blocks[0].children.map(block => block.type), ['bag', 'recovery', 'bag']);
+  assert.deepEqual(result.blocks[0].children[0].future, { retain: true }); assert.equal(result.blocks[0].children[0].notes, 'Garder la note');
+  assert.deepEqual(result.blocks[0].children[0].effort, original[0].children[0].effort);
+  assert.equal(summarizeBlocks(result.blocks).duration_seconds, summarizeBlocks(original).duration_seconds);
+  const removedContext = reconcileTrainingBlocks(parse(previousText.replace('Shadow boxing\n', 'Shadow boxing\n\n'), { sport: 'running' }), original, previousText);
+  assert.deepEqual(removedContext.blocks[0].children.map(block => block.type), ['run', 'recovery', 'run']);
+  assert.deepEqual(removedContext.blocks[0].children.map(block => block.id), original[0].children.map(block => block.id));
+  const ordinaryTitle = reconcileTrainingBlocks(parse(previousText.replace('Shadow boxing', 'Travail technique'), { sport: 'boxing' }), original, previousText);
+  assert.deepEqual(ordinaryTitle.blocks[0].children.map(block => block.type), ['other', 'recovery', 'other']);
+  assert.equal(ordinaryTitle.blocks[0].children[0].title, 'Boxe');
 });

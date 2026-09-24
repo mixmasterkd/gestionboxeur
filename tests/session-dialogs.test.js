@@ -58,17 +58,26 @@ test('legacy description and shared notes are edited in the single program text 
   assert.match(payload.workout_document.text, /Objectif technique/); assert.match(payload.workout_document.text, /Apporter les gants/);
 });
 
-test('event pastel selection is restored, saved and used in its detail', async () => {
+test('note color choices have accessible names without visible labels and the selected color is saved', async () => {
   let payload;
   const { ui } = fixture({ api: { saveEvent: async data => { payload = data; } } });
   const event = { id: 'e1', athlete_id: 'a1', created_by: 'coach1', title: 'Note', date: '2026-09-24', category: 'note', color: 'lavender', notes: 'Détails' };
   ui.editEvent(event);
+  assert.equal(document.getElementById('eventDialogTitle').textContent, 'Modifier la note');
+  assert.equal(document.querySelector('.event-colors legend').textContent, 'Couleur');
+  for (const choice of document.querySelectorAll('.event-colors label')) {
+    assert.equal(choice.textContent, '');
+    assert.ok(choice.querySelector('input').getAttribute('aria-label'));
+    assert.equal(choice.querySelector('span').getAttribute('aria-hidden'), 'true');
+  }
   assert.equal(document.querySelector('[name="event_color"]:checked').value, 'lavender');
   document.querySelector('[name="event_color"][value="coral"]').click(); submit('eventDialog'); await tick();
   assert.equal(payload.color, 'coral');
+  assert.equal(document.getElementById('toast').textContent, 'Note mise à jour.');
   ui.showEvent({ ...event, ...payload });
   assert.equal(document.querySelector('.note-box').dataset.color, 'coral');
   assert.equal(document.querySelector('.note-box').style.getPropertyValue('--event-bg'), '#fbe2dc');
+  assert.doesNotMatch(document.querySelector('#detailDialog').textContent, /événement/i);
 });
 
 test('session update sends only editable fields, preserves order and optimistic version', async () => {

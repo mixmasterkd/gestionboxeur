@@ -262,13 +262,13 @@ body.space-is-open { overflow: hidden; }
 
 /* Pastel annotations keep their own palette, separate from sport and effort zones. */
 .event-card[data-color], .note-box[data-color] { background: var(--event-bg); border-color: var(--event-border); color: var(--event-ink); }
-.event-colors { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; margin: 18px 0; }
+.event-colors { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; margin: 18px 0; }
 .event-colors legend { color: var(--ink); padding: 0 5px; }
-.event-colors label { position: relative; cursor: pointer; }
-.event-colors input { position: absolute; width: 1px; height: 1px; min-height: 0; opacity: 0; }
-.event-colors span { display: flex; align-items: center; min-height: 44px; padding: 10px 14px; background: var(--event-bg); color: var(--event-ink); border: 2px solid transparent; border-radius: 10px; font-size: 12px; margin: 0; }
+.event-colors label { position: relative; display: inline-flex; flex: 0 0 44px; width: 44px; height: 44px; cursor: pointer; }
+.event-colors input { position: absolute; inset: 0; width: 44px; height: 44px; min-height: 0; margin: 0; opacity: 0; cursor: pointer; }
+.event-colors span { box-sizing: border-box; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; background: var(--event-bg); color: var(--event-ink); border: 2px solid transparent; border-radius: 10px; font-size: 16px; margin: 0; }
 .event-colors input:checked + span { border-color: var(--event-ink); box-shadow: inset 0 0 0 2px #fff; }
-.event-colors input:checked + span::after { content: ' ✓'; margin-left: 6px; }
+.event-colors input:checked + span::after { content: '✓'; }
 .event-colors input:focus-visible + span { outline: 3px solid var(--accent-dark); outline-offset: 3px; }
 .pe-narrative { white-space: pre-wrap; text-align: left; display: block; width: 100%; border: 1px solid var(--line); border-left: 3px solid var(--accent-dark); border-radius: 9px; background: var(--white); color: var(--ink); padding: 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; }
 .sport-tag[data-sport="sparring"] { color: #775296; }
