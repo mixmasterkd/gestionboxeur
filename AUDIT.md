@@ -190,3 +190,4 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 
 - Remplacement de l’ancien symbole du menu par le PNG fourni, conservé sans retouche. Logo également visible en haut à gauche de l’en-tête mobile, avec dimensions fixes pour préserver la mise en page. Chemin adapté aux pages et à l’administration.
 - Validation : 295 tests réussis, structure et build vérifiés. Contrôle visuel à 1280 et 375 px, thèmes sombre et clair; aucun changement aux profils ou aux données.
+- Publication réussie : application `3908f4a`, workflow `36046693663`; les 20 fichiers publics, dont le logo original, correspondent exactement à l’artefact. Nouveau menu vérifié sur la page publiée après actualisation du cache; ancien symbole absent.
