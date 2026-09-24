@@ -170,6 +170,12 @@ Techniquement, `account_type` est conservé pour compatibilité : `coach` signif
 
 ### Journal et groupes — décisions à discuter avant implantation
 
-Le journal est indépendant des notes du calendrier. Deux vues du même journal sont retenues : Kanban et Chronologie, sans liens ni vidéos. Les entrées et leurs suivis ne doivent pas être dupliqués entre les vues. Les statuts, les entrées sans action à suivre et les droits d’écriture restent à préciser. L’option de notes privées du coach est souhaitée mais pas encore ajoutée.
+Le journal est indépendant des notes du calendrier. Deux vues du même journal sont retenues : Kanban et Chronologie, sans liens ni vidéos. Les entrées et leurs suivis ne doivent pas être dupliqués entre les vues. L’athlète peut créer ses propres sujets; le coach peut y ajouter ses conseils et pistes de travail. Proposition de statuts à discuter : À explorer / En travail / À entretenir, sans statut « Acquis » ou fin définitive. L’archivage retire un sujet de la vue active sans supprimer son historique. L’option de notes privées du coach est souhaitée mais pas encore ajoutée.
 
-Proposition de groupes : plusieurs groupes par coach, appartenances multiples, calendrier commun synchronisé dans les calendriers personnels, suivi individuel et petite étiquette d’origine (Personnel / coach / nom du groupe). Les détails de visibilité, d’arrivée/départ et d’adaptation individuelle restent à valider. Aucune fonction Journal ou Groupes n’est publiée dans cette étape.
+Proposition de groupes : plusieurs groupes par coach, appartenances multiples, calendrier commun synchronisé dans les calendriers personnels, suivi individuel et petit symbole de groupe sur la tuile, avec son nom dans le détail; aucune étiquette « Personnel ». Les détails de visibilité, d’arrivée/départ et d’adaptation individuelle restent à valider. Aucune fonction Journal ou Groupes n’est publiée dans cette étape.
+
+### Navigation du calendrier et palette graphite
+
+Le bouton Changer ouvre une liste de calendriers avec recherche (accents facultatifs), défilement interne et fermeture après sélection. Le nombre d’athlètes ne modifie pas la hauteur de l’en-tête. La période et la vue sont conservées au changement de calendrier. La coche de réalisation est directement sur la tuile du propriétaire du calendrier, y compris en vue Mois sur mobile; le titre ouvre toujours les détails. Les droits de réalisation restent inchangés.
+
+Palette sombre graphite, texte clair, accents ardoise discrets. Les couleurs des efforts et les notes pastel conservent leur sens. Le thème sombre est limité à l’écran pour préserver les listes imprimées sur fond blanc.

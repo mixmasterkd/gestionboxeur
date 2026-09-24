@@ -72,7 +72,7 @@ function renderAccount() {
     $('planningUnavailable').querySelector('a').hidden=!isCoach();
     return;
   }
-  $('athleteSidebar').hidden=!isCoach();$('workspace').classList.toggle('athlete-workspace',!isCoach());
+  $('athleteSidebar').hidden=!isCoach();$('athletePickerButton').hidden=!isCoach();$('workspace').classList.toggle('athlete-workspace',!isCoach());
   $('todayViewButton').hidden=false;$('addSessionButton').hidden=!canAdd();
   $('addEventButton').hidden=!canAdd();$('addEventButton').textContent='＋ Événement / note';
   $('inviteButton').hidden=!isCoach()||!state.selectedAthlete||!!state.selectedAthlete.user_id;
@@ -80,16 +80,18 @@ function renderAccount() {
   $('calendarSection').hidden=!state.selectedAthlete;
   $('athleteTitle').textContent=ownsCalendar()?'Mon calendrier':isCoach()?(state.selectedAthlete?displayName(state.selectedAthlete):'Calendrier d’entraînement'):'Mon calendrier';
   $('viewEyebrow').textContent='PLANIFICATION DES ENTRAÎNEMENTS';
-  $('athleteSubtitle').textContent=isCoach()?'Séances et événements de cet athlète.':'Séances, événements et bilans.';
+  $('athleteSubtitle').textContent=!ownsCalendar()&&isCoach()?'Séances et événements de cet athlète.':'Séances, événements et bilans.';
   if(!isCoach()&&!state.selectedAthlete) {$('calendarStatus').textContent='Aucun profil athlète lié. Ouvre ton lien d’invitation ou reconnecte-toi après la création de ton compte.';$('calendarSection').hidden=false;}
   renderAthleteList();
 }
+function searchName(value) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr'); }
 function renderAthleteList() {
-  const query=$('athleteSearch').value.trim().toLocaleLowerCase('fr');
+  const query=searchName($('athleteSearch').value.trim());
   $('athleteList').replaceChildren();
-  const list=acceptedAthletes().filter(a=>displayName(a).toLocaleLowerCase('fr').includes(query));
+  const list=acceptedAthletes().filter(a=>searchName(a.user_id===state.user?.id?'Mon calendrier '+displayName(a):displayName(a)).includes(query));
   for(const athlete of list) {
     const item=button('',async()=>{
+      $('athletePickerDialog').close();
       if(athlete.id===state.selectedAthlete?.id) return;
       state.selectedAthlete=athlete;state.relation=state.relations.find(r=>r.athlete_id===athlete.id);
       renderAccount();await refreshCalendar();
@@ -173,20 +175,23 @@ function sessionCard(session) {
   const top=el('div',{class:'session-top'},el('span',{class:'sport-tag',dataset:{sport:session.sport}},`${sport.icon} ${sport.label}`));
   if(canEdit(session))top.append(button('⠿',()=>{},'drag-handle',{'aria-label':`Déplacer ${session.title} par glisser-déposer`,title:'Glisser pour déplacer. Pour changer la date au clavier, ouvre la séance puis Modifier.'}));
   top.append(el('span',{class:`lock-badge ${session.is_locked===false?'unlocked':'locked'}`,title:session.is_locked===false?'Modifiable par l’athlète et ses coachs autorisés':'Modifiable uniquement par son créateur'},session.is_locked===false?'Partagée':'Verrouillée'));
-  card.append(top,button(session.title,()=>sessionUI.showSession(session),'session-title'));
+  const titleRow=el('div',{class:'session-title-row'},button(session.title,()=>sessionUI.showSession(session),'session-title'));
+  card.append(top,titleRow);
   const meta=[];if(summary.hasTime)meta.push(formatDuration(summary.duration_seconds));if(summary.hasDistance)meta.push(`${new Intl.NumberFormat('fr-CA',{maximumFractionDigits:2}).format(summary.distance_m/1000)} km`);
   if(!meta.length)meta.push(session.blocks.length?`${session.blocks.length} bloc${session.blocks.length>1?'s':''}`:'Instructions libres');
   card.append(el('div',{class:'session-meta'},meta.join(' · ')));
   if(['running','boxing','sparring'].includes(session.sport))card.append(renderSessionChart(session,{summary}));
   card.append(el('p',{class:'session-author'},`Par ${session.author_name||'Coach'}`));
   if(ownsCalendar()) {
-    const toggle=button(completed?'✓ Faite':'Marquer comme faite',async()=>{
+    const toggle=button('',async()=>{
       if(toggle.disabled)return;
       toggle.disabled=true;
       try{await sessionUI.setCompleted(session,!completed);}catch(error){toast(error.message||'Impossible d’enregistrer le statut.');}
       finally{toggle.disabled=false;}
     },'completion-button',{'aria-pressed':String(completed),'aria-label':`${completed?'Annuler la réalisation de':'Marquer comme faite :'} ${session.title}`});
-    card.append(toggle);
+    toggle.title=completed?'Annuler « faite »':'Marquer comme faite';
+    toggle.append(el('span',{class:'completion-mark','aria-hidden':'true'},completed?'✓':''));
+    titleRow.append(toggle);
   }else card.append(el('span',{class:`completion-pill ${completed?'completed':'pending'}`},completed?'✓ Faite':'À faire'));
   const feedback=state.feedback.find(f=>f.session_id===session.id);
   if(completed&&feedback&&(!isCoach()||state.relation?.can_view_feedback!==false))card.append(el('div',{class:'feedback-pill'},`${feedback.feeling?feelings[feedback.feeling]+' ':''}${feedback.rpe?'RPE '+feedback.rpe+'/10':'Retour reçu'}${feedback.comment?' · commentaire':''}`));
@@ -241,6 +246,12 @@ async function init() {
   if(state.planningAvailable)await refreshCalendar();
 }
 $('athleteSearch').addEventListener('input',renderAthleteList);
+$('athletePickerButton').addEventListener('click',()=>{
+  if(!isCoach())return;
+  $('athleteSearch').value='';renderAthleteList();$('athletePickerDialog').showModal();$('athleteSearch').focus();
+});
+$('closeAthletePicker').addEventListener('click',()=>$('athletePickerDialog').close());
+$('athletePickerDialog').addEventListener('close',()=>$('athletePickerButton').focus());
 $('previousButton').addEventListener('click',()=>{state.anchor=shiftPeriod(state.anchor,state.view,-1);refreshCalendar();});
 $('nextButton').addEventListener('click',()=>{state.anchor=shiftPeriod(state.anchor,state.view,1);refreshCalendar();});
 $('todayButton').addEventListener('click',()=>{state.anchor=todayLocal();refreshCalendar();});
@@ -249,7 +260,7 @@ $('addSessionButton').addEventListener('click',()=>sessionUI.editSession(null,st
 $('addEventButton').addEventListener('click',()=>sessionUI.editEvent(null,state.anchor));
 $('inviteButton').addEventListener('click',()=>connectionsUI.inviteAthlete());
 $('connectionsButton').addEventListener('click',()=>connectionsUI.open({personal:ownsCalendar()}));
-$('manageConnectionsButton').addEventListener('click',()=>connectionsUI.open());
+$('manageConnectionsButton').addEventListener('click',()=>{$('athletePickerDialog').close();connectionsUI.open();});
 $('libraryButton').addEventListener('click',()=>libraryUI.open());
 $('logoutButton').addEventListener('click',async()=>{try{const {error}=await client.auth.signOut();if(error)throw error;}catch(error){toast(error.message);}});
 window.addEventListener('offline',()=>{$('connectionBanner').textContent='Connexion interrompue. Reconnecte-toi avant d’enregistrer des changements.';$('connectionBanner').hidden=false;});

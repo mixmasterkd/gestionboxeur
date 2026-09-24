@@ -21,11 +21,18 @@ for (const page of pages) {
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);
       const computed = window.getComputedStyle(button);
-      assert.equal(computed.backgroundColor, '#a64132', `${page} at ${width}px: the current palette must win`);
-      assert.equal(computed.color, '#fff', `${page}: readable primary action`);
+      assert.equal(computed.backgroundColor, '#d7dfe9', `${page} at ${width}px: the current palette must win`);
+      assert.equal(computed.color, '#18202b', `${page}: readable primary action`);
+      assert.equal(window.getComputedStyle(window.document.body).backgroundColor, '#181b20', `${page}: graphite surface`);
       assert.ok(parseFloat(computed.minHeight) >= 44, `${page}: usable action height`);
       if (page === 'planning.html') {
         assert.equal(window.getComputedStyle(window.document.querySelector('.date-navigation')).display, width < 620 ? 'grid' : 'flex', 'compiled calendar responsiveness');
+        const calendar=window.document.getElementById('calendar');
+        calendar.className='calendar month';
+        calendar.innerHTML='<article class="session-card"><div class="session-title-row"><button class="session-title">Jog</button><button class="completion-button" aria-pressed="false"><span class="completion-mark"></span></button></div></article>';
+        const completion=window.getComputedStyle(calendar.querySelector('.completion-button'));
+        assert.equal(completion.display,'inline-grid','completion remains visible in monthly mobile view');
+        assert.ok(parseFloat(completion.minHeight)>=36,'monthly completion target remains usable');
       }
       if (page === 'index.html' && width < 620) {
         assert.equal(window.getComputedStyle(window.document.querySelector('.share-foot')).marginLeft, '0px', 'share buttons must remain inside the dialog');

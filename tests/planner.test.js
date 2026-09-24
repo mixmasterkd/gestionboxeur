@@ -349,3 +349,44 @@ test('coach switches between personal and coached calendars with independent per
    assert.equal(page.app.state.selectedAthlete.id,'athlete');assert.equal(page.app.canEdit(personal),false);
  }finally{await page.close();}
 });
+
+test('thirty calendars stay behind a searchable picker and selection preserves the period',async()=>{
+  const page=await surface();
+  try {
+    page.account.athletes=Array.from({length:30},(_,i)=>({id:`athlete-${i}`,user_id:`user-${i}`,first_name:i===29?'Émile':'Boxeur',last_name:String(i)}));
+    page.account.relations=page.account.athletes.map(a=>({...page.account.relations[0],athlete_id:a.id}));
+    await page.app.refreshAccount();
+    const anchor=page.app.state.anchor,view=page.app.state.view;
+    assert.equal(page.$('athletePickerDialog').open,false);
+    assert.equal(page.$('athleteList').closest('dialog').id,'athletePickerDialog');
+    assert.equal(page.$('athleteList').querySelectorAll('button').length,30);
+    page.$('athletePickerButton').click();await settle();
+    assert.equal(page.$('athletePickerDialog').open,true);
+    assert.equal(page.window.document.activeElement.id,'athleteSearch');
+    page.$('athleteSearch').value='emile';page.$('athleteSearch').dispatchEvent(new page.window.Event('input'));
+    assert.equal(page.$('athleteList').querySelectorAll('button').length,1);
+    page.$('athleteList').querySelector('button').click();await settle();
+    assert.equal(page.app.state.selectedAthlete.id,'athlete-29');
+    assert.equal(page.$('athletePickerDialog').open,false);
+    assert.equal(page.app.state.anchor,anchor);assert.equal(page.app.state.view,view);
+    assert.equal(page.window.document.activeElement.id,'athletePickerButton');
+    page.$('athletePickerButton').click();await settle();
+    assert.equal(page.$('athleteList').querySelectorAll('button').length,30);
+  } finally { await page.close(); }
+});
+
+test('monthly tile completion is reversible without opening the session details',async()=>{
+  const page=await surface({role:'athlete',sessions:[{...makeSession('quick'),is_locked:true}]});
+  try {
+    page.app.state.view='month';await page.app.refreshCalendar();
+    let toggle=page.$('calendar').querySelector('.session-title-row .completion-button');
+    assert.ok(toggle);toggle.click();await settle();
+    toggle=page.$('calendar').querySelector('.completion-button');
+    assert.equal(toggle.getAttribute('aria-pressed'),'true');
+    toggle.click();await settle();
+    assert.equal(page.$('calendar').querySelector('.completion-button').getAttribute('aria-pressed'),'false');
+    assert.equal(page.calls.filter(c=>c[0]==='show').length,0);
+    page.$('calendar').querySelector('.session-title').click();
+    assert.equal(page.calls.filter(c=>c[0]==='show').length,1);
+  } finally { await page.close(); }
+});

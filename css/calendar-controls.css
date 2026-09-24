@@ -1,0 +1,27 @@
+/* The calendar selector has a bounded footprint, regardless of roster size. */
+.workspace { grid-template-columns: minmax(0, 1fr); }
+.calendar-identity { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.calendar-picker-button { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--white); color: var(--ink); font-size: 12px; }
+.athlete-picker-dialog { width: min(460px, calc(100% - 24px)); padding: 0; }
+.athlete-picker-dialog .athlete-sidebar { padding: 20px; border: 0; gap: 16px; background: var(--white); }
+.athlete-picker-dialog .sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.athlete-picker-dialog h2 { font-size: 19px; margin: 0; letter-spacing: -.025em; }
+.athlete-picker-dialog .search-box { margin: 0; }
+.athlete-picker-dialog .athlete-list { display: flex; flex-direction: column; overflow: auto; max-height: min(46dvh, 380px); overscroll-behavior: contain; padding: 3px; }
+.athlete-picker-dialog .athlete-item { width: 100%; min-width: 0; flex-shrink: 0; }
+.athlete-picker-dialog .sidebar-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); }
+.athlete-picker-dialog .roster-shortcut { margin: 0; }
+.session-title-row { display: flex; align-items: center; gap: 2px; }
+.session-title-row .session-title { flex: 1; min-width: 0; }
+.session-title-row > .completion-button { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; min-height: 44px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--ink); }
+.completion-mark { display: grid; place-items: center; width: 19px; height: 19px; border: 1px solid var(--muted); border-radius: 5px; font-size: 14px; line-height: 1; }
+.session-title-row > .completion-button:hover { background: var(--soft); }
+.session-title-row > .completion-button[aria-pressed="true"] .completion-mark { background: var(--accent-soft); color: var(--ink); border-color: var(--ink); }
+@media (max-width: 620px) {
+  .calendar-identity h1 { font-size: 30px; }
+  .month .session-title-row { flex-wrap: wrap; }
+  .month .session-title-row .session-title { flex-basis: 100%; }
+  .month .session-title-row > .completion-button { display: inline-grid; width: 100%; flex-basis: 100%; min-height: 36px; }
+  .month .session-card.is-completed .session-title::after { content: none; }
+  .athlete-picker-dialog .athlete-sidebar { padding: 16px; }
+}
