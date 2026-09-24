@@ -164,8 +164,6 @@ $('authForm').addEventListener('submit', async event => {
       updatePasswordFeedback();
       if (password.length < 6) throw new Error('Choisis un mot de passe d’au moins 6 caractères.');
       if (password !== $('confirmPassword').value) throw new Error('Les deux mots de passe ne correspondent pas.');
-      const contactEmail = $('contactEmail').value.trim() || email;
-      if (!$('contactEmail').checkValidity()) throw new Error('Indique un courriel de contact valide.');
       const accountType = 'athlete';
       const athlete = accountType === 'athlete';
       const nameParts = $('fullName').value.trim().split(/\s+/);
@@ -181,7 +179,7 @@ $('authForm').addEventListener('submit', async event => {
           emailRedirectTo: dashboardUrl(),
           data: {
             full_name: $('fullName').value.trim(), account_type: accountType,
-            phone: $('phone').value.trim() || null, contact_email: contactEmail,
+            phone: $('phone').value.trim() || null, contact_email: email,
             gym_name: null,
             gym_address: null,
             ...(athlete ? { first_name: nameParts[0], last_name: nameParts.slice(1).join(' '), birth_date: birthDate, sex: $('sex').value || null, weight_kg: weight === null ? null : $('weightUnit').value === 'lb' ? Math.round(weight / 2.2046226218 * 1000) / 1000 : weight, weight_unit: $('weightUnit').value, fights, wins, losses, gym_id: null } : {}),

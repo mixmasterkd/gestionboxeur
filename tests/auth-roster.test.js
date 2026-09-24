@@ -520,15 +520,14 @@ test('signing in continues to the personal calendar by default',async()=>{
  try{assert.equal(ui.$('continueButton').href,'https://gestionboxeur.example/planning.html');}finally{await ui.close();}
 });
 
-test('signup saves separate contact details and falls back to the account email', async () => {
+test('signup uses the account email for contact without asking for it twice', async () => {
  const mock=authMock(),ui=await surface('login.html','auth.js',mock.client);
  try {
   ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='account@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';ui.$('phone').value='514 555 0100';
   assert.equal(ui.$('signupSports').open,false);
   submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.contact_email,'account@example.test');assert.equal(mock.calls[0][1].options.data.phone,'514 555 0100');
-  ui.$('contactEmail').value='contact@example.test';submit(ui,'authForm');await settle();assert.equal(mock.calls[1][1].email,'account@example.test');assert.equal(mock.calls[1][1].options.data.contact_email,'contact@example.test');
-  ui.$('contactEmail').value='invalid';submit(ui,'authForm');await settle();assert.equal(mock.calls.length,2);
-  ui.$('authToggle').click();assert.equal(ui.$('contactEmail').disabled,true);
+  assert.equal(ui.$('contactEmail'),null);
+  assert.equal(mock.calls[0][1].email,'account@example.test');
  } finally {await ui.close();}
 });
 

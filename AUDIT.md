@@ -211,3 +211,9 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Nom du compte connecté déplacé sous le logo du menu latéral sur le calendrier et le journal, conservé lors des changements de vue.
 - Bouton Coachs et invitations avec icône de personnes et libellé sur ordinateur; icône compacte sur mobile. Boutons d’apparence, d’invitations et de déconnexion regroupés.
 - Validation : 298 tests, structure et build réussis; affichage ordinateur et conservation du nom après changement de vue vérifiés au navigateur sur données fictives.
+- Publication de l’en-tête réussie : `d653d91`, workflow `36057479486`.
+
+## 24 septembre 2026 — Courriel de contact réservé au profil
+
+- Retrait du deuxième courriel à l’inscription; le courriel du compte initialise automatiquement le contact. Dans le profil : « Modifiable sans changer ton courriel de connexion. »
+- Validation : 298 tests, structure et build réussis; le test d’inscription vérifie l’absence du deuxième champ et l’adresse transmise. Aucun changement des identifiants ou des profils existants.
