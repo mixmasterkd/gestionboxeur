@@ -191,3 +191,10 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Remplacement de l’ancien symbole du menu par le PNG fourni, conservé sans retouche. Logo également visible en haut à gauche de l’en-tête mobile, avec dimensions fixes pour préserver la mise en page. Chemin adapté aux pages et à l’administration.
 - Validation : 295 tests réussis, structure et build vérifiés. Contrôle visuel à 1280 et 375 px, thèmes sombre et clair; aucun changement aux profils ou aux données.
 - Publication réussie : application `3908f4a`, workflow `36046693663`; les 20 fichiers publics, dont le logo original, correspondent exactement à l’artefact. Nouveau menu vérifié sur la page publiée après actualisation du cache; ancien symbole absent.
+
+## 24 septembre 2026 — Inscription, en-tête et filtres du journal
+
+- Inscription : téléphone et courriel de contact, avec reprise du courriel du compte si laissé vide. Données sportives facultatives repliées; genre et identité visibles. Validation du contact côté formulaire et serveur, sans modifier l’adresse de connexion.
+- En-tête : boutons uniformes de 44 px, Déconnexion avec icône et libellé accessible, présentation compacte sur téléphone; logo et gym alignés avec les commandes.
+- Journal : bascule exclusive Actifs / Archives et recherche alignée, conservant les vues Kanban et Chronologie et les restrictions de déplacement des archives.
+- Validation : suite de 296 tests réussie, puis test supplémentaire serveur réussi (297 au total); structure et build contrôlés. Vérification mobile au navigateur, sans inscription réelle ni envoi de courriel. Migration signup_contact_details appliquée; avis de sécurité historiques inchangés.

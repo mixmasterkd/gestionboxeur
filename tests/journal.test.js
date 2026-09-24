@@ -21,7 +21,7 @@ test('athlete creates a subject then views coach comments in both journal views 
  document.querySelector('[name=journal_comment]').value='Conseil';click('Ajouter au suivi');await tick();assert.equal(f.updates.length,2);
  document.querySelector('.close-button').click();click('Chronologie');assert.match(document.querySelector('.journal-content').textContent,/Conseil/);assert.equal(document.querySelectorAll('.journal-timeline-entry').length,2);
  click('Kanban');assert.equal(document.querySelectorAll('.journal-card').length,1);
- const archive=document.querySelector('[name=journal_archive]');assert.equal(archive.value,'active');
+ assert.equal(document.querySelector('[data-archive=active]').getAttribute('aria-pressed'),'true');
  }finally{await f.close();}
 });
 test('late journal response cannot leak the previous athlete into a newly selected calendar',async()=>{
@@ -65,7 +65,7 @@ test('read-only access, archives and a changed athlete cannot save a drag',async
   const card=await addSubject(f);const source=f.sortables.filter(s=>!s.destroyed)[0];source.options.onStart({item:card});
   f.state.selectedAthlete={id:'a2',user_id:'athlete'};await source.options.onEnd({item:card,to:{dataset:{status:'work'}}});assert.equal(f.calls.length,1);
   f.state.selectedAthlete={id:'a1',user_id:'athlete'};f.state.user.id='coach';f.state.relation={status:'accepted',can_view_calendar:true,can_add_sessions:false};await f.ui.refresh();assert.equal(document.querySelector('.journal-drag-handle'),null);
-  f.state.user.id='athlete';f.entries[0].archived=true;await f.ui.refresh();const choice=document.querySelector('[name=journal_archive]');choice.value='archived';choice.dispatchEvent(new f.window.Event('change'));assert.equal(document.querySelectorAll('.journal-card').length,1);assert.equal(document.querySelector('.journal-drag-handle'),null);
+  f.state.user.id='athlete';f.entries[0].archived=true;await f.ui.refresh();document.querySelector('[data-archive=archived]').click();assert.equal(document.querySelectorAll('.journal-card').length,1);assert.equal(document.querySelector('.journal-drag-handle'),null);
  }finally{await f.close();}
 });
 

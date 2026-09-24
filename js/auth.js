@@ -36,15 +36,13 @@ function friendlyError(error) {
   return text;
 }
 function updateAccountType() {
-  const coach = false;
-  document.querySelectorAll('.coach-only').forEach(el => el.classList.toggle('hidden', mode !== 'signup' || !coach));
-  document.querySelectorAll('.athlete-only').forEach(el => el.classList.toggle('hidden', mode !== 'signup' || coach));
-  $('birthDate').required = mode === 'signup' && !coach;
-  document.querySelectorAll('.athlete-only input, .athlete-only select').forEach(el => { el.disabled = mode !== 'signup' || coach; });
+  $('birthDate').required = mode === 'signup';
+  document.querySelectorAll('.signup-only input, .signup-only select').forEach(el => { el.disabled = mode !== 'signup'; });
 }
 const today = new Date();
 const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 $('birthDate').max = localDate;
+$('signupSports').addEventListener('invalid', () => { $('signupSports').open = true; }, true);
 function setMode(next) {
   mode = next;
   clearMessages();
@@ -135,6 +133,8 @@ $('authForm').addEventListener('submit', async event => {
       $('continueButton').classList.remove('hidden');
       history.replaceState(null, '', location.pathname);
     } else if (mode === 'signup') {
+      const contactEmail = $('contactEmail').value.trim() || email;
+      if (!$('contactEmail').checkValidity()) throw new Error('Indique un courriel de contact valide.');
       const accountType = 'athlete';
       const athlete = accountType === 'athlete';
       const nameParts = $('fullName').value.trim().split(/\s+/);
@@ -150,6 +150,7 @@ $('authForm').addEventListener('submit', async event => {
           emailRedirectTo: dashboardUrl(),
           data: {
             full_name: $('fullName').value.trim(), account_type: accountType,
+            phone: $('phone').value.trim() || null, contact_email: contactEmail,
             gym_name: null,
             gym_address: null,
             ...(athlete ? { first_name: nameParts[0], last_name: nameParts.slice(1).join(' '), birth_date: birthDate, sex: $('sex').value || null, weight_kg: weight === null ? null : $('weightUnit').value === 'lb' ? Math.round(weight / 2.2046226218 * 1000) / 1000 : weight, weight_unit: $('weightUnit').value, fights, wins, losses, gym_id: null } : {}),

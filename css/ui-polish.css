@@ -192,3 +192,31 @@
  .has-navigation .has-mobile-logo {position:relative;padding-left:58px;min-height:48px;display:flex;flex-direction:column;justify-content:center;}
  .has-mobile-logo > .mobile-brand-logo {display:block;position:absolute;left:0;top:50%;transform:translateY(-50%);width:48px;height:48px;object-fit:contain;}
 }
+
+/* Compact signup and consistent header actions on every account page. */
+.signup-sports{margin:8px 0 20px;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+.signup-sports summary{padding:14px 16px;cursor:pointer;font-weight:650}
+.signup-sports summary small{display:block;margin:5px 0 0 18px;font-weight:400;color:var(--muted)}
+.signup-sports>.form-grid{padding:0 16px 8px}
+.has-navigation :is(.account-nav,.top-actions,.topbar-actions){display:flex;align-items:center;flex-wrap:nowrap;gap:8px}
+.has-navigation :is(.appearance-toggle,#connectionsButton,#logoutButton){display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:44px;height:44px;min-height:44px;margin:0;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);flex-shrink:0}
+.has-navigation :is(.appearance-toggle,#connectionsButton){width:44px;padding:0}
+.has-navigation #logoutButton svg{flex-shrink:0}
+.journal-filters{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px}
+.journal-filters .form-field{min-width:0;margin:0}
+.journal-filters input{width:100%;min-width:0;min-height:44px;box-sizing:border-box}
+.journal-archive-switch{align-self:end}
+.journal-archive-switch button{min-height:44px;padding:0 20px}
+@media(max-width:800px){
+ .has-navigation :is(.app-header,.topbar){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 16px}
+ .has-navigation .app-header>.main-nav{display:none}
+ .has-navigation :is(.gym-identity,.topbar .brand){min-width:0;max-width:none;width:auto;flex-basis:auto}
+ .has-navigation :is(.gym-name,.gym-address,.brand h1,.brand p){overflow-wrap:anywhere}
+ .has-navigation .account-name{display:none}
+}
+@media(max-width:620px){
+ .has-navigation #logoutButton{width:44px;padding:0}
+ .has-navigation #logoutButton span{display:none}
+ .journal-filters{grid-template-columns:minmax(0,1fr)}
+ .journal-archive-switch{display:grid;grid-template-columns:1fr 1fr;width:100%}
+}

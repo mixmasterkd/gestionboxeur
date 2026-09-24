@@ -4,6 +4,7 @@ import { mountTestSessionBanner } from './test-session.js';
 mountTestSessionBanner();
 
 const icons = {
+  logout: '<path d="M9 5H5v14h4m5-14 7 7-7 7m7-7H9"/>',
   athletes: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/>',
   journal: '<path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/>',
@@ -77,6 +78,8 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
+  const logout=document.getElementById('logoutButton');
+  if(logout){logout.classList.add('header-logout');logout.innerHTML=icon('logout')+'<span>Déconnexion</span>';logout.setAttribute('aria-label','Déconnexion');logout.title='Déconnexion';}
   const brand=document.querySelector('.app-header .gym-identity, .topbar .brand');
   if(brand&&!brand.querySelector('.mobile-brand-logo')) {
     const logo=document.createElement('img');logo.className='mobile-brand-logo';logo.src=base+'images/boxing-logo.png';logo.alt='';logo.width=48;logo.height=48;

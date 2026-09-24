@@ -65,6 +65,22 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       }
     }
 
+    await t.test('signup contact email is independent of Auth with an empty fallback',async()=>{
+      await admin();
+      const id='ab000000-0000-4000-8000-000000000001';
+      const metadata={full_name:'Contact Test',birth_date:'2000-03-12',phone:'514 555 0100',contact_email:'contact@example.test',gym_id:null};
+      await db.query('insert into auth.users(id,email,raw_user_meta_data) values($1,$2,$3)',[id,'account@example.test',JSON.stringify(metadata)]);
+      assert.equal(await scalar('select email from public.athletes where user_id=$1',[id]),'contact@example.test');
+      assert.equal(await scalar('select email from auth.users where id=$1',[id]),'account@example.test');
+      assert.equal(await scalar('select phone from public.profiles where id=$1',[id]),'514 555 0100');
+      metadata.contact_email='  ';
+      const second='ab000000-0000-4000-8000-000000000002';
+      await db.query('insert into auth.users(id,email,raw_user_meta_data) values($1,$2,$3)',[second,'fallback@example.test',JSON.stringify(metadata)]);
+      assert.equal(await scalar('select email from public.athletes where user_id=$1',[second]),'fallback@example.test');
+      metadata.contact_email='invalid';
+      await assert.rejects(()=>db.query('insert into auth.users(id,email,raw_user_meta_data) values($1,$2,$3)',['ab000000-0000-4000-8000-000000000003','valid@example.test',JSON.stringify(metadata)]),/contact invalide/);
+    });
+
     await t.test('completion upgrade backfills existing feedback without modifying authors, content locks or feedback',async()=>{
       assert.equal(await scalar("select completed_at=timestamp with time zone '2026-09-20 19:15:00+00' from public.training_sessions where id=$1",[legacyFeedbackSession]),true);
       assert.equal(await scalar('select is_locked from public.training_sessions where id=$1',[legacyFeedbackSession]),true);

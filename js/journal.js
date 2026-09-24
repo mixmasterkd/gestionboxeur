@@ -17,13 +17,13 @@ export function createJournalUI({getState,api,makeSortable=(node,options)=>new S
  const dragStatus=el('p',{class:'journal-drag-status',role:'status','aria-live':'polite'});
  const errors=errorBox(),content=el('div',{class:'journal-content'});
  const search=input('journal_search','','search',{'aria-label':'Rechercher dans le journal'});
- const archiveChoice=select('journal_archive',[{value:'active',label:'Sujets actifs'},{value:'archived',label:'Archives'}],'active',{'aria-label':'Afficher les archives'});
+ const archiveChoice=el('div',{class:'segmented journal-archive-switch',role:'group','aria-label':'Sujets du journal'});
+ for(const [value,label] of [['active','Actifs'],['archived','Archives']])archiveChoice.append(button(label,()=>{archived=value==='archived';draw();},'',{dataset:{archive:value},'aria-pressed':String(value==='active')}));
  const modes=el('div',{class:'segmented',role:'group','aria-label':'Vue du journal'});
  for(const [value,label] of [['kanban','Kanban'],['timeline','Chronologie']])modes.append(button(label,()=>{view=value;draw();},'',{dataset:{view:value},'aria-pressed':String(view===value)}));
  const create=button('＋ Sujet',()=>edit(), 'button primary');
  root.replaceChildren(el('div',{class:'journal-toolbar'},modes,create),el('div',{class:'journal-filters'},field('Rechercher',search),archiveChoice),el('p',{class:'muted journal-sharing'},'Partagé avec les coachs qui ont accès à ce calendrier. Les notes du calendrier restent séparées.'),errors,dragStatus,content);
  search.addEventListener('input',()=>{query=normalize(search.value.trim());draw();});
- archiveChoice.addEventListener('change',()=>{archived=archiveChoice.value==='archived';draw();});
  function invalidate(){destroySortables();drag=null;dragStatus.textContent='';ticket++;context='';entries=[];updates=[];content.replaceChildren();$('journalDialog')?.close();}
  async function refresh(){
   if(root.hidden)return;
@@ -37,6 +37,7 @@ export function createJournalUI({getState,api,makeSortable=(node,options)=>new S
  }
  function matching(){return entries.filter(e=>e.archived===archived&&(!query||normalize(`${e.title} ${e.body} ${updates.filter(u=>u.entry_id===e.id).map(u=>u.content).join(' ')}`).includes(query)));}
  function draw(){
+  archiveChoice.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String((b.dataset.archive==='archived')===archived)));
   if(!current(context))return;
   modes.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
   destroySortables();content.replaceChildren();const list=matching();
