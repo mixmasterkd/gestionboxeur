@@ -28,3 +28,36 @@
 .skip-link {color:var(--paper);}
 
 .program-editor .pe-text-input {background:var(--white);color:var(--ink);border-color:var(--line);}
+
+/* Repeat rows keep their type, measure and optional zone together. */
+.program-editor .pe-repeat-settings {display:grid;grid-template-columns:minmax(110px,.65fr) minmax(150px,1fr);gap:12px;}
+.program-editor .pe-sequence-lines {display:grid;gap:10px;margin:6px 0 12px;}
+.program-editor .pe-sequence-row {min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--white);}
+.program-editor .pe-sequence-head {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+.program-editor .pe-sequence-head strong {font-size:12px;}
+.program-editor .pe-sequence-actions {display:flex;gap:4px;}
+.program-editor .pe-sequence-actions .pe-button {width:36px;min-height:36px;padding:0;}
+.program-editor .pe-sequence-fields {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:start;}
+.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked) {grid-template-columns:repeat(5,minmax(0,1fr));}
+.program-editor .pe-line-options {margin-top:2px;}
+.program-editor .pe-line-options > summary {color:var(--muted);font-size:12px;cursor:pointer;padding:8px 0;}
+.program-editor .pe-line-options[open] > summary {margin-bottom:6px;}
+.program-editor .pe-sequence > .pe-hint {margin:12px 0;}
+.program-editor optgroup {background:var(--white);color:var(--ink);}
+@media(max-width:620px) {
+ .program-editor .pe-repeat-settings {grid-template-columns:1fr;gap:0;}
+ .program-editor .pe-sequence-row {padding:10px;}
+ .program-editor .pe-sequence-fields,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked) {grid-template-columns:repeat(2,minmax(0,1fr));}
+ .program-editor .pe-sequence-actions .pe-button {width:40px;min-height:44px;}
+}
+/* A single action panel, with equal cells instead of a stretched last button. */
+.planner-intro {flex-wrap:wrap;}
+.planner-intro > .intro-actions {display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px;flex:0 1 480px;width:100%;max-width:480px;padding:8px;border:1px solid var(--line);border-radius:15px;background:var(--white);}
+.planner-intro > .intro-actions .button {width:100%;min-width:0;min-height:80px;height:100%;margin:0;padding:12px 8px;flex-direction:column;gap:8px;font-size:12px;line-height:1.4;border:1px solid var(--line);background:var(--soft);color:var(--ink);box-shadow:none;}
+.planner-intro > .intro-actions .button svg {width:22px;height:22px;flex-shrink:0;}
+.planner-intro > .intro-actions .button:hover:not(:disabled) {background:var(--accent-soft);border-color:var(--accent-line);color:var(--ink);}
+@media screen {
+ :root .primary-navigation,:root[data-theme="light"] .primary-navigation {background-image:radial-gradient(circle,var(--pattern-dot) .8px,transparent 1px),linear-gradient(140deg,var(--pattern-line),transparent 70%);background-size:20px 20px,100% 100%;}
+}
+@media(max-width:800px) {.planner-intro > .intro-actions {max-width:none;flex-basis:auto;}}
+@media(max-width:400px) {.planner-intro > .intro-actions {gap:5px;padding:6px;}.planner-intro > .intro-actions .button {font-size:11px;padding:10px 5px;}}

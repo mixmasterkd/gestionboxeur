@@ -37,16 +37,24 @@ test('program is readable rows, one mini form at a time, and editing preserves a
   assert.equal(changes(), 1);
 });
 
-test('new running steps and repeated effort use running by default; repeated recovery is explicit', () => {
+test('a pyramid repeats every line in order with an explicit final recovery', () => {
   const { editor, mount } = fixture({ sport: 'running' });
-  click(mount, 'add-step'); click(mount, 'apply-mini');
-  assert.equal(editor.getValue()[0].type, 'run'); assert.equal(editor.getValue()[0].duration_seconds, 300);
-  click(mount, 'add-repeat'); fill(mount, 'repeat_count', '6'); fill(mount, 'effort', '2m'); fill(mount, 'recovery', '1m'); click(mount, 'apply-mini');
-  const repeat = editor.getValue()[1]; assert.equal(repeat.repeat_count, 6);
-  assert.deepEqual(repeat.children.map(b => [b.type, b.duration_seconds]), [['run', 120], ['recovery', 60]]);
-  assert.equal(summarizeBlocks([repeat]).duration_seconds, 1080);
-  const nestedAdd = mount.querySelector('.pe-repeat > .pe-addbar [data-action="add-step"]'); nestedAdd.click(); click(mount, 'apply-mini');
-  assert.equal(editor.getValue()[1].children[2].type, 'run');
+  click(mount, 'add-repeat'); fill(mount, 'repeat_count', '5');
+  assert.equal(mount.querySelector('.pe-mini input').name, 'block_count');
+  assert.equal(mount.querySelector('[name="repeat_type"]').value, 'run');
+  for (let i=0;i<3;i++) click(mount, 'add-repeat-line');
+  const rows=[...mount.querySelectorAll('.pe-sequence-row')];
+  ['2m','1m','30s','3m'].forEach((value,i)=>change(rows[i].querySelector('[data-field="duration"]'),value));
+  ['2','3','4',''].forEach((value,i)=>change(rows[i].querySelector('[data-field="zone"]'),value));
+  change(rows[3].querySelector('[data-field="phase"]'),'recovery');
+  click(mount,'apply-mini');
+  const repeat=editor.getValue()[0];
+  assert.equal(repeat.repeat_count,5);assert.equal(repeat.zone,null);
+  assert.deepEqual(repeat.children.map(b=>[b.type,b.duration_seconds,b.zone]),[['run',120,2],['run',60,3],['run',30,4],['recovery',180,null]]);
+  const summary=summarizeBlocks([repeat]);assert.equal(summary.duration_seconds,1950);assert.equal(summary.segments.length,20);
+  for(let i=0;i<5;i++)assert.deepEqual(summary.segments.slice(i*4,i*4+4).map(b=>b.duration_seconds),[120,60,30,180]);
+  textMode(mount);const text=mount.querySelector('.pe-text-input');change(text,text.value);
+  assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,1950);
 });
 
 test('mini form errors and cancellation never silently commit a partial block', () => {
@@ -133,13 +141,44 @@ test('missing and duplicate block IDs are normalized so each row edits the inten
   assert.equal(new Set(editor.getValue().map(b => b.id)).size, 2);
 });
 
-test('new repetitions apply type and zone only to their effort steps', () => {
-  const { editor, mount } = fixture({ sport: 'boxing' }); click(mount, 'add-repeat');
-  change(mount.querySelector('[name="block_type"]'), 'bag'); assert.equal(mount.querySelector('[name="block_intensity"]'), null);
-  change(mount.querySelector('[name="block_zone"]'), '4'); click(mount, 'apply-mini');
-  const effort = editor.getValue()[0].children[0]; assert.equal(effort.type, 'bag'); assert.equal(effort.intensity, null); assert.equal(editor.getValue()[0].zone, null); assert.equal(effort.zone, 4);
-  mount.querySelector('[data-action="edit"]').click();
-  assert.equal(mount.querySelector('[name="block_zone"]'), null, 'a repeat container has no second zone control');
+test('hybrid repetition requires explicit types and keeps each line zone and measurement', () => {
+  const { editor, mount }=fixture({sport:'boxing'});click(mount,'add-repeat');
+  change(mount.querySelector('[name="repeat_type"]'),'hybrid');click(mount,'add-repeat-line');
+  const rows=[...mount.querySelectorAll('.pe-sequence-row')];
+  change(rows[0].querySelector('[data-field="type"]'),'bag');change(rows[0].querySelector('[data-field="duration"]'),'2m');
+  change(rows[1].querySelector('[data-field="duration"]'),'30s');click(mount,'apply-mini');
+  assert.match(mount.querySelector('.pe-mini .form-error').textContent,/Étape 2.*type/);assert.throws(()=>editor.getValue());
+  change(rows[1].querySelector('[data-field="type"]'),'burpees');change(rows[1].querySelector('[data-field="zone"]'),'5');click(mount,'apply-mini');
+  assert.deepEqual(editor.getValue()[0].children.map(b=>b.type),['bag','burpees']);
+  click(mount,'edit');assert.equal(mount.querySelector('[name="repeat_type"]').value,'hybrid');
+  const second=mount.querySelectorAll('.pe-sequence-row')[1];change(second.querySelector('[data-field="format"]'),'distance');change(second.querySelector('[data-field="distance"]'),'400');
+  change(second.querySelector('[data-field="type"]'),'run');click(mount,'apply-mini');
+  assert.equal(editor.getValue()[0].children[1].duration_seconds,null);assert.equal(editor.getValue()[0].children[1].distance_m,400);assert.equal(editor.getValue()[0].children[1].zone,5);
+});
+
+test('repeat line ordering, removal and cancellation preserve drafts without partial writes',()=>{
+ const {editor,mount,changes}=fixture({sport:'running'});click(mount,'add-repeat');
+ change(mount.querySelector('.pe-sequence-row [data-field="duration"]'),'2m');click(mount,'add-repeat-line');
+ let rows=mount.querySelectorAll('.pe-sequence-row');change(rows[1].querySelector('[data-field="duration"]'),'30s');
+ rows[1].querySelector('[aria-label="Monter cette ligne"]').click();
+ rows=mount.querySelectorAll('.pe-sequence-row');assert.equal(rows[0].querySelector('[data-field="duration"]').value,'30s');
+ rows[1].querySelector('[aria-label="Supprimer cette ligne"]').click();assert.equal(mount.querySelector('[aria-label="Supprimer cette ligne"]').disabled,true);
+ fill(mount,'repeat_count','2.5');click(mount,'apply-mini');assert.equal(changes(),0);assert.match(mount.querySelector('.pe-mini .form-error').textContent,/entier/);
+ [...mount.querySelectorAll('.pe-mini-actions button')].find(b=>b.textContent==='Annuler').click();assert.deepEqual(editor.getValue(),[]);
+});
+
+test('editing repeat count preserves legacy rich and nested children',()=>{
+ const repeat={...makeBlock('repeat'),children:[{...makeBlock('bag'),title:'Sac technique',rounds:3,work_seconds:60,rest_seconds:null,duration_seconds:240,distance_m:500,repetitions:12,intensity:'hard',future:{x:1}}, {...makeBlock('repeat'),children:[{...makeBlock('run'),duration_seconds:30}]}]};
+ const {editor,mount}=fixture({blocks:[repeat]});click(mount,'edit');fill(mount,'repeat_count','7');click(mount,'apply-mini');
+ assert.deepEqual(editor.getValue(),[{...repeat,repeat_count:7}]);
+});
+
+test('grouped step choices include boxing equipment and round trip through text',()=>{
+ for(const type of ['jump_rope','speed_ball','double_end_bag','jog','burpees']){
+  const {editor,mount}=fixture();click(mount,'add-step');const select=mount.querySelector('[name="block_type"]');
+  assert.equal(select.querySelectorAll('optgroup').length,4);change(select,type);click(mount,'apply-mini');
+  textMode(mount);const text=mount.querySelector('.pe-text-input');change(text,text.value);assert.equal(editor.getValue()[0].type,type);
+ }
 });
 
 test('session prose survives both editor views and invalid drafts without changing chart totals', () => {
@@ -173,4 +212,9 @@ test('new editor opens with blank text on the left and hides movement repetition
  assert.equal(editor.mode,'text');assert.equal(mount.querySelector('.pe-text-input').value,'');
  assert.deepEqual([...mount.querySelectorAll('[data-mode]')].map(n=>n.dataset.mode),['text','program']);
  editor.switchMode('program');click(mount,'add-step');assert.equal(mount.querySelector('[name=block_repetitions]'),null);
+});
+
+ test('repeat changes preserve empty names, zero doses and unknown fields in existing steps',()=>{
+ const repeat={...makeBlock('repeat'),title:'',future:'keep',children:[{...makeBlock('run'),duration_seconds:0,notes:'Note',future:{x:2}}]};
+ const {editor,mount}=fixture({blocks:[repeat]});click(mount,'edit');fill(mount,'repeat_count','3');click(mount,'apply-mini');assert.deepEqual(editor.getValue(),[{...repeat,repeat_count:3}]);
 });

@@ -1,5 +1,5 @@
 import Sortable from 'sortablejs';
-import { BLOCK_TYPES, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
+import { BLOCK_TYPES, BLOCK_TYPE_GROUPS, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
 import { parseWorkoutText, serializeSessionText, parseSessionText } from './workout-text.js';
 import { el, button, field, input, textarea, select, errorBox, showError, busy } from './ui.js';
 
@@ -7,6 +7,13 @@ const clone = value => structuredClone(value);
 const typeLabel = type => BLOCK_TYPES.find(item => item.id === type)?.label || type || 'Étape';
 const secondsText = value => value == null ? '' : value % 60 === 0 ? `${value / 60}m` : `${value}s`;
 const choose = (name, options, value) => select(name, options.map(([value, label]) => ({ value, label })), value);
+function typeSelect(name, value, hybrid = false) {
+  const control = el('select', { name }, el('option', { value: '' }, 'Choisir'));
+  if (hybrid) control.append(el('option', { value: 'hybrid' }, 'Hybride'));
+  for (const group of BLOCK_TYPE_GROUPS) control.append(el('optgroup', { label: group.label }, group.types.map(([id, label]) => el('option', { value: id }, label))));
+  if (value && value !== 'hybrid' && !BLOCK_TYPES.some(type => type.id === value)) control.append(el('option', { value }, value));
+  control.value = value; return control;
+}
 function validate(blocks) {
   const errors = summarizeBlocks(blocks).errors;
   if (errors.length) throw new Error(errors.join(' '));
@@ -236,14 +243,113 @@ export class ProgramEditor {
     catch (error) { this.blocks = previous; this.showError(error.message); }
   }
   showError(message) { if (this.errors) showError(this.errors, new Error(message)); }
+  repeatPanel() {
+    const draft = this.mini, block = draft.block;
+    const panel = el('section', { class: 'pe-mini pe-sequence', 'aria-label': 'Répétition' });
+    const count = input('block_count', block.repeat_count, 'number', { min: 1, max: WORKOUT_LIMITS.repeat, step: 1, inputMode: 'numeric', dataset: { field: 'repeat_count' } });
+    const children = block.children.length ? block.children : [makeBlock(block.type)];
+    const workTypes = new Set(children.filter(child => child.type !== 'recovery').map(child => child.kind === 'repeat' ? 'hybrid' : child.type));
+    const initialType = workTypes.size > 1 || workTypes.has('hybrid') ? 'hybrid' : [...workTypes][0] || 'run';
+    const commonType = typeSelect('repeat_type', initialType, true);
+    panel.append(el('h4', {}, draft.id ? 'Modifier la répétition' : 'Ajouter une répétition'), el('div', { class: 'pe-repeat-settings' }, field('Nombre de répétitions', count), field('Type du bloc', commonType)));
+    const lines = el('div', { class: 'pe-sequence-lines' });
+    const rows = [];
+    const refresh = () => rows.forEach((row, index) => {
+      row.number.textContent = `Étape ${index + 1}`;
+      row.up.disabled = index === 0; row.down.disabled = index === rows.length - 1; row.remove.disabled = rows.length === 1;
+      row.updateType?.(); lines.append(row.element);
+    });
+    const addRow = source => {
+      const row = { source };
+      row.number = el('strong');
+      const move = offset => { const index = rows.indexOf(row); if (index + offset < 0 || index + offset >= rows.length) return; [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]]; refresh(); };
+      row.up = button('↑', () => move(-1), 'pe-button', { 'aria-label': 'Monter cette ligne' });
+      row.down = button('↓', () => move(1), 'pe-button', { 'aria-label': 'Descendre cette ligne' });
+      row.remove = button('×', () => { if (rows.length < 2) return; rows.splice(rows.indexOf(row), 1); row.element.remove(); refresh(); }, 'pe-button', { 'aria-label': 'Supprimer cette ligne' });
+      row.element = el('article', { class: 'pe-sequence-row' }, el('header', { class: 'pe-sequence-head' }, row.number, el('div', { class: 'pe-sequence-actions' }, row.up, row.down, row.remove)));
+      if (source.kind === 'repeat') {
+        row.element.append(el('p', { class: 'pe-hint' }, `${source.title || 'Répétition'} · ${dose(source)}. Modification des sous-étapes depuis les blocs.`));
+        row.read = () => clone(source);
+      } else {
+        const type = typeSelect(`step_type_${source.id}`, source.type);
+        const phase = choose(`step_phase_${source.id}`, [['work', 'Effort'], ['recovery', 'Récupération']], source.type === 'recovery' ? 'recovery' : 'work');
+        const typeField = field('Type', type), phaseField = field('Effort', phase);
+        row.updateType = () => { typeField.hidden = commonType.value !== 'hybrid'; phaseField.hidden = commonType.value === 'hybrid'; };
+        type.addEventListener('change', () => { phase.value = type.value === 'recovery' ? 'recovery' : 'work'; });
+        phase.addEventListener('change', () => { type.value = phase.value === 'recovery' ? 'recovery' : commonType.value; });
+        const originalFormat = source.rounds && source.work_seconds != null ? 'rounds' : source.distance_m != null ? source.duration_seconds != null ? 'mixed' : 'distance' : source.duration_seconds != null ? 'time' : 'free';
+        const isNew = !block.children.includes(source);
+        const format = choose(`step_format_${source.id}`, [['time', 'Durée'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['rounds', 'Rounds'], ['free', 'Consignes seules']], isNew ? 'time' : originalFormat);
+        const time = input(`step_duration_${source.id}`, secondsText(source.duration_seconds), 'text', { dataset: { field: 'duration' } });
+        const meters = input(`step_distance_${source.id}`, source.distance_m, 'text', { inputMode: 'decimal', dataset: { field: 'distance' } });
+        const zone = choose(`step_zone_${source.id}`, [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], source.zone == null ? '' : String(source.zone));
+        zone.dataset.field = 'zone'; format.dataset.field = 'format'; type.dataset.field = 'type'; phase.dataset.field = 'phase';
+        const timeField = field('Durée', time), metersField = field('Distance en mètres', meters);
+        const rounds = input(`step_rounds_${source.id}`, source.rounds ?? 3, 'number', { min: 1, max: 10000, step: 1 });
+        const work = input(`step_work_${source.id}`, secondsText(source.work_seconds ?? 120));
+        const rest = input(`step_rest_${source.id}`, secondsText(source.rest_seconds ?? 0));
+        const roundFields = el('div', { class: 'pe-mini-fields' }, field('Rounds', rounds), field('Travail', work), field('Repos entre les rounds', rest));
+        const drawFormat = () => { timeField.hidden = !['time', 'mixed'].includes(format.value); metersField.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
+        format.addEventListener('change', drawFormat); drawFormat();
+        const title = input(`step_title_${source.id}`, source.title, 'text', { maxLength: 500 });
+        const description = textarea(`step_description_${source.id}`, source.description, { rows: 2, maxLength: 10000 });
+        const notes = textarea(`step_notes_${source.id}`, source.notes, { rows: 2, maxLength: 10000 });
+        row.element.append(el('div', { class: 'pe-sequence-fields' }, typeField, phaseField, field('Mesure', format), timeField, metersField, field('Zone d’effort', zone)), roundFields,
+          el('details', { class: 'pe-line-options' }, el('summary', {}, 'Nom et consignes'), field('Nom', title), field('Consigne', description), field('Notes', notes)));
+        row.read = () => {
+          const next = { ...clone(source), type: commonType.value === 'hybrid' ? type.value : phase.value === 'recovery' ? 'recovery' : commonType.value, zone: zone.value ? Number(zone.value) : null, title: title.value.trim(), description: description.value.trim(), notes: notes.value };
+          if (!next.type) throw new Error('Choisis le type de chaque ligne du bloc hybride.');
+          if (isNew && !next.title || next.type !== source.type && next.title === typeLabel(source.type)) next.title = typeLabel(next.type);
+          if (format.value !== originalFormat) Object.assign(next, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
+          if (['time', 'mixed'].includes(format.value)) next.duration_seconds = duration(time.value, 'Durée', source.duration_seconds === 0);
+          if (['distance', 'mixed'].includes(format.value)) next.distance_m = numeric(meters.value, 'Distance', { min: source.distance_m === 0 ? 0 : .001, max: 1e6, integer: false });
+          if (format.value === 'rounds') Object.assign(next, { rounds: numeric(rounds.value, 'Rounds'), work_seconds: duration(work.value, 'Travail', source.work_seconds === 0), rest_seconds: rest.value === secondsText(source.rest_seconds ?? 0) && source.rest_seconds == null ? source.rest_seconds : duration(rest.value, 'Repos', true) });
+          return next;
+        };
+      }
+      rows.push(row); refresh();
+      return row;
+    };
+    children.forEach(addRow);
+    commonType.addEventListener('change', refresh);
+    const error = errorBox();
+    const add = button('＋ Ajouter une ligne', () => {
+      if (rows.length >= WORKOUT_LIMITS.siblings) { showError(error, new Error(`Maximum ${WORKOUT_LIMITS.siblings} lignes dans une répétition.`)); return; }
+      const row = addRow(makeBlock(commonType.value === 'hybrid' ? '' : commonType.value));
+      row.element.querySelector('input')?.focus();
+    }, 'pe-button', { dataset: { action: 'add-repeat-line' } });
+    const title = input('block_title', block.title, 'text', { maxLength: 500, dataset: { field: 'title' } });
+    const description = textarea('block_description', block.description, { rows: 2, maxLength: 10000 });
+    const notes = textarea('block_notes', block.notes, { rows: 2, maxLength: 10000 });
+    panel.append(lines, add, el('p', { class: 'pe-hint' }, 'Toutes les lignes sont parcourues dans l’ordre, puis le bloc recommence. Une récupération ajoutée fait partie de chaque répétition.'),
+      el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Nom et consignes du bloc'), field('Nom', title), field('Consigne', description), field('Notes', notes)));
+    const apply = () => {
+      try {
+        if (!commonType.value) throw new Error('Choisis le type du bloc.');
+        const next = { ...clone(block), title: title.value.trim() || (draft.id ? '' : 'Répétition'), description: description.value.trim(), notes: notes.value, repeat_count: numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat }), children: rows.map((row, index) => { try { return row.read(); } catch (failure) { throw new Error(`Étape ${index + 1} : ${failure.message}`); } }) };
+        // The group carries no inherited dose or zone; each child is explicit.
+        if (!draft.id) Object.assign(next, { type: 'other', zone: null, intensity: null });
+        this.commitMini(next); this.mini = null; this.render(); this.emit();
+      } catch (failure) { showError(error, failure); }
+    };
+    panel.append(error, el('div', { class: 'pe-mini-actions' }, button('Annuler', () => { this.mini = null; this.render(); }, 'pe-button'), button(draft.id ? 'Appliquer' : 'Ajouter', apply, 'pe-button pe-primary', { dataset: { action: 'apply-mini' } })));
+    panel.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.tagName === 'INPUT') event.preventDefault(); });
+    return panel;
+  }
+  commitMini(nextBlock) {
+    const draft = this.mini, previous = this.blocks; this.blocks = clone(previous);
+    try {
+      if (draft.id) { const target = this.locate(draft.id); target.list[target.index] = nextBlock; }
+      else { const list = draft.parentId ? this.locate(draft.parentId).block.children : this.blocks; list.push(nextBlock); }
+      validate(this.blocks);
+    } catch (failure) { this.blocks = previous; throw failure; }
+  }
   miniPanel() {
-    const draft = this.mini, block = draft.block, repeating = block.kind === 'repeat';
+    if (this.mini.block.kind === 'repeat') return this.repeatPanel();
+    const draft = this.mini, block = draft.block;
     const panel = el('section', { class: 'pe-mini', 'aria-label': draft.id ? 'Modifier une étape' : 'Ajouter une étape' });
     const title = input('block_title', block.title, 'text', { maxLength: 500, dataset: { field: 'title' } });
-    panel.append(el('h4', {}, draft.id ? 'Modifier cette ligne' : repeating ? 'Ajouter une séquence répétée' : 'Ajouter une étape'), field('Nom', title));
-    const count = input('block_count', block.repeat_count || 2, 'text', { inputMode: 'numeric', dataset: { field: 'repeat_count' } });
-    const effort = input('block_effort', '1m', 'text', { dataset: { field: 'effort' } });
-    const recovery = input('block_recovery', '1m', 'text', { dataset: { field: 'recovery' } });
+    panel.append(el('h4', {}, draft.id ? 'Modifier cette ligne' : 'Ajouter une étape'), field('Nom', title));
     const originalFormat = block.rounds && block.work_seconds != null ? 'rounds' : block.distance_m != null ? block.duration_seconds != null ? 'mixed' : 'distance' : block.duration_seconds != null ? 'time' : 'free';
     const format = choose('block_format', [['time', 'Durée'], ['rounds', 'Rounds'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['free', 'Consignes seules']], originalFormat);
     const minutes = input('block_duration', secondsText(block.duration_seconds), 'text', { dataset: { field: 'duration' } });
@@ -252,55 +358,35 @@ export class ProgramEditor {
     const restDefault = block.rest_seconds ?? (draft.id ? 0 : 60);
     const rest = input('block_rest', secondsText(restDefault), 'text', { dataset: { field: 'rest' } });
     const meters = input('block_distance', block.distance_m ?? '', 'text', { inputMode: 'decimal', dataset: { field: 'distance' } });
-    if (repeating) {
-      const fields = el('div', { class: 'pe-mini-fields' }, field('Répétitions', count));
-      if (!draft.id) fields.append(field('Effort', effort), field('Récupération', recovery, '0s pour ne pas en ajouter.'));
-      panel.append(fields, el('p', { class: 'pe-hint' }, draft.id ? 'Modifie les étapes de cette séquence directement dans le programme.' : 'Les deux étapes seront répétées ensemble. La récupération écrite reste après le dernier effort.'));
-    } else {
-      const timed = field('Durée', minutes), distance = field('Distance en mètres', meters), roundFields = el('div', { class: 'pe-mini-fields' }, field('Rounds', rounds), field('Travail', work), field('Repos', rest, 'Entre les rounds uniquement.'));
-      const drawFormat = () => { timed.hidden = !['time', 'mixed'].includes(format.value); distance.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
-      format.addEventListener('change', drawFormat); drawFormat();
-      panel.append(el('div', { class: 'pe-mini-fields' }, field('Format', format), timed, distance), roundFields);
-    }
+    const timed = field('Durée', minutes), distance = field('Distance en mètres', meters), roundFields = el('div', { class: 'pe-mini-fields' }, field('Rounds', rounds), field('Travail', work), field('Repos', rest, 'Entre les rounds uniquement.'));
+    const drawFormat = () => { timed.hidden = !['time', 'mixed'].includes(format.value); distance.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
+    format.addEventListener('change', drawFormat); drawFormat();
+    panel.append(el('div', { class: 'pe-mini-fields' }, field('Format', format), timed, distance), roundFields);
     const description = textarea('block_description', block.description, { rows: 2, maxLength: 10000, dataset: { field: 'description' } });
     panel.append(field('Consigne', description));
-    const types = BLOCK_TYPES.map(item => [item.id, item.label]); if (!types.some(([type]) => type === block.type)) types.push([block.type, block.type]);
-    const type = choose('block_type', types, block.type);
+    const type = typeSelect('block_type', block.type);
     const zone = choose('block_zone', [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], block.zone == null ? '' : String(block.zone));
     const notes = textarea('block_notes', block.notes || '', { maxLength: 10000 });
-    if (!repeating || !draft.id) panel.append(el('div', { class: 'pe-mini-fields' }, field('Type', type), field(repeating ? 'Zone des efforts' : 'Zone d’effort', zone)));
+    const measurementFields = panel.querySelector('.pe-mini-fields');
+    measurementFields.prepend(field('Type', type)); measurementFields.append(field('Zone d’effort', zone));
     const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), field('Notes', notes));
     panel.append(advanced);
     const error = errorBox();
     const apply = () => {
       try {
         const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, notes: notes.value };
-        if (!draft.id && !nextBlock.title) nextBlock.title = repeating ? 'Intervalles' : typeLabel(nextBlock.type);
-        if (repeating) {
-          nextBlock.repeat_count = numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat });
-          if (!draft.id) {
-            const seconds = duration(effort.value, 'Effort'), recover = duration(recovery.value, 'Récupération', true);
-            nextBlock.children = [{ ...makeBlock(nextBlock.type), title: 'Effort', duration_seconds: seconds, zone: nextBlock.zone, intensity: nextBlock.intensity }];
-            if (recover) nextBlock.children.push({ ...makeBlock('recovery'), title: 'Récupération', duration_seconds: recover, zone: 1 });
-            nextBlock.zone = null; nextBlock.type = 'other'; nextBlock.intensity = null;
-          }
-        } else {
-          if (format.value !== originalFormat) Object.assign(nextBlock, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
-          if (['time', 'mixed'].includes(format.value)) nextBlock.duration_seconds = duration(minutes.value, 'Durée', block.duration_seconds === 0);
-          if (['distance', 'mixed'].includes(format.value)) nextBlock.distance_m = numeric(meters.value, 'Distance', { min: block.distance_m === 0 ? 0 : 0.001, max: 1e6, integer: false });
-          if (format.value === 'rounds') {
-            Object.assign(nextBlock, { rounds: numeric(rounds.value, 'Rounds'), work_seconds: duration(work.value, 'Travail', block.work_seconds === 0), rest_seconds: rest.value === secondsText(restDefault) && block.rest_seconds == null && draft.id ? block.rest_seconds : duration(rest.value, 'Repos', true) });
-            // Keep explicit additional measures on legacy rounds when their format is unchanged.
-            if (block.rounds && block.work_seconds != null) { nextBlock.distance_m = block.distance_m; nextBlock.duration_seconds = block.duration_seconds; }
-          }
-          if (format.value === 'free') { nextBlock.rounds = block.rounds && block.work_seconds == null ? block.rounds : null; }
+        if (!nextBlock.type) throw new Error('Choisis le type de l’étape.');
+        if (!draft.id && !nextBlock.title) nextBlock.title = typeLabel(nextBlock.type);
+        if (format.value !== originalFormat) Object.assign(nextBlock, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
+        if (['time', 'mixed'].includes(format.value)) nextBlock.duration_seconds = duration(minutes.value, 'Durée', block.duration_seconds === 0);
+        if (['distance', 'mixed'].includes(format.value)) nextBlock.distance_m = numeric(meters.value, 'Distance', { min: block.distance_m === 0 ? 0 : 0.001, max: 1e6, integer: false });
+        if (format.value === 'rounds') {
+          Object.assign(nextBlock, { rounds: numeric(rounds.value, 'Rounds'), work_seconds: duration(work.value, 'Travail', block.work_seconds === 0), rest_seconds: rest.value === secondsText(restDefault) && block.rest_seconds == null && draft.id ? block.rest_seconds : duration(rest.value, 'Repos', true) });
+          // Keep explicit additional measures on legacy rounds when their format is unchanged.
+          if (block.rounds && block.work_seconds != null) { nextBlock.distance_m = block.distance_m; nextBlock.duration_seconds = block.duration_seconds; }
         }
-        const previous = this.blocks; this.blocks = clone(previous);
-        try {
-          if (draft.id) { const target = this.locate(draft.id); target.list[target.index] = nextBlock; }
-          else { const list = draft.parentId ? this.locate(draft.parentId).block.children : this.blocks; list.push(nextBlock); }
-          validate(this.blocks);
-        } catch (failure) { this.blocks = previous; throw failure; }
+        if (format.value === 'free') { nextBlock.rounds = block.rounds && block.work_seconds == null ? block.rounds : null; }
+        this.commitMini(nextBlock);
         this.mini = null; this.render(); this.emit();
       } catch (failure) { showError(error, failure); }
     };

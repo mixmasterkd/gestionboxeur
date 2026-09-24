@@ -7,13 +7,13 @@ export const SPORTS = [
   { id: 'mobility', label: 'Mobilité', icon: '◎' },
   { id: 'other', label: 'Autre', icon: '＋' },
 ];
-export const BLOCK_TYPES = [
-  ['warmup', 'Échauffement'], ['run', 'Course'], ['interval', 'Intervalle'],
-  ['shadow', 'Shadow'], ['bag', 'Sac'], ['pads', 'Pads'], ['technique', 'Technique'],
-  ['sparring', 'Sparring'], ['footwork', 'Déplacements'], ['agility', 'Agilité'],
-  ['conditioning', 'Conditioning'], ['cardio', 'Cardio'], ['strength', 'Renforcement'],
-  ['mobility', 'Mobilité'], ['recovery', 'Récupération'], ['other', 'Autre'],
-].map(([id, label]) => ({ id, label }));
+export const BLOCK_TYPE_GROUPS = [
+  { label: '🏃 Course', types: [['run', 'Course'], ['jog', 'Jog'], ['interval', 'Intervalle']] },
+  { label: '🥊 Boxe', types: [['shadow', 'Shadow'], ['bag', 'Sac'], ['pads', 'Pads'], ['sparring', 'Sparring'], ['jump_rope', 'Corde à danser'], ['speed_ball', 'Speed ball'], ['double_end_bag', 'Double end bag'], ['technique', 'Technique'], ['footwork', 'Déplacements']] },
+  { label: 'Préparation physique', types: [['warmup', 'Échauffement'], ['burpees', 'Burpees'], ['agility', 'Agilité'], ['conditioning', 'Conditioning'], ['cardio', 'Cardio'], ['strength', 'Renforcement'], ['mobility', 'Mobilité']] },
+  { label: 'Autres', types: [['recovery', 'Récupération'], ['other', 'Autre']] },
+];
+export const BLOCK_TYPES = BLOCK_TYPE_GROUPS.flatMap(group => group.types.map(([id, label]) => ({ id, label })));
 export const ZONE_COLORS = { 1: '#9298a1', 2: '#3b82f6', 3: '#25a567', 4: '#ed9427', 5: '#e54b4b', 6: '#9b60db', 7: '#442c65' };
 export const WORKOUT_LIMITS = Object.freeze({ depth: 4, blocks: 200, siblings: 100, repeat: 100, segments: 10000 });
 const finitePositive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;

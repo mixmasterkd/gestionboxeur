@@ -136,7 +136,7 @@ test('compact cards keep instructions and tools collapsed and preserve disclosur
   assert.equal(card().querySelector('[data-field="duration_seconds"]').closest('details'), null);
   for (const selector of ['[data-field="description"]', '[data-field="notes"]', '[data-action="duplicate"]']) assert.equal(card().querySelector(selector).closest('details'), details());
   assert.doesNotMatch(details().textContent, /Intensité cible/);
-  assert.doesNotMatch(mount.textContent, /ressenti|RPE/i);
+  assert.doesNotMatch(mount.textContent, /ressenti|\bRPE\b/i);
   details().open = true;
   change(card().querySelector('[data-field="mode"]'), 'mixed');
   assert.equal(details().open, true);

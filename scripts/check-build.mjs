@@ -28,6 +28,9 @@ for (const page of pages) {
       assert.ok(parseFloat(computed.minHeight) >= 44, `${page}: usable action height`);
       if (page === 'planning.html') {
         assert.equal(window.getComputedStyle(window.document.querySelector('.date-navigation')).display, width < 620 ? 'grid' : 'flex', 'compiled calendar responsiveness');
+        const actions=window.document.querySelector('.planner-intro > .intro-actions');
+        assert.equal(window.getComputedStyle(actions).display,'grid','calendar actions share equal grid cells');
+        assert.ok(parseFloat(window.getComputedStyle(actions.querySelector('#addEventButton')).minHeight)>=80,'event action uses the common panel height');
         const calendar=window.document.getElementById('calendar');
         calendar.className='calendar month';
         calendar.innerHTML='<article class="session-card"><div class="session-title-row"><button class="session-title">Jog</button><button class="completion-button" aria-pressed="false"><span class="completion-mark"></span></button></div></article>';

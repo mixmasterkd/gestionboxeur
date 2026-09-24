@@ -2,7 +2,7 @@ import { BLOCK_TYPES, ZONE_COLORS, summarizeBlocks, formatDuration } from './dom
 
 const typeNames = new Map(BLOCK_TYPES.map(type => [type.id, type.label]));
 const typeColors = {
-  warmup: '#8091a7', shadow: '#60a5fa', bag: '#346cc4', pads: '#7167a8',
+  jog: '#3b82f6', jump_rope: '#5ba99c', speed_ball: '#bb8bc8', double_end_bag: '#a79bde', burpees: '#c79661', warmup: '#8091a7', shadow: '#60a5fa', bag: '#346cc4', pads: '#7167a8',
   technique: '#64949b', sparring: '#414e74', footwork: '#8b77b4', agility: '#718ca8',
   conditioning: '#688269', cardio: '#498983', strength: '#79648d', mobility: '#77a399',
   recovery: '#c0c6ce', rest: '#c0c6ce', other: '#8c94a0',

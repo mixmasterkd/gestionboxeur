@@ -76,7 +76,7 @@ function renderAccount() {
   }
   $('athleteSidebar').hidden=!isCoach();$('athletePickerButton').hidden=!isCoach();$('workspace').classList.toggle('athlete-workspace',!isCoach());
   $('todayViewButton').hidden=false;$('addSessionButton').hidden=!canAdd();
-  $('addEventButton').hidden=!canAdd();$('addEventButton').textContent='＋ Événement / note';
+  $('addEventButton').hidden=!canAdd();
   $('inviteButton').hidden=!isCoach()||!state.selectedAthlete||!!state.selectedAthlete.user_id;
   $('noAthlete').hidden=!!state.selectedAthlete||!isCoach();
   $('calendarSection').hidden=!state.selectedAthlete;

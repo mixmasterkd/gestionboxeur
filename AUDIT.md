@@ -123,3 +123,11 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Administration : Fonctions coach activées / non activées remplace les rôles exclusifs Coach / Athlète. Aucune modification des autorisations ni des données.
 - Validation : 271 tests réussis; build et styles compilés contrôlés à 375 et 1280 px dans les deux thèmes. Aperçu local interactif : tableaux et fiches, sélection conservée, contrôles et formulaire mobile. Aucun débordement horizontal de page observé.
 - Publication réussie : application `8d38de4`, workflow `36022228438`. Les 18 fichiers publics correspondent exactement à l’artefact publié. Vérification connectée : la racine ouvre Mon calendrier; l’administration affiche Fonctions coach avec Activées / Non activées; le répertoire ouvre Tableau et passe en Fiches. Le formulaire déjà ouvert par l’utilisateur a été conservé.
+
+
+## 24 septembre 2026 — Répétitions libres et panneau d’actions
+
+- Le formulaire de répétition commence par le nombre et le type commun ou Hybride. Lignes ajoutables, réordonnables et supprimables, durée/distance et zone sur chaque ligne; toute la séquence est répétée. Aucune paire effort/récupération imposée ni zone dupliquée sur le groupe. Édition atomique avec annulation; anciens rounds, quantités mixtes, blocs imbriqués et données avancées conservés.
+- Types regroupés par optgroup non sélectionnable. Ajout de Jog, Corde à danser, Speed ball, Double end bag et Burpees, avec libellés texte et couleurs de graphique. Les alias historiques Corde restent compatibles.
+- Actions du calendrier dans un panneau à cellules égales, icônes discrètes et motif neutre du menu dans les deux thèmes. Logo conservé en attente de discussion.
+- Validation : 275 tests réussis; styles compilés et structure vérifiés. Pyramide réelle dans l’aperçu local : 5 × (2 min Z2 + 1 min Z3 + 30 s Z4 + 3 min récupération) = 32 min 30 s, ordre et conversion Texte/Blocs vérifiés. Formulaire contrôlé à 375 px; boutons égaux à 320 et 375 px sans débordement de page.
