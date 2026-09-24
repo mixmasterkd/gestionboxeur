@@ -1,0 +1,37 @@
+.training-document{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8;color:var(--ink)}
+:root{--training-blue:#9cc9ff;--training-mint:#8fd4b7;--training-coral:#ffb0a8;--training-lavender:#d0b7ff}
+:root[data-theme="light"]{--training-blue:#24558a;--training-mint:#25664d;--training-coral:#9d3935;--training-lavender:#6b449d}
+.training-color-blue{color:var(--training-blue)!important}.training-color-mint{color:var(--training-mint)!important}.training-color-coral{color:var(--training-coral)!important}.training-color-lavender{color:var(--training-lavender)!important}
+.program-editor .pe-tools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:8px;border:1px solid var(--line);background:var(--paper);border-radius:15px;margin:0 0 14px}
+.program-editor .pe-tool{display:flex;flex-direction:column;gap:8px;min-height:76px;padding:12px 8px;border-radius:11px;background:var(--white);border:1px solid var(--line);color:var(--ink);font-weight:600}
+.pe-tool-icon{display:flex;align-items:center;justify-content:center}
+.program-editor .pe-formatbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:12px 0 6px;padding:5px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.program-editor .pe-format{height:40px;min-width:40px;min-height:40px;padding:4px 8px;border-color:transparent;background:transparent;font-size:16px;color:var(--ink)}
+.program-editor .pe-text-input{font-family:inherit;min-height:240px;max-height:55vh;overflow:auto;white-space:pre-wrap;line-height:1.8;resize:vertical}
+.program-editor .pe-text-input[aria-readonly="true"]{opacity:.7}
+.program-editor .pe-mini{background:var(--paper);border-color:var(--line);color:var(--ink)}
+.program-editor .pe-mini input,.program-editor .pe-mini select,.program-editor .pe-mini textarea{color:var(--ink);background:var(--white);border:1px solid var(--line);min-height:44px}
+.program-editor .pe-mini label>span,.program-editor .pe-hint{color:var(--muted)}
+.program-editor .pe-sequence-fields,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked){grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.program-editor .pe-effort-control{padding:12px 0 4px;margin:4px 0;border-top:1px solid var(--line)}
+.program-editor .pe-effort-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.program-editor .pe-help{color:var(--ink);background:var(--paper);border-color:var(--line)}
+.program-editor .pe-help summary,.program-editor .pe-help p{color:var(--ink)}
+.program-editor .pe-help details{padding:6px 0;border-top:1px solid var(--line)}
+.program-editor .pe-help details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px;font-weight:600}
+.program-editor .pe-help table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;line-height:1.6;margin:8px 0}
+.program-editor .pe-help th,.program-editor .pe-help td{white-space:normal;text-align:left;vertical-align:top;padding:9px 6px;border-bottom:1px solid var(--line);overflow-wrap:anywhere;color:var(--ink)}
+.program-editor .pe-help th{width:44%;font-weight:600}
+.program-editor .pe-help pre{background:var(--white);color:var(--ink);border-color:var(--line);white-space:pre-wrap;overflow-wrap:anywhere}
+.program-editor .pe-summary,.program-editor .pe-text-status,.program-editor .pe-text-status p,.program-editor .pe-text-status ul{color:var(--muted)}
+.program-editor .pe-mini-actions{position:sticky;bottom:0;background:var(--paper);padding:10px 0 0}
+.program-editor .pe-mini .pe-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+@media(max-width:620px){
+ .program-editor .pe-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .program-editor .pe-tool{flex-direction:row;min-height:58px;font-size:12px}
+ .program-editor .pe-format{height:44px;min-height:44px;min-width:36px;padding:4px 6px}
+ .program-editor .pe-text-input{min-height:230px;font-size:16px;padding:12px}
+ .program-editor .pe-help table,.program-editor .pe-help tbody,.program-editor .pe-help tr,.program-editor .pe-help th,.program-editor .pe-help td{display:block;width:auto}
+ .program-editor .pe-help th{border-bottom:0;padding-bottom:0}
+ .program-editor .pe-help td{padding-top:3px}
+}

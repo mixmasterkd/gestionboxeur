@@ -9,3 +9,6 @@
 @import './light.css';
 @import './appearance.css';
 @import './ui-polish.css';
+
+@import './workout-chart.css';
+@import './workout-document.css';

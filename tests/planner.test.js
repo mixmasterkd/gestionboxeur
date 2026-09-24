@@ -329,7 +329,7 @@ test('running and boxing calendar tiles contain accessible miniature charts',asy
     const runChart=page.$('calendar').querySelector('[data-session-id="run"] .session-chart');
     const boxChart=page.$('calendar').querySelector('[data-session-id="box"] .session-chart');
     assert.match(runChart.querySelector('svg').getAttribute('aria-label'),/zone cible/);assert.equal(boxChart.querySelectorAll('rect').length,5);
-    assert.match(boxChart.querySelector('svg').getAttribute('aria-label'),/type d’atelier ou repos/);
+    assert.match(boxChart.querySelector('svg').getAttribute('aria-label'),/effort demandé/);
   }finally{await page.close();}
 });
 

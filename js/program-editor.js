@@ -1,433 +1,236 @@
-import Sortable from 'sortablejs';
-import { BLOCK_TYPES, BLOCK_TYPE_GROUPS, blockName, WORKOUT_LIMITS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
-import { parseWorkoutText, serializeSessionText, parseSessionText } from './workout-text.js';
-import { el, button, field, input, textarea, select, errorBox, showError, busy } from './ui.js';
+import { BLOCK_TYPES, BLOCK_TYPE_GROUPS, makeBlock, summarizeBlocks, formatDuration } from './domain.js';
+import { parseTrainingText, serializeTrainingDocument, reconcileTrainingBlocks } from './workout-document.js';
+import { parseEffort } from './workout-effort.js';
+import { TrainingTextInput, normalizeTrainingDocument } from './workout-rich-text.js';
+import { renderSessionChart } from './session-chart.js';
+import { el, button, field, input, textarea, select, errorBox, showError } from './ui.js';
 
-const clone = value => structuredClone(value);
-const typeLabel = type => BLOCK_TYPES.find(item => item.id === type)?.label || type || 'Étape';
-const secondsText = value => value == null ? '' : value % 60 === 0 ? `${value / 60}m` : `${value}s`;
-const choose = (name, options, value) => select(name, options.map(([value, label]) => ({ value, label })), value);
-const boxingTypes = BLOCK_TYPE_GROUPS.find(group => group.types.some(([id]) => id === 'shadow')).types;
-const isRoundType = value => value === 'other' || boxingTypes.some(([id]) => id === value);
-function typeSelect(name, value, hybrid = false, rounds = false) {
-  const control = el('select', { name }, el('option', { value: '' }, 'Choisir'));
-  if (hybrid && !rounds) control.append(el('option', { value: 'hybrid' }, 'Hybride'));
-  for (const group of rounds ? [{label:'🥊 Boxe',types:boxingTypes},{label:'Autres',types:[['other','Autre']]}] : BLOCK_TYPE_GROUPS) control.append(el('optgroup', { label: group.label }, group.types.map(([id, label]) => el('option', { value: id }, label))));
-  if (rounds && value && !isRoundType(value)) control.append(el('option', {value,disabled:true}, `${value === 'hybrid' ? 'Types existants' : typeLabel(value)} (existant)`));
-  if (!rounds && value && value !== 'hybrid' && !BLOCK_TYPES.some(type => type.id === value)) control.append(el('option', { value }, value));
-  control.value = value; return control;
+const clone=value=>structuredClone(value);
+const blockIndex=blocks=>{const result=new Map();const visit=list=>list.forEach(block=>{result.set(block.id,block);if(block.kind==='repeat')visit(block.children);});visit(blocks);return result;};
+const sameShape=(left,right)=>left.length===right.length&&left.every((block,index)=>block.kind===right[index].kind&&!(block.rounds&&block.work_seconds>0)&&(block.kind!=='repeat'||sameShape(block.children,right[index].children)));
+const label=type=>BLOCK_TYPES.find(t=>t.id===type)?.label||({walk:'Marche'}[type])||type||'Autre';
+const choose=(name,options,value)=>select(name,options.map(([value,label])=>({value,label})),value);
+const icons={step:'<path d="M5 6h14M5 12h9M5 18h6m7-5v8m-4-4h8"/>',repeat:'<path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/>',round:'<circle cx="12" cy="13" r="8"/><path d="M9 2h6m-3 0v3m0 8 3-3"/>',library:'<path d="M4 4h6v16H4zM14 4h6v16h-6zM6 8h2m8 0h2"/>'};
+function icon(name){const span=el('span',{class:'pe-tool-icon','aria-hidden':'true'});span.innerHTML=`<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${icons[name]}</svg>`;return span;}
+function timeText(seconds){if(seconds==null)return '';const min=Math.floor(seconds/60),sec=seconds%60;return `${min?`${min}'`:''}${sec?`${sec}"`:''}`||'0s';}
+function typeSelect(name,value,sport,rounds=false,hybrid=false){
+  const control=el('select',{name,'data-field':'type'});
+  if(hybrid)control.append(el('option',{value:'hybrid'},'Hybride'));
+  const groups=[...BLOCK_TYPE_GROUPS];if(sport==='running'&&!rounds)groups.sort((a,b)=>Number(b.types.some(t=>t[0]==='run'))-Number(a.types.some(t=>t[0]==='run')));
+  for(const group of groups){if(rounds&&!group.types.some(t=>t[0]==='shadow')&&group.label!=='Autres')continue;const types=rounds&&group.label==='Autres'?group.types.filter(([id])=>id==='other'):group.types;control.append(el('optgroup',{label:group.label},types.map(([id,text])=>el('option',{value:id},text))));}
+
+  if(value&&!Array.from(control.options).some(o=>o.value===value))control.append(el('option',{value},label(value)));
+  control.value=value;return control;
 }
-function validate(blocks) {
-  const errors = summarizeBlocks(blocks).errors;
-  if (errors.length) throw new Error(errors.join(' '));
+function readQuantity(value,kind){
+  const text=kind==='distance'?`${value}mtr`:value;
+  const result=parseTrainingText(`- Autre ${text}`);const block=result.blocks[0];
+  if(result.errors.length||!block||!(kind==='distance'?block.distance_m>0:block.duration_seconds>0)||kind==='time'&&block.distance_m)throw new Error(kind==='distance'?'Indique une distance valide en mètres.':'Indique une durée valide.');
+  return kind==='distance'?block.distance_m:block.duration_seconds;
 }
-function normalized(blocks) {
-  validate(blocks); const ids = new Set();
-  const visit = list => list.map(source => {
-    const block = { ...makeBlock(source.kind === 'repeat' ? 'repeat' : source.type), ...clone(source) };
-    if (typeof block.id !== 'string' || !block.id || ids.has(block.id)) block.id = makeBlock().id;
-    ids.add(block.id); block.children = block.kind === 'repeat' ? visit(source.children) : [];
-    return block;
-  });
-  return visit(blocks);
-}
-function copyWithIds(block) {
-  const value = clone(block); value.id = makeBlock().id;
-  value.children = (block.children || []).map(copyWithIds); return value;
-}
-function depthOf(block) { return block.kind === 'repeat' && block.children.length ? 1 + Math.max(...block.children.map(depthOf)) : 1; }
-function dose(block) {
-  if (block.kind === 'repeat') return `${block.repeat_count} ${block.repeat_unit === 'rounds' ? 'rounds' : 'répétitions'} · la séquence ci-dessous`;
-  const parts = [];
-  if (block.rounds && block.work_seconds != null) {
-    parts.push(`${block.rounds} × ${formatDuration(block.work_seconds)}`);
-    if (block.rest_seconds) parts.push(`repos ${formatDuration(block.rest_seconds)}`);
-  } else if (block.duration_seconds != null) parts.push(formatDuration(block.duration_seconds));
-  if (block.distance_m != null) parts.push(`${block.distance_m.toLocaleString('fr-CA')} mètres`);
-  if (block.repetitions) parts.push(`${block.repetitions} répétitions`);
-  if (block.zone) parts.push(`Z${block.zone}`);
-  return parts.join(' · ') || 'Consignes libres';
-}
-function duration(value, label, allowZero = false) {
-  if (allowZero && /^(?:0|0s|0m)$/.test(value.trim())) return 0;
-  const parsed = parseWorkoutText(value);
-  const block = parsed.blocks[0];
-  if (parsed.errors.length || parsed.blocks.length !== 1 || block?.kind !== 'step' || block.distance_m != null || !(block.duration_seconds > 0)) throw new Error(`${label} : indique une durée, par exemple 1m30s ou 30s.`);
-  return block.duration_seconds;
-}
-function numeric(value, label, { min = 1, max = 10000, integer = true } = {}) {
-  const number = value.trim() ? Number(value.replace(',', '.')) : NaN;
-  if (!Number.isFinite(number) || number < min || number > max || integer && !Number.isInteger(number)) throw new Error(`${label} : ${integer ? 'un entier' : 'une valeur'} entre ${min} et ${max} est requis.`);
-  return number;
+function effortControl(source,name){
+  const initial=source.effort|| (source.zone?{kind:'zone',min:source.zone,max:source.zone}:null);
+  const initialKind=initial?.kind==='recovery'?initial.label.toLocaleLowerCase('fr'):initial?.kind||'';
+  const kind=choose(`${name}_effort_kind`,[['','Non précisé'],['zone','Zone'],['rpe','RPE'],['color','Vert · Jaune · Rouge'],['repos','Repos'],['marche','Marche'],['repos actif','Repos actif'],['bpm','Fréquence cardiaque'],['pace','Allure'],['custom','Autre terme']],initialKind);
+  kind.dataset.field='effort-kind';
+  const values=el('div',{class:'pe-effort-values'});let low,high;
+  const clock=n=>`${Math.floor(n/60)}:${String(Math.round(n%60)).padStart(2,'0')}`;
+  const draw=()=>{
+    const k=kind.value;values.replaceChildren();low=null;high=null;
+    if(['zone','rpe','color'].includes(k)){
+      const options=k==='color'?[[1,'Vert'],[2,'Jaune'],[3,'Rouge']]:Array.from({length:k==='zone'?7:10},(_,i)=>[i+1,k==='zone'?`Z${i+1}`:String(i+1)]);
+      low=choose(`${name}_effort_min`,options,initial?.kind===k?initial.min:options[0][0]);high=choose(`${name}_effort_max`,[['','—'],...options],initial?.kind===k&&initial.max!==initial.min?initial.max:'');
+    }else if(['bpm','pace'].includes(k)){
+      low=input(`${name}_effort_min`,initial?.kind===k?(k==='pace'?clock(initial.min):initial.min):'',k==='bpm'?'number':'text');high=input(`${name}_effort_max`,initial?.kind===k&&initial.max!==initial.min?(k==='pace'?clock(initial.max):initial.max):'',k==='bpm'?'number':'text');
+    }else if(k==='custom'){low=input(`${name}_effort_label`,initial?.kind==='custom'?initial.label:'','text',{maxLength:120});values.append(field('Terme',low));}
+    if(high){low.dataset.field='effort-min';high.dataset.field='effort-max';values.append(field(k==='bpm'?'BPM':k==='pace'?'Allure · min/km':'Valeur',low),field('Jusqu’à (facultatif)',high));}
+  };
+  kind.addEventListener('change',draw);draw();
+  return {node:el('div',{class:'pe-effort-control'},field('Effort',kind),values),read(){
+    const k=kind.value;if(!k)return null;if(['repos','marche','repos actif'].includes(k))return parseEffort(k);
+    if(k==='custom')return parseEffort(low.value.trim());
+    const from=low.value,to=high?.value;if(!from)throw new Error('Précise la valeur de l’effort.');
+    const range=to?`${from}-${to}`:from;
+    const effort=parseEffort(k==='zone'?`Z${from}${to?`-Z${to}`:''}`:k==='rpe'?`RPE ${range}`:k==='color'?`${['','Vert','Jaune','Rouge'][from]}${to?`-${['','Vert','Jaune','Rouge'][to]}`:''}`:k==='bpm'?`${range} bpm`:`${range}/km`);if(k==='zone'&&initial?.kind==='zone'&&initial.basis)effort.basis=initial.basis;return effort;
+  }};
 }
 
-/** One structured program, two editing surfaces; invalid drafts never replace it. */
+/** One source document, optional forms, and an always-current chart. */
 export class ProgramEditor {
-  constructor(container, { blocks = [], notes = '', sport = 'other', onChange = () => {}, onSaveBlock = null } = {}) {
-    this.container = container; this.blocks = normalized(blocks);
-    this.sport = sport; this.onChange = onChange; this.onSaveBlock = onSaveBlock;
-    this.notes = notes;
-    this.mode = 'text'; this.textDraft = serializeSessionText(this.blocks, this.notes); this.textErrors = []; this.mini = null;
-    this.sortables = []; this.helpOpen = false; this.destroyed = false;
-    this.group = `program-${makeBlock().id}`;
-    this.render();
+  constructor(container,{blocks=[],notes='',sport='other',document:doc=null,onChange=()=>{},onSaveBlock=null,onLibrary=null}={}){
+    Object.assign(this,{container,sport,onChange,onSaveBlock,onLibrary,mini:null,destroyed:false});this.load(blocks,notes,doc);this.render();
   }
-  getValue() {
-    if (this.mini) throw new Error('Valide ou annule le petit formulaire du bloc avant de continuer.');
-    if (this.mode === 'text' && this.textErrors.length) throw new Error(`Corrige le programme : ligne ${this.textErrors[0].line}, ${this.textErrors[0].message}`);
-    return clone(this.blocks);
-  }
-  hasDraft() { return !!this.mini || this.textErrors.length > 0; }
-  getNotes() { this.getValue(); return this.notes; }
-  setValue(blocks, notes = this.notes) {
-    const next = normalized(blocks);
-    const draft = this.mode === 'text' ? serializeSessionText(next, notes) : '';
-    this.notes = notes;
-    this.blocks = next; this.mini = null; this.textErrors = [];
-    if (this.mode === 'text') this.textDraft = draft;
-    this.render(); this.emit();
-  }
-  setSport(sport) { this.sport = sport; if (!this.mini) this.render(); }
-  appendBlock(block) {
-    this.getValue(); const next = [...this.blocks, copyWithIds(block)];
-    validate(next); this.setValue(next);
-  }
-  emit() { this.updateSummary(); this.onChange(clone(this.blocks), summarizeBlocks(this.blocks)); }
-  destroy() { this.destroyed = true; this.sortables.forEach(s => s.destroy()); this.sortables = []; this.container.replaceChildren(); }
-  locate(id, list = this.blocks, depth = 1) {
-    for (let index = 0; index < list.length; index++) {
-      const block = list[index];
-      if (block.id === id) return { block, list, index, depth };
-      const child = this.locate(id, block.children || [], depth + 1); if (child) return child;
-    }
-    return null;
-  }
-  action(label, action, id, title = label) {
-    return button(label, () => this.handle(action, id), 'pe-button', { 'aria-label': title, title, disabled: !!this.mini, dataset: { action, ...(id ? { id } : {}) } });
-  }
-  switchMode(mode) {
-    if (this.mini) { this.showError('Valide ou annule le formulaire du bloc avant de changer de mode.'); return; }
-    if (mode === this.mode) return;
-    if (mode === 'program' && this.textErrors.length) { this.showError('Corrige les lignes signalées, ou reviens au dernier programme valide.'); return; }
-    if (mode === 'text') {
-      try { this.textDraft = serializeSessionText(this.blocks, this.notes); }
-      catch (error) { this.showError(error.message); return; }
-    }
-    this.mode = mode; this.render();
-    if (mode === 'text') this.container.querySelector('.pe-text-input').focus();
-  }
-  render() {
-    if (this.destroyed) return;
-    const priorHelp = this.container.querySelector('.pe-help'); if (priorHelp) this.helpOpen = priorHelp.open;
-    this.sortables.forEach(s => s.destroy()); this.sortables = [];
-    this.container.classList.add('program-editor');
-    const modes = el('div', { class: 'pe-modes', role: 'group', 'aria-label': 'Vue de l’entraînement' });
-    for (const [mode, label] of [['text', 'Texte'], ['program', 'Blocs']]) modes.append(button(label, () => this.switchMode(mode), 'pe-button', { 'aria-pressed': String(this.mode === mode), disabled: !!this.mini, dataset: { mode } }));
-    const header = el('header', { class: 'pe-heading' }, el('div', {}, el('h3', {}, 'Entraînement')), modes);
-    this.errors = errorBox(); this.errors.classList.add('pe-error');
-    this.summary = el('p', { class: 'pe-summary', role: 'status' });
-    this.container.replaceChildren(header, this.help(), this.errors);
-    if (this.mode === 'text') this.container.append(this.textSurface());
-    else {
-      if (this.notes) this.container.append(button(this.notes, () => this.switchMode('text'), 'pe-narrative', { title: 'Modifier le texte libre' }));
-      this.container.append(this.renderList(this.blocks, 1));
-      if (this.mini) this.container.append(this.miniPanel());
-      else this.container.append(this.addBar());
-    }
-    this.container.append(this.summary); this.updateSummary();
-    if (!this.mini && this.mode === 'program') this.setupSorting();
-  }
-  help() {
-    const example = 'Course\n2x\n  1m @ Z2\n  1m @ Z1 - Marcher si nécessaire\n\nShadow\n3 rounds 1m/1m - Faire du 8/16\n3 rounds 30s/30s - In and out / burpees\n\nSac\n4 rounds 2m/1m - Jab et déplacement\n\nAbdos\n5m - Circuit au choix';
-    return el('details', { class: 'pe-help', open: this.helpOpen }, el('summary', {}, 'ⓘ Aide · écrire un entraînement'),
-      el('p', {}, 'Écris directement dans Texte, ou utilise les boutons dans la vue Blocs. Les deux modifient les mêmes étapes.'),
-      el('dl', {},
-        el('dt', {}, 'Course, Shadow, Sac…'), el('dd', {}, 'Un titre de section donne le type et le nom aux étapes qui suivent. Exemple : Course : Jog facile.'),
-        el('dt', {}, '10m · 30s · 1m30s'), el('dd', {}, 'Minutes, secondes ou durée combinée. Le m signifie toujours minutes. Les durées sont prioritaires, sans distance obligatoire.'),
-        el('dt', {}, '2x + lignes en retrait'), el('dd', {}, 'Répète les étapes placées dessous, avec 2 espaces au début de chaque ligne. Reviens au bord gauche pour terminer la séquence. La récupération écrite fait partie de chaque répétition, même la dernière.'),
-        el('dt', {}, '3 rounds + lignes en retrait'), el('dd', {}, 'Un bloc de rounds fonctionne comme une répétition : toutes ses lignes sont rejouées, y compris les repos ajoutés.'),
-        el('dt', {}, '3 rounds 1m/1m'), el('dd', {}, '3 rounds de 1 minute de travail, avec 1 minute de repos entre les rounds, sans repos après le dernier. Écris un repos séparé si tu en veux ensuite. 3rounds est aussi accepté.'),
-        el('dt', {}, '@ Z2'), el('dd', {}, 'Zone cible facultative, de Z1 à Z7. Ce n’est pas le RPE après séance.'),
-        el('dt', {}, '# texte libre'), el('dd', {}, 'Les lignes précédées de # contiennent les consignes et les notes de la séance.'),
-        el('dt', {}, '- consigne'), el('dd', {}, 'Tout ce qui suit le tiret est une consigne libre : « faire du 8/16 » ne crée pas d’intervalles automatiquement.'),
-        el('dt', {}, '400 mètres · 1km'), el('dd', {}, 'Distance seulement si tu la choisis explicitement. Aucune conversion automatique en durée.')),
-      el('pre', {}, el('code', {}, example)),
-      el('details', { class: 'pe-help-advanced' }, el('summary', {}, 'Réglages avancés et conservation des données'), el('p', {}, 'Certains blocs existants peuvent afficher une annotation | {…} à la fin d’une ligne. Elle conserve les notes, intensités, types précis ou autres réglages non exprimés dans la notation courte. Garde cette annotation pour conserver ces informations, ou modifie-les avec le petit formulaire. Ce format est propre à cette plateforme ; tous les codes Intervals.icu ne sont pas pris en charge.')));
-  }
-  textSurface() {
-    const text = textarea('workout_program', this.textDraft, { class: 'pe-text-input', spellcheck: false, rows: 13, 'aria-label': 'Programme en texte', 'aria-describedby': `${this.group}-text-status` });
-    this.textStatus = el('div', { class: 'pe-text-status', id: `${this.group}-text-status`, role: 'status' });
-    text.addEventListener('input', () => {
-      this.textDraft = text.value; const result = parseSessionText(this.textDraft, { sport: this.sport });
-      this.textErrors = result.errors; this.errors.hidden = true;
-      if (!result.errors.length) { this.blocks = result.blocks; this.notes = result.notes; this.emit(); }
-      this.updateTextStatus(text);
-    });
-    text.addEventListener('keydown', event => {
-      if (event.key !== 'Tab' || event.shiftKey) return;
-      event.preventDefault(); const start = text.selectionStart, end = text.selectionEnd;
-      text.setRangeText('  ', start, end, 'end'); text.dispatchEvent(new text.ownerDocument.defaultView.Event('input', { bubbles: true }));
-    });
-    const revert = button('Revenir au dernier programme valide', () => {
-      this.textErrors = []; this.textDraft = serializeSessionText(this.blocks, this.notes); this.mode = 'program'; this.render();
-    }, 'pe-button', { class: 'pe-button pe-revert', hidden: !this.textErrors.length });
-    const panel = el('div', { class: 'pe-text-panel' }, text, this.textStatus, revert);
-    this.updateTextStatus(text, revert); return panel;
-  }
-  updateTextStatus(text, revert = this.container.querySelector('.pe-revert')) {
-    text.setAttribute('aria-invalid', String(!!this.textErrors.length));
-    this.textStatus.replaceChildren();
-    if (this.textErrors.length) {
-      this.textStatus.append(el('p', {}, 'Aperçu : dernier programme valide. Corrige le texte avant de planifier.'), el('ul', {}, this.textErrors.slice(0, 8).map(error => el('li', {}, `Ligne ${error.line} : ${error.message}`))));
-    } else this.textStatus.textContent = this.blocks.length ? 'Programme valide · synchronisé avec les blocs.' : '';
-    if (revert) revert.hidden = !this.textErrors.length;
-  }
-  updateSummary() {
-    if (!this.summary) return;
-    const result = summarizeBlocks(this.blocks), parts = [];
-    if (result.hasTime) parts.push(formatDuration(result.duration_seconds));
-    if (result.hasDistance) parts.push(`${result.distance_m.toLocaleString('fr-CA')} mètres renseignés`);
-    if (result.hasUnquantified || result.hasDistanceOnly) parts.push('durée partielle');
-    this.summary.textContent = parts.join(' · ') || 'Aucune durée imposée.';
-  }
-  renderList(blocks, depth) {
-    const list = el('div', { class: 'pe-list', dataset: { depth } });
-    for (const block of blocks) {
-      const row = el('article', { class: `pe-row${block.kind === 'repeat' ? ' pe-repeat' : ''}`, dataset: { id: block.id } });
-      const handle = this.action('⠿', 'handle', block.id, 'Glisser cette étape'); handle.classList.add('pe-handle'); handle.tabIndex = -1;
-      const main = this.action('', 'edit', block.id, `Modifier ${blockName(block)}`); main.classList.add('pe-line');
-      main.append(el('strong', {}, blockName(block)), el('span', { class: 'pe-dose' }, dose(block)));
-      if (block.description) main.append(el('small', { class: 'pe-instructions' }, block.description));
-      const actions = el('div', { class: 'pe-row-actions' });
-      const more = el('details', { class: 'pe-row-more' }, el('summary', { 'aria-label': `Actions pour ${blockName(block)}` }, '•••'));
-      more.append(this.action('↑ Monter', 'up', block.id), this.action('↓ Descendre', 'down', block.id));
-      more.append(this.action('Dupliquer', 'duplicate', block.id), this.action('Supprimer', 'delete', block.id));
-      if (this.onSaveBlock) more.append(this.action('Garder comme bloc', 'save', block.id));
-      actions.append(more); row.append(el('div', { class: 'pe-row-head' }, handle, main, actions));
-      if (block.kind === 'repeat') {
-        row.append(this.renderList(block.children, depth + 1));
-        if (depth < WORKOUT_LIMITS.depth) row.append(this.addBar(block.id));
+  load(blocks,notes,doc){
+    this.originalBlocks=clone(blocks);this.originalNotes=notes;this.originalDocument=doc?normalizeTrainingDocument(doc):null;this.blocks=clone(blocks);this.lockedReason='';this.sourceChanged=false;this.pendingModel=null;this.modelHistory=new Map();
+    try{
+      if(doc){
+        this.document=normalizeTrainingDocument(doc);const parsed=parseTrainingText(this.document.text,{sport:this.sport});
+        // A stored document is already the source. Do not require an unrelated
+        // reserialization of legacy notes or future block properties to open it.
+        const baseline=sameShape(blocks,parsed.blocks)?{blocks:clone(blocks),text:this.document.text}:serializeTrainingDocument(blocks);
+        this.result=reconcileTrainingBlocks(parsed,baseline.blocks,baseline.text);
+      }else{
+        const converted=serializeTrainingDocument(blocks),prose=parseTrainingText(notes||'',{sport:this.sport});
+        if(prose.blocks.length||prose.errors.length)throw new Error('Les anciennes notes ressemblent à des étapes.');
+        this.document=normalizeTrainingDocument({text:[notes,converted.text].filter(Boolean).join('\n\n'),marks:[]});
+        const parsed=parseTrainingText(this.document.text,{sport:this.sport});
+        if(parsed.errors.length)throw new Error('Les anciennes consignes ne peuvent pas être converties sans perte.');
+        this.result=reconcileTrainingBlocks(parsed,converted.blocks,converted.text);
       }
-      list.append(row);
-    }
-    return list;
+      this.reconcileBlocks=clone(this.result.blocks);this.reconcileText=this.document.text;
+      // Server blocks retain legacy fields. Merely opening or formatting never rewrites them.
+      this.lines=this.result.lines;this.textErrors=doc?this.result.errors:[];
+      this.modelHistory.set(this.document.text,{blocks:clone(this.blocks),result:clone(this.result)});
+    }catch(error){this.document=normalizeTrainingDocument(doc||{text:notes,marks:[]});this.result=null;this.lockedReason='Cette ancienne séance est trop complexe pour être convertie sans perte. Son déroulement est conservé.';this.lines=[];this.textErrors=[];}
   }
-  addBar(parentId = '') {
-    const bar = el('div', { class: 'pe-addbar', dataset: { parent: parentId } });
-    for (const [action, label] of [['add-step', '＋ Étape'], ['add-repeat', '＋ Répétition'], ['add-rounds', '＋ Rounds']]) {
-      if (['add-repeat','add-rounds'].includes(action) && parentId && this.locate(parentId).depth >= WORKOUT_LIMITS.depth - 1) continue;
-      bar.append(this.action(label, action, parentId));
-    }
-    return bar;
-  }
-  handle(action, id) {
-    if (this.mini || action === 'handle') return;
-    this.errors.hidden = true;
-    if (action.startsWith('add-')) {
-      this.mini = { action, parentId: id || '', block: ['add-repeat','add-rounds'].includes(action) ? { ...makeBlock('repeat'), ...(action === 'add-rounds' ? {repeat_unit:'rounds',repeat_count:3} : {}), type: action === 'add-rounds' ? this.sport === 'sparring' ? 'sparring' : 'shadow' : this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other') };
-      if (action === 'add-step') this.mini.block.duration_seconds = 300;
-      this.render(); [...this.container.querySelectorAll('.pe-mini input,.pe-mini select,.pe-mini textarea')].find(control=>!control.closest('[hidden]'))?.focus(); return;
-    }
-    const found = this.locate(id); if (!found) return;
-    if (action === 'edit') { this.mini = { action, id, block: clone(found.block) }; this.render(); [...this.container.querySelectorAll('.pe-mini input,.pe-mini select,.pe-mini textarea')].find(control=>!control.closest('[hidden]'))?.focus(); return; }
-    if (action === 'save') {
-      const trigger = [...this.container.querySelectorAll('[data-action="save"]')].find(node => node.dataset.id === id);
-      busy(trigger, () => this.onSaveBlock(clone(found.block))).catch(error => { if (!this.destroyed) this.showError(error.message); }); return;
-    }
-    const previous = clone(this.blocks);
-    if (action === 'up' && found.index > 0) [found.list[found.index - 1], found.list[found.index]] = [found.list[found.index], found.list[found.index - 1]];
-    if (action === 'down' && found.index < found.list.length - 1) [found.list[found.index + 1], found.list[found.index]] = [found.list[found.index], found.list[found.index + 1]];
-    if (action === 'delete') {
-      if (found.depth > 1 && found.list.length === 1) { this.showError('Une répétition doit garder une étape. Supprime la répétition entière si nécessaire.'); return; }
-      found.list.splice(found.index, 1);
-    }
-    if (action === 'duplicate') found.list.splice(found.index + 1, 0, copyWithIds(found.block));
-    try { validate(this.blocks); this.render(); this.emit(); }
-    catch (error) { this.blocks = previous; this.showError(error.message); }
-  }
-  showError(message) { if (this.errors) showError(this.errors, new Error(message)); }
-  repeatPanel() {
-    const draft = this.mini, block = draft.block;
-    const panel = el('section', { class: 'pe-mini pe-sequence', 'aria-label': 'Répétition' });
-    const count = input('block_count', block.repeat_count, 'number', { min: 1, max: WORKOUT_LIMITS.repeat, step: 1, inputMode: 'numeric', dataset: { field: 'repeat_count' } });
-    const children = block.children.length ? block.children : [makeBlock(block.type)];
-    const workTypes = new Set(children.filter(child => child.type !== 'recovery').map(child => child.kind === 'repeat' ? 'hybrid' : child.type));
-    const initialType = workTypes.size > 1 || workTypes.has('hybrid') ? 'hybrid' : [...workTypes][0] || 'run';
-    const commonType = typeSelect('repeat_type', initialType, true, block.repeat_unit === 'rounds');
-    const unit = choose('repeat_unit', [['repetitions','Répétitions'],['rounds','Rounds']], block.repeat_unit || 'repetitions');
-    panel.append(el('h4', {}, draft.id ? 'Modifier le bloc répété' : 'Ajouter un bloc répété'), el('div', { class: 'pe-repeat-settings' }, field('Nombre', count), field('Unité', unit), field('Type du bloc', commonType)));
-    const lines = el('div', { class: 'pe-sequence-lines' });
-    const rows = [];
-    const refresh = () => rows.forEach((row, index) => {
-      row.number.textContent = `Étape ${index + 1}`;
-      row.up.disabled = index === 0; row.down.disabled = index === rows.length - 1; row.remove.disabled = rows.length === 1;
-      row.updateType?.(); lines.append(row.element);
-    });
-    const addRow = source => {
-      const row = { source };
-      row.number = el('strong');
-      const move = offset => { const index = rows.indexOf(row); if (index + offset < 0 || index + offset >= rows.length) return; [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]]; refresh(); };
-      row.up = button('↑', () => move(-1), 'pe-button', { 'aria-label': 'Monter cette ligne' });
-      row.down = button('↓', () => move(1), 'pe-button', { 'aria-label': 'Descendre cette ligne' });
-      row.remove = button('×', () => { if (rows.length < 2) return; rows.splice(rows.indexOf(row), 1); row.element.remove(); refresh(); }, 'pe-button', { 'aria-label': 'Supprimer cette ligne' });
-      row.element = el('article', { class: 'pe-sequence-row' }, el('header', { class: 'pe-sequence-head' }, row.number, el('div', { class: 'pe-sequence-actions' }, row.up, row.down, row.remove)));
-      if (source.kind === 'repeat') {
-        row.element.append(el('p', { class: 'pe-hint' }, `${source.title || 'Répétition'} · ${dose(source)}. Modification des sous-étapes depuis les blocs.`));
-        row.read = () => clone(source);
-      } else {
-        const type = typeSelect(`step_type_${source.id}`, source.type);
-        const typeField = field('Type', type);
-        // Existing recovery lines keep their meaning without a separate checkbox.
-        const recoveryLabel = el('span', {class:'pe-hint'}, 'Récupération');
-        row.element.querySelector('.pe-sequence-head').insertBefore(recoveryLabel,row.element.querySelector('.pe-sequence-actions'));
-        row.updateType = () => { typeField.hidden = commonType.value !== 'hybrid'; recoveryLabel.hidden = commonType.value === 'hybrid' || source.type !== 'recovery'; };
-        const originalFormat = source.rounds && source.work_seconds != null ? 'rounds' : source.distance_m != null ? source.duration_seconds != null ? 'mixed' : 'distance' : source.duration_seconds != null ? 'time' : 'free';
-        const isNew = !block.children.includes(source);
-        const format = choose(`step_format_${source.id}`, [['time', 'Durée'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['rounds', 'Rounds'], ['free', 'Consignes seules']].filter(([value]) => value !== 'rounds' || originalFormat === 'rounds'), isNew ? 'time' : originalFormat);
-        const time = input(`step_duration_${source.id}`, secondsText(source.duration_seconds), 'text', { dataset: { field: 'duration' } });
-        const meters = input(`step_distance_${source.id}`, source.distance_m, 'text', { inputMode: 'decimal', dataset: { field: 'distance' } });
-        const zone = choose(`step_zone_${source.id}`, [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], source.zone == null ? '' : String(source.zone));
-        zone.dataset.field = 'zone'; format.dataset.field = 'format'; type.dataset.field = 'type';
-        const timeField = field('Durée', time), metersField = field('Distance en mètres', meters);
-        const rounds = input(`step_rounds_${source.id}`, source.rounds ?? 3, 'number', { min: 1, max: 10000, step: 1 });
-        const work = input(`step_work_${source.id}`, secondsText(source.work_seconds ?? 120));
-        const rest = input(`step_rest_${source.id}`, secondsText(source.rest_seconds ?? 0));
-        const roundFields = el('div', { class: 'pe-mini-fields' }, field('Rounds', rounds), field('Travail', work), field('Repos entre les rounds', rest));
-        const drawFormat = () => { timeField.hidden = !['time', 'mixed'].includes(format.value); metersField.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
-        format.addEventListener('change', drawFormat); drawFormat();
-        const title = input(`step_title_${source.id}`, source.title, 'text', { maxLength: 500 });
-        const originalNotes = [source.description,source.notes].filter(Boolean).join('\n\n');
-        const notes = textarea(`step_notes_${source.id}`, originalNotes, { rows: 2, maxLength: Math.max(10000,originalNotes.length) });
-        const nameField = field('Nom',title);
-        const updateName = () => {nameField.hidden = (commonType.value === 'hybrid' ? type.value : source.type === 'recovery' ? 'recovery' : commonType.value) !== 'other';};
-        const updateType = row.updateType; row.updateType = () => {updateType();updateName();};
-        type.addEventListener('change',updateName);
-        row.element.append(el('div', { class: 'pe-sequence-fields' }, typeField, nameField, field('Mesure', format), timeField, metersField, field('Zone d’effort', zone)), roundFields,
-          field('Consigne', notes));
-        row.read = () => {
-          const next = { ...clone(source), type: commonType.value === 'hybrid' ? type.value : source.type === 'recovery' ? 'recovery' : commonType.value, zone: zone.value ? Number(zone.value) : null, title: title.value.trim(), ...(notes.value === originalNotes ? {} : {description:notes.value,notes:''}) };
-          if (!next.type) throw new Error('Choisis le type de chaque ligne du bloc hybride.');
-          if (next.type === 'other' && !next.title) throw new Error('Indique le nom de l’étape Autre.');
-          if (next.type !== 'other' && (isNew || next.type !== source.type)) next.title = typeLabel(next.type);
-          if (format.value !== originalFormat) Object.assign(next, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
-          if (['time', 'mixed'].includes(format.value)) next.duration_seconds = duration(time.value, 'Durée', source.duration_seconds === 0);
-          if (['distance', 'mixed'].includes(format.value)) next.distance_m = numeric(meters.value, 'Distance', { min: source.distance_m === 0 ? 0 : .001, max: 1e6, integer: false });
-          if (format.value === 'rounds') Object.assign(next, { rounds: numeric(rounds.value, 'Rounds'), work_seconds: duration(work.value, 'Travail', source.work_seconds === 0), rest_seconds: rest.value === secondsText(source.rest_seconds ?? 0) && source.rest_seconds == null ? source.rest_seconds : duration(rest.value, 'Repos', true) });
-          return next;
-        };
+  getValue(){if(this.mini)throw new Error('Valide ou annule le formulaire avant de continuer.');return clone(this.blocks);}
+  getNotes(){return this.lockedReason?this.originalNotes:'';}
+  getDocument(){this.getValue();return this.lockedReason?clone(this.originalDocument):clone(this.document);}
+  hasDraft(){return !!this.mini;}
+  setValue(blocks,notes='',doc=null){this.load(blocks,notes,doc);this.mini=null;this.render();this.emit();}
+  setSport(sport){this.sport=sport;this.updatePreview();}
+  appendBlock(block){this.getValue();if(this.lockedReason)throw new Error(this.lockedReason);const copied=clone(block),renew=value=>{value.id=makeBlock().id;(value.children||[]).forEach(renew);};renew(copied);const model=serializeTrainingDocument([copied]);this.insertFragment(model.text,true,false,model);}
+  onDocument(doc){
+    const changed=doc.text!==this.document.text;this.document=doc;
+    if(changed){
+      const previous=this.pendingModel?null:this.modelHistory.get(doc.text);
+      if(previous){this.result=clone(previous.result);this.blocks=clone(previous.blocks);}
+      else{
+        this.result=reconcileTrainingBlocks(parseTrainingText(doc.text,{sport:this.sport}),this.reconcileBlocks,this.reconcileText);
+        if(this.pendingModel)this.mergeInsertedModel(this.pendingModel);
+        this.blocks=this.result.blocks;
       }
-      rows.push(row); refresh();
-      return row;
-    };
-    children.forEach(addRow);
-    commonType.addEventListener('change', refresh);
-    unit.addEventListener('change', () => {
-      const rounds = unit.value === 'rounds';
-      const current = commonType.value;
-      // Switching units must never silently turn running steps into boxing steps.
-      const value = rounds && !isRoundType(current) ? (block.repeat_unit === 'rounds' && current === initialType ? current : '') : current;
-      const choices = typeSelect('repeat_type', value, true, rounds);
-      commonType.replaceChildren(...choices.childNodes); commonType.value = value; refresh();
-    });
-    const error = errorBox();
-    const add = button('＋ Ajouter une ligne', () => {
-      if (rows.length >= WORKOUT_LIMITS.siblings) { showError(error, new Error(`Maximum ${WORKOUT_LIMITS.siblings} lignes dans une répétition.`)); return; }
-      const row = addRow(makeBlock(commonType.value === 'hybrid' ? '' : commonType.value));
-      row.element.querySelector('input')?.focus();
-    }, 'pe-button', { dataset: { action: 'add-repeat-line' } });
-    const originalNotes = [block.description,block.notes].filter(Boolean).join('\n\n');
-    const notes = textarea('block_notes', originalNotes, { rows: 2, maxLength: Math.max(10000,originalNotes.length) });
-    panel.append(lines, add, el('p', { class: 'pe-hint' }, 'Le bloc entier se répète, repos inclus.'),
-      el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Notes du bloc'), field('Notes', notes)));
-    const apply = () => {
-      try {
-        if (!commonType.value) throw new Error('Choisis le type du bloc.');
-        const next = { ...clone(block), ...(notes.value === originalNotes ? {} : {description:'',notes:notes.value}), repeat_count: numeric(count.value, 'Répétitions', { max: WORKOUT_LIMITS.repeat }), children: rows.map((row, index) => { try { return row.read(); } catch (failure) { throw new Error(`Étape ${index + 1} : ${failure.message}`); } }) };
-        if (unit.value !== (block.repeat_unit || 'repetitions')) next.repeat_unit = unit.value;
-        // The group carries no inherited dose or zone; each child is explicit.
-        if (!draft.id) Object.assign(next, { type: 'other', zone: null, intensity: null });
-        this.commitMini(next); this.mini = null; this.render(); this.emit();
-      } catch (failure) { showError(error, failure); }
-    };
-    panel.append(error, el('div', { class: 'pe-mini-actions' }, button('Annuler', () => { this.mini = null; this.render(); }, 'pe-button'), button(draft.id ? 'Appliquer' : 'Ajouter', apply, 'pe-button pe-primary', { dataset: { action: 'apply-mini' } })));
-    panel.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.tagName === 'INPUT') event.preventDefault(); });
-    return panel;
+      this.lines=this.result.lines;this.textErrors=this.result.errors;this.sourceChanged=true;this.reconcileBlocks=clone(this.result.blocks);this.reconcileText=doc.text;
+      this.modelHistory.set(doc.text,{blocks:clone(this.blocks),result:clone(this.result)});if(this.modelHistory.size>101)this.modelHistory.delete(this.modelHistory.keys().next().value);
+    }
+    this.emit();
   }
-  commitMini(nextBlock) {
-    const draft = this.mini, previous = this.blocks; this.blocks = clone(previous);
-    try {
-      if (draft.id) { const target = this.locate(draft.id); target.list[target.index] = nextBlock; }
-      else { const list = draft.parentId ? this.locate(draft.parentId).block.children : this.blocks; list.push(nextBlock); }
-      validate(this.blocks);
-    } catch (failure) { this.blocks = previous; throw failure; }
+  mergeInsertedModel({model,start}){
+    const desired=blockIndex(model.blocks),current=blockIndex(this.result.blocks),matched=[];
+    for(const source of model.lines){if(!source.blockId)continue;const line=this.result.lines.find(line=>line.start===start+source.start&&line.kind===source.kind&&line.blockId);if(line)matched.push({line,block:current.get(line.blockId),source:desired.get(source.blockId)});}
+    const occupied=new Set([...current.keys()].filter(id=>!matched.some(item=>item.block?.id===id)));
+    for(const item of matched){if(!item.block||!item.source)continue;const id=occupied.has(item.source.id)?makeBlock().id:item.source.id||makeBlock().id;occupied.add(id);const children=item.block.children;Object.assign(item.block,clone(item.source),{id,children});item.line.blockId=id;}
   }
-  miniPanel() {
-    if (this.mini.block.kind === 'repeat') return this.repeatPanel();
-    const draft = this.mini, block = draft.block;
-    const panel = el('section', { class: 'pe-mini', 'aria-label': draft.id ? 'Modifier une étape' : 'Ajouter une étape' });
-    const title = input('block_title', block.title, 'text', { maxLength: 500, dataset: { field: 'title' } });
-    panel.append(el('h4', {}, draft.id ? 'Modifier cette ligne' : 'Ajouter une étape'));
-    const nameField = field('Nom',title);
-    const originalFormat = block.rounds && block.work_seconds != null ? 'rounds' : block.distance_m != null ? block.duration_seconds != null ? 'mixed' : 'distance' : block.duration_seconds != null ? 'time' : 'free';
-    const format = choose('block_format', [['time', 'Durée'], ['rounds', 'Rounds'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['free', 'Consignes seules']].filter(([value]) => value !== 'rounds' || originalFormat === 'rounds'), originalFormat);
-    const minutes = input('block_duration', secondsText(block.duration_seconds), 'text', { dataset: { field: 'duration' } });
-    const rounds = input('block_rounds', block.rounds ?? 3, 'text', { inputMode: 'numeric', dataset: { field: 'rounds' } });
-    const work = input('block_work', secondsText(block.work_seconds ?? 120), 'text', { dataset: { field: 'work' } });
-    const restDefault = block.rest_seconds ?? (draft.id ? 0 : 60);
-    const rest = input('block_rest', secondsText(restDefault), 'text', { dataset: { field: 'rest' } });
-    const meters = input('block_distance', block.distance_m ?? '', 'text', { inputMode: 'decimal', dataset: { field: 'distance' } });
-    const timed = field('Durée', minutes), distance = field('Distance en mètres', meters), roundFields = el('div', { class: 'pe-mini-fields' }, field('Rounds', rounds), field('Travail', work), field('Repos', rest, 'Entre les rounds uniquement.'));
-    const drawFormat = () => { timed.hidden = !['time', 'mixed'].includes(format.value); distance.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
-    format.addEventListener('change', drawFormat); drawFormat();
-    panel.append(el('div', { class: 'pe-mini-fields' }, field('Format', format), timed, distance), roundFields);
-    const originalInstruction = [block.description, block.notes].filter(Boolean).join('\n\n');
-    const description = textarea('block_description', originalInstruction, { rows: 2, maxLength: Math.max(10000, originalInstruction.length), dataset: { field: 'description' } });
-    panel.append(field('Consigne', description));
-    const type = typeSelect('block_type', block.type);
-    const zone = choose('block_zone', [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], block.zone == null ? '' : String(block.zone));
-    const measurementFields = panel.querySelector('.pe-mini-fields');
-    measurementFields.prepend(field('Type', type),nameField); measurementFields.append(field('Zone d’effort', zone));
-    const updateName = () => {nameField.hidden = type.value !== 'other';}; type.addEventListener('change',updateName);updateName();
-    const error = errorBox();
-    const apply = () => {
-      try {
-        const nextBlock = { ...clone(block), title: title.value.trim(), ...(description.value === originalInstruction ? {} : {description: description.value.trim(), notes: ''}), type: type.value, zone: zone.value ? Number(zone.value) : null };
-        if (!nextBlock.type) throw new Error('Choisis le type de l’étape.');
-        if (nextBlock.type === 'other' && !nextBlock.title) throw new Error('Indique le nom de l’étape Autre.');
-        if (nextBlock.type !== 'other' && (!draft.id || nextBlock.type !== block.type)) nextBlock.title = typeLabel(nextBlock.type);
-        if (format.value !== originalFormat) Object.assign(nextBlock, { duration_seconds: null, distance_m: null, rounds: null, work_seconds: null, rest_seconds: null });
-        if (['time', 'mixed'].includes(format.value)) nextBlock.duration_seconds = duration(minutes.value, 'Durée', block.duration_seconds === 0);
-        if (['distance', 'mixed'].includes(format.value)) nextBlock.distance_m = numeric(meters.value, 'Distance', { min: block.distance_m === 0 ? 0 : 0.001, max: 1e6, integer: false });
-        if (format.value === 'rounds') {
-          Object.assign(nextBlock, { rounds: numeric(rounds.value, 'Rounds'), work_seconds: duration(work.value, 'Travail', block.work_seconds === 0), rest_seconds: rest.value === secondsText(restDefault) && block.rest_seconds == null && draft.id ? block.rest_seconds : duration(rest.value, 'Repos', true) });
-          // Keep explicit additional measures on legacy rounds when their format is unchanged.
-          if (block.rounds && block.work_seconds != null) { nextBlock.distance_m = block.distance_m; nextBlock.duration_seconds = block.duration_seconds; }
-        }
-        if (format.value === 'free') { nextBlock.rounds = block.rounds && block.work_seconds == null ? block.rounds : null; }
-        this.commitMini(nextBlock);
-        this.mini = null; this.render(); this.emit();
-      } catch (failure) { showError(error, failure); }
+  replaceFragment(start,end,text,model=null,offset=0){
+    this.pendingModel=model?{model,start:start+offset}:null;
+    try{this.textInput.replace(start,end,text);}finally{this.pendingModel=null;}
+  }
+  emit(){this.updatePreview();this.onChange(clone(this.blocks),summarizeBlocks(this.blocks));}
+  destroy(){this.destroyed=true;this.container.replaceChildren();}
+  render(){
+    this.container.classList.add('program-editor');this.container.replaceChildren(el('header',{class:'pe-heading'},el('h3',{},'Entraînement')));
+    const tools=el('div',{class:'pe-tools',role:'group','aria-label':'Ajouter à l’entraînement'});
+    for(const [action,title,name] of [['add-step','Étape','step'],['add-repeat','Répétition','repeat'],['add-rounds','Round','round'],['library','Bibliothèque','library']]){
+      const b=button('',()=>{if(action==='library'){this.textInput.capture();this.onLibrary?.();}else this.openMini(action);},'pe-button pe-tool',{dataset:{action},disabled:!!this.lockedReason||action==='library'&&!this.onLibrary});b.append(icon(name),el('span',{},title));tools.append(b);
+    }
+    const formatting=el('div',{class:'pe-formatbar',role:'group','aria-label':'Mise en forme du texte'});
+    const format=(text,key,value,title)=>{const b=button(text,()=>{if(!this.textInput.format(key,value))this.status.textContent='Sélectionne le texte à mettre en forme.';},'pe-button pe-format',{title,'aria-label':title});b.addEventListener('mousedown',e=>e.preventDefault());formatting.append(b);return b;};
+    format('G','bold',null,'Gras').style.fontWeight='700';format('S','underline',null,'Souligné').style.textDecoration='underline';
+    for(const [color,title] of [['blue','Bleu'],['mint','Menthe'],['coral','Corail'],['lavender','Lavande']]){const b=format('●','color',color,`Texte ${title.toLowerCase()}`);b.classList.add(`training-color-${color}`);}
+    format('A','color',null,'Couleur normale');
+    for(const [text,redo,title] of [['↶',false,'Annuler la modification'],['↷',true,'Rétablir la modification']]){const b=button(text,()=>this.textInput.undo(redo),'pe-button pe-format',{'aria-label':title,title});b.addEventListener('mousedown',e=>e.preventDefault());formatting.append(b);}
+    this.surface=el('div',{class:'pe-text-input'});this.status=el('div',{class:'pe-text-status',role:'status'});this.miniMount=el('div');this.graph=el('div',{class:'session-program-preview'});this.summary=el('p',{class:'pe-summary'});
+    this.container.append(tools,this.help(),formatting,this.surface,this.status,this.miniMount,this.graph,this.summary);
+    this.textInput=new TrainingTextInput(this.surface,this.document,doc=>this.onDocument(doc));
+    if(this.lockedReason){this.surface.contentEditable='false';this.status.textContent=this.lockedReason;formatting.hidden=true;}
+    this.updatePreview();
+  }
+  help(){
+    const table=(rows)=>el('table',{},el('tbody',{},rows.map(([a,b])=>el('tr',{},el('th',{scope:'row'},a),el('td',{},b)))));
+    const section=(title,...children)=>el('details',{},el('summary',{},title),...children);
+    return el('details',{class:'pe-help'},el('summary',{},'ⓘ Aide · écrire un entraînement'),
+      el('p',{},'Écris librement. Les boutons insèrent des étapes dans le texte. Une ligne non reconnue reste enregistrable; le graphique indique les parties reconnues.'),
+      section('Durées et distances',table([["3m · 3 min · 3 minutes · 3'",'Minutes. Le m signifie toujours minutes, avec ou sans espace.'],['30s · 30 sec · 30 secondes · 30"','Secondes.'],["1m30s · 1 min 30 sec · 1'30\"",'Durée combinée.'],['400mtr · 400 mtr · 400 mètres','Mètres. Écris MTR pour éviter toute confusion avec les minutes.'],['2km · 2 km','Kilomètres.']]),el('p',{},'Majuscules, minuscules, singulier, pluriel, mots sans accents et guillemets de téléphone sont acceptés. Une distance n’est jamais convertie en durée sans données.')),
+      section('Étapes, titres et consignes',el('p',{},'Un titre est facultatif et ne définit pas l’activité des étapes suivantes. Commence une étape par un tiret, puis indique son activité et sa durée ou sa distance. @ introduit l’effort facultatif. Un tiret après l’effort introduit la consigne; le retour à la ligne termine l’étape.'),el('pre',{},'- Sac 3\' @ RPE 6 - Jab et retour en garde\n- Course 400mtr @ Z2-Z4'),el('p',{},'Le tiret entre deux valeurs appartient à une fourchette. Une puce sans mesure reste visible, mais n’a pas de largeur dans le graphique sans durée ou distance.')),
+      section('Efforts et fourchettes',table([['@ Z3 · @ Z2-Z4','Zones 1 à 7. Tu peux préciser FC ou Allure après la zone.'],['@ RPE 6 · @ RPE 6/10 · @ RPE 4-6','Effort demandé de 1 à 10, indépendant du bilan après séance.'],['@ Vert · @ Vert-Jaune · @ Rouge','Trois niveaux d’effort croissants.'],['@ Repos · @ Marche · @ Repos actif','Récupération ou marche.'],['@ 120-150 bpm','Fréquence cardiaque demandée.'],['@ 5:30/km · @ 5:30-6:30/km','Allure ou fourchette en minutes par kilomètre.']]),el('p',{},'@Z3 et @ Z3 sont équivalents. Un terme personnalisé reste visible sans intensité inventée. Une fourchette utilise la même échelle aux deux bornes.')),
+      section('Répétitions et rounds',el('p',{},'3x, 3 x, 3rounds et 3 rounds répètent les étapes qui suivent. Une vraie ligne vide termine le groupe. Le retour automatique à la ligne sur téléphone ne termine rien. Un seul niveau de répétition est proposé. Toutes les étapes sont répétées, y compris le dernier repos.'),el('pre',{},'Travail au sac\n\n3 rounds\n- Sac 3\' @ Vert-Jaune\n- Shadow 1\' @ Repos actif\n\n- Marche 30"'),el('p',{},'Un titre ou une consigne dans le groupe reste à sa place. Pour sortir du groupe, laisse au moins une ligne vide.')),
+      section('Lire le graphique et mettre en forme',el('p',{},'La largeur suit la durée connue, ou la distance lorsque toute la séance est en distance. Une fourchette superpose ses deux bornes, sans bandes intermédiaires : Z2 devant Z4, par exemple. Les zones et le RPE ont leurs propres échelles. Les BPM et allures sans repères personnels restent indiqués sans conversion inventée.'),el('p',{},'Touche une portion du graphique pour revoir l’étape. Gras, souligné et couleurs du texte servent uniquement à la mise en forme; colorier une phrase ne change pas l’effort. Les anciennes séances conservent leur déroulement.')));
+  }
+  updatePreview(){
+    if(!this.graph)return;
+    if(!this.lockedReason){this.status.replaceChildren();if(this.textErrors.length)this.status.append(el('p',{},'Graphique partiel · le texte peut être enregistré.'),el('ul',{},this.textErrors.slice(0,8).map(e=>el('li',{},`Ligne ${e.line} : ${e.message}`))));}
+    const previewBlocks=this.lockedReason?this.blocks:this.result?.blocks||this.blocks;
+    this.graph.replaceChildren(renderSessionChart({blocks:previewBlocks,sport:this.sport},{compact:false,partial:!!this.textErrors.length,onSelect:id=>this.editStep(id)}));
+    const s=summarizeBlocks(this.blocks);this.summary.textContent=[s.hasTime?formatDuration(s.duration_seconds):'',s.hasDistance?`${s.distance_m.toLocaleString('fr-CA')} mètres`:'',s.hasUnquantified||s.hasDistanceOnly||this.textErrors.length?'Totaux partiels':''].filter(Boolean).join(' · ');
+  }
+  locate(id){const visit=list=>{for(const b of list){if(b.id===id)return b;const found=visit(b.children||[]);if(found)return found;}return null;};return visit(this.blocks);}
+  editStep(id){
+    if(this.mini||this.lockedReason)return;
+    const line=this.lines.find(l=>l.blockId===id);if(!line)return;
+    const block=this.result.blocks.flatMap(b=>b.kind==='repeat'?b.children:[b]).find(b=>b.id===id)||this.locate(id);if(!block||block.kind==='repeat')return;
+    this.openMini('edit',block,{start:line.start,end:line.end});
+  }
+  setEditing(value){this.surface.contentEditable=String(!value&&!this.lockedReason);this.surface.setAttribute('aria-readonly',String(value));for(const b of this.container.querySelectorAll('.pe-tools button,.pe-formatbar button'))b.disabled=value||!!this.lockedReason||b.dataset.action==='library'&&!this.onLibrary;}
+  openMini(action,source=null,range=null){
+    if(this.mini||this.lockedReason)return;this.textInput.capture();
+    this.mini={action,source,range,selection:{...this.textInput.selection}};this.setEditing(true);
+    const repeated=['add-repeat','add-rounds'].includes(action),rounds=action==='add-rounds';
+    const panel=el('section',{class:'pe-mini','aria-label':repeated?'Ajouter un groupe':source?'Modifier une étape':'Ajouter une étape'});
+    panel.append(el('h4',{},source?'Modifier une étape':rounds?'Ajouter des rounds':repeated?'Ajouter une répétition':'Ajouter une étape'));
+    const heading=input('optional_heading','','text',{maxLength:500});
+    let count,common;const rows=[],rowHost=el('div',{class:'pe-sequence-lines'});
+    if(repeated){count=input('block_count',rounds?3:2,'number',{min:1,max:100,step:1,'data-field':'repeat_count'});common=typeSelect('repeat_type',rounds||this.sport==='boxing'?'shadow':this.sport==='running'?'run':'other',this.sport,rounds,true);panel.append(el('div',{class:'pe-repeat-settings'},field('Nombre',count),field('Type du groupe',common)));}
+    panel.append(field('Titre (facultatif)',heading));
+    const refresh=()=>rows.forEach((row,i)=>{row.title.textContent=`Étape ${i+1}`;row.up.disabled=i===0;row.down.disabled=i===rows.length-1;row.remove.disabled=rows.length===1;row.updateType();rowHost.append(row.node);});
+    const addRow=(initial)=>{
+      const row=this.stepForm(initial,common,rounds);row.title=el('strong');
+      const move=n=>{const i=rows.indexOf(row);[rows[i],rows[i+n]]=[rows[i+n],rows[i]];refresh();};
+      row.up=button('↑',()=>move(-1),'pe-button',{'aria-label':'Monter cette ligne'});row.down=button('↓',()=>move(1),'pe-button',{'aria-label':'Descendre cette ligne'});row.remove=button('×',()=>{rows.splice(rows.indexOf(row),1);row.node.remove();refresh();},'pe-button',{'aria-label':'Supprimer cette ligne'});
+      if(repeated)row.node.prepend(el('header',{class:'pe-sequence-head'},row.title,el('div',{class:'pe-sequence-actions'},row.up,row.down,row.remove)));
+      rows.push(row);refresh();
     };
-    panel.append(error, el('div', { class: 'pe-mini-actions' }, button('Annuler', () => { this.mini = null; this.render(); }, 'pe-button'), button(draft.id ? 'Appliquer' : 'Ajouter', apply, 'pe-button pe-primary', { dataset: { action: 'apply-mini' } })));
-    panel.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.tagName === 'INPUT') { event.preventDefault(); apply(); } });
-    return panel;
+    addRow(source||makeBlock(repeated?common.value:this.sport==='running'?'run':this.sport==='boxing'?'shadow':'other'));panel.append(rowHost);
+    if(common)common.addEventListener('change',refresh);
+    if(repeated)panel.append(button('＋ Ajouter une ligne',()=>{if(rows.length<100)addRow(makeBlock(common.value==='hybrid'?'other':common.value));},'pe-button',{dataset:{action:'add-repeat-line'}}),el('p',{class:'pe-hint'},'Toutes les lignes sont répétées, dernier repos inclus.'));
+    const errors=errorBox();const cancel=()=>{this.mini=null;this.miniMount.replaceChildren();this.setEditing(false);this.surface.focus();this.textInput.select(this.textInput.selection.start,this.textInput.selection.end);};
+    const apply=()=>{try{
+      let blocks=rows.map(row=>row.read());if(repeated){const n=Number(count.value);if(!Number.isInteger(n)||n<1||n>100)throw new Error('Indique un nombre entier de 1 à 100.');blocks=[{...makeBlock('repeat'),repeat_count:n,...(rounds?{repeat_unit:'rounds'}:{}),children:blocks}];}
+      const errors=summarizeBlocks(blocks).errors;if(errors.length)throw new Error(errors.join(' '));
+      const title=heading.value.trim(),parsedTitle=parseTrainingText(title);if(parsedTitle.blocks.length||parsedTitle.errors.length)throw new Error('Ce titre ressemble à une étape ou une répétition. Écris-le comme un titre libre.');
+      // Existing notes already occupy their own lines in the document. Keep
+      // their data, but never duplicate them into the edited step's instruction.
+      const draft=this.mini,serialized=serializeTrainingDocument(draft.range?blocks.map(block=>({...block,notes:''})):blocks);
+      const model={...serialized,blocks:draft.range?blocks:serialized.blocks},fragment=[title,serialized.text].filter(Boolean).join('\n'),offset=title?title.length+1:0;cancel();
+      if(draft.range)this.replaceFragment(draft.range.start,draft.range.end,fragment,model,offset);else{this.textInput.selection=draft.selection;this.insertFragment(fragment,repeated,!!title,model,offset);}
+    }catch(error){showError(errors,error);}};
+    panel.append(errors,el('div',{class:'pe-mini-actions'},button('Annuler',cancel,'pe-button'),button(source?'Appliquer':'Ajouter',apply,'pe-button pe-primary',{dataset:{action:'apply-mini'}})));
+    panel.addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target.tagName==='INPUT')event.preventDefault();});
+    this.miniMount.replaceChildren(panel);(count||panel.querySelector('select,input'))?.focus();
   }
-  setupSorting() {
-    this.container.querySelectorAll('.pe-list').forEach(list => this.sortables.push(Sortable.create(list, {
-      group: this.group, handle: '.pe-handle', draggable: '.pe-row', animation: 150, delay: 170, delayOnTouchOnly: true, touchStartThreshold: 5, fallbackOnBody: true, ghostClass: 'pe-ghost',
-      onMove: event => {
-        const block = this.locate(event.dragged.dataset.id)?.block;
-        return !!block && !event.dragged.contains(event.to) && Number(event.to.dataset.depth) + depthOf(block) - 1 <= WORKOUT_LIMITS.depth;
-      },
-      onEnd: () => {
-        const previous = clone(this.blocks), byId = new Map();
-        const collect = blocks => blocks.forEach(block => { byId.set(block.id, block); collect(block.children || []); }); collect(this.blocks);
-        const read = node => [...node.children].filter(child => child.matches('.pe-row')).map(row => {
-          const block = byId.get(row.dataset.id); if (block.kind === 'repeat') block.children = read(row.querySelector(':scope > .pe-list')); return block;
-        });
-        try { this.blocks = read(this.container.querySelector(':scope > .pe-list')); validate(this.blocks); this.render(); this.emit(); }
-        catch (error) { this.blocks = previous; this.render(); this.showError(error.message); }
-      },
-    })));
+  stepForm(source,common,rounds){
+    const node=el('article',{class:'pe-sequence-row'}),type=typeSelect('block_type',source.type,this.sport,rounds),typeField=field('Type',type);
+    const name=input('block_title',source.type==='other'?source.title:'','text',{maxLength:500,'data-field':'title'}),nameField=field('Nom',name);
+    const initialFormat=source.distance_m!=null?source.duration_seconds!=null?'mixed':'distance':source.duration_seconds!=null?'time':'free';
+    const format=choose('block_format',[['time','Durée'],['distance','Distance'],['mixed','Durée et distance'],['free','Sans mesure']],this.mini?.action==='edit'||source.id&&this.locate(source.id)?initialFormat:'time');format.dataset.field='format';
+    const time=input('block_duration',timeText(source.duration_seconds),'text',{'data-field':'duration'}),meters=input('block_distance',source.distance_m??'','text',{inputMode:'decimal','data-field':'distance'});
+    const timeField=field('Durée',time),distanceField=field('Distance · mètres',meters);
+    const instruction=textarea('block_description',source.description||'',{rows:2,maxLength:10000,'data-field':'description'});
+    const effort=effortControl(source,source.id);
+    const updateFormat=()=>{timeField.hidden=!['time','mixed'].includes(format.value);distanceField.hidden=!['distance','mixed'].includes(format.value);};format.addEventListener('change',updateFormat);updateFormat();
+    const updateType=()=>{typeField.hidden=!!common&&common.value!=='hybrid';nameField.hidden=(common&&common.value!=='hybrid'?common.value:type.value)!=='other';};type.addEventListener('change',updateType);updateType();
+    node.append(el('div',{class:'pe-sequence-fields'},typeField,nameField,field('Mesure',format),timeField,distanceField),effort.node,field('Consigne',instruction));
+    return {node,updateType,read:()=>{
+      const actualType=common&&common.value!=='hybrid'?common.value:type.value;if(!actualType)throw new Error('Choisis une activité.');if(actualType==='other'&&!name.value.trim())throw new Error('Indique le nom de l’activité.');
+      const next={...clone(source),type:actualType,title:actualType==='other'?name.value.trim():label(actualType),description:instruction.value,duration_seconds:null,distance_m:null,rounds:null,work_seconds:null,rest_seconds:null,zone:null,effort:effort.read()};
+      if(['time','mixed'].includes(format.value))next.duration_seconds=readQuantity(time.value,'time');if(['distance','mixed'].includes(format.value))next.distance_m=readQuantity(meters.value,'distance');
+      if(next.effort?.kind==='zone'&&next.effort.min===next.effort.max)next.zone=next.effort.min;return next;
+    }};
+  }
+  insertFragment(fragment,group=false,heading=false,model=null,modelOffset=0){
+    const {start,end}=this.textInput.selection,text=this.document.text;
+    // Insert whole lines. A group gets its own blank-line boundaries; one step can join the current group.
+    const from=text.lastIndexOf('\n',Math.max(0,start-1))+1,found=text.indexOf('\n',end),to=found<0?text.length:found;
+    // Adding never deletes selected text. Only the graph's explicit Edit action
+    // replaces a source line; insertion follows the selected complete lines.
+    let at=start===end?(start===from?from:to):(end>0&&text[end-1]==='\n'?end:to),finish=at;
+    if(group||heading){
+      let current=null;
+      for(const line of this.lines){if(line.start>at)break;if(line.kind==='blank')current=null;else if(line.kind==='repeat'&&line.blockId)current=line;}
+      if(current&&at>current.start){const boundary=this.lines.find(line=>line.start>at&&line.kind==='blank');at=boundary?boundary.start:text.length;finish=at;}
+    }
+    const before=text.slice(0,at),after=text.slice(finish),separator=group||heading?'\n\n':'\n';
+    const prefix=before&&!before.endsWith(separator)?separator.slice(before.endsWith('\n')?1:0):'';
+    const suffix=after&&!after.startsWith(separator)?separator.slice(after.startsWith('\n')?1:0):group?'\n\n':'';
+    this.replaceFragment(at,finish,prefix+fragment+suffix,model,prefix.length+modelOffset);
   }
 }

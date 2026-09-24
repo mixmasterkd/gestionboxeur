@@ -65,7 +65,7 @@ function renderAccount() {
   $('gymAddress').hidden=!$('gymAddress').textContent;
   $('gymHome').href=isCoach()?'./':'planning.html';
   document.title=`Planification — ${$('gymBrand').textContent}`;
-  $('rosterLink').hidden=!isCoach();$('libraryButton').hidden=!isCoach()||!state.planningAvailable;$('adminLink').hidden=!state.profile.is_admin;
+  $('rosterLink').hidden=!isCoach();$('libraryButton').hidden=!state.planningAvailable;$('adminLink').hidden=!state.profile.is_admin;
   $('connectionsButton').hidden=!state.planningAvailable;
   $('planningUnavailable').hidden=state.planningAvailable;
   $('workspace').hidden=!state.planningAvailable;

@@ -1,0 +1,30 @@
+/* A common effort plan in the editor and calendar, across both appearances. */
+.session-chart:not(.session-chart-compact) { margin: 16px 0 0; border-radius: 14px; }
+.session-chart figcaption { color: var(--ink); }
+.session-chart-guide { stroke: var(--line); }
+.session-chart-baseline { stroke: var(--muted); opacity: .65; }
+.session-chart-axis { fill: var(--muted); }
+.session-chart-axis-labels { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 10px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.session-chart-compact .session-chart-axis-labels { display: none; }
+.session-chart-segment[role="button"] { cursor: pointer; outline: none; }
+.session-chart-segment[role="button"] .session-chart-lower,
+.session-chart-segment[role="button"] .session-chart-upper { transition: fill-opacity .12s ease; }
+.session-chart-hit { stroke: transparent; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.session-chart-segment[role="button"]:hover .session-chart-hit,
+.session-chart-segment[role="button"]:focus-visible .session-chart-hit,
+.session-chart-segment[data-selected] .session-chart-hit { stroke: var(--ink); }
+.session-chart-selection { display: block; margin-top: 12px; padding: 10px 12px; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); color: var(--ink); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.session-chart-legend { gap: 8px 12px; }
+.session-chart-legend span { color: var(--muted); }
+.session-chart-legend span::before { width: 10px; height: 12px; flex: 0 0 10px; }
+.session-chart-empty:not(.session-chart-compact) { min-height: 125px; display: flex; flex-direction: column; justify-content: center; }
+.session-chart-empty .session-chart-note { margin-top: 0; }
+@media (max-width: 620px) {
+  .session-chart:not(.session-chart-compact) { padding: 12px; }
+  .session-chart:not(.session-chart-compact) svg { height: 130px; }
+  .session-chart-selection { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-chart-segment[role="button"] .session-chart-lower,
+  .session-chart-segment[role="button"] .session-chart-upper { transition: none; }
+}

@@ -24,6 +24,10 @@ function fixture({ athlete = false, api = {}, canEdit = () => true, canAdd = () 
   return { ui, state, refreshed: () => refreshed };
 }
 function submit(dialogId) { document.querySelector(`#${dialogId} form`).dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); }
+function writeTraining(text) {
+  const editor=document.querySelector('.pe-text-input'); editor.textContent=text;
+  editor.dispatchEvent(new window.Event('input',{bubbles:true})); return editor;
+}
 
 test('a coach can create a reusable workout without an athlete or calendar write permission', async () => {
   let payload;
@@ -34,12 +38,11 @@ test('a coach can create a reusable workout without an athlete or calendar write
   assert.equal(document.querySelector('[name="sport"]').value, 'boxing');
   assert.equal(document.querySelector('[name="sport"] option').value, 'boxing');
   assert.equal(document.querySelector('[name="sport"] option[value="sparring"]'), null);
-  document.querySelector('[data-mode="text"]').click();
-  const text = document.querySelector('.pe-text-input'); text.value = '# Travail léger, détails à préciser'; text.dispatchEvent(new window.Event('input'));
+  writeTraining('Travail léger, détails à préciser');
   assert.equal(document.querySelector('[name="date"]'), null);
   submit('sessionDialog'); await tick();
   assert.equal(payload.kind, 'session'); assert.equal(payload.sport, 'boxing'); assert.equal(payload.coach_id, 'coach1');
-  assert.equal(payload.notes, 'Travail léger, détails à préciser'); assert.deepEqual(payload.blocks, []);
+  assert.equal(payload.notes, ''); assert.equal(payload.workout_document.text, 'Travail léger, détails à préciser'); assert.deepEqual(payload.blocks, []);
   assert.equal(payload.athlete_id, undefined);
 });
 
@@ -49,10 +52,10 @@ test('legacy description and shared notes are edited in the single program text 
   ui.editSession({ ...session(), description: 'Objectif technique', notes: 'Apporter les gants' });
   assert.equal(document.querySelector('[name="description"]'), null);
   assert.equal(document.querySelector('[name="notes"]'), null);
-  document.querySelector('[data-mode="text"]').click();
-  assert.match(document.querySelector('.pe-text-input').value, /# Objectif technique/);
+  assert.match(document.querySelector('.pe-text-input').textContent, /Objectif technique/);
   submit('sessionDialog'); await tick();
-  assert.equal(payload.description, ''); assert.equal(payload.notes, 'Objectif technique\n\nApporter les gants');
+  assert.equal(payload.description, ''); assert.equal(payload.notes, '');
+  assert.match(payload.workout_document.text, /Objectif technique/); assert.match(payload.workout_document.text, /Apporter les gants/);
 });
 
 test('event pastel selection is restored, saved and used in its detail', async () => {
@@ -74,7 +77,7 @@ test('session update sends only editable fields, preserves order and optimistic 
   ui.editSession(session());
   document.querySelector('[name="title"]').value = ' Nouveau titre ';
   submit('sessionDialog'); await tick();
-  assert.deepEqual(Object.keys(payload).sort(), ['blocks', 'date', 'description', 'notes', 'sort_order', 'sport', 'title']);
+  assert.deepEqual(Object.keys(payload).sort(), ['blocks', 'date', 'description', 'notes', 'sort_order', 'sport', 'title', 'workout_document']);
   assert.equal(payload.title, 'Nouveau titre'); assert.equal(payload.sort_order, 2048);
   assert.equal(previous.updated_at, 'version1'); assert.equal(refreshed(), 1);
   assert.equal(document.getElementById('sessionDialog').open, false);
@@ -239,18 +242,15 @@ test('saved completion with a failed reload closes the stale detail and asks to 
   assert.match(document.getElementById('toast').textContent,/Statut enregistré.*Actualise/);
 });
 
-test('text program saves the shared structure but invalid lines block the session save',async()=>{
+test('free text and malformed effort stay saved alongside the valid structured steps',async()=>{
   let payload;
   const {ui}=fixture({api:{saveSession:async p=>{payload=p;}}}); ui.editSession();
   document.querySelector('[name="title"]').value='Course texte';
   document.querySelector('[name="sport"]').value='running';document.querySelector('[name="sport"]').dispatchEvent(new window.Event('change'));
-  document.querySelector('[data-mode="text"]').click();
-  const text=document.querySelector('.pe-text-input');
-  text.value='Course\n10m @ Z2\n2x\n  1m @ Z4\n  1m @ Z1 - Marcher\ninvalid';text.dispatchEvent(new window.Event('input',{bubbles:true}));
-  submit('sessionDialog');await tick();assert.equal(payload,undefined);
-  assert.match(document.querySelector('#sessionDialog .dialog-body > .form-error').textContent,/ligne/);
-  text.value=text.value.replace('\ninvalid','');text.dispatchEvent(new window.Event('input',{bubbles:true}));
+  const source='Course\n- Jog 10m @ Z2\n\n2x\n- Course 1m @ Z4\n- Marche 1m @ Z1 - Marcher\n\nConsigne libre\n- Sac 2m @ Z9';
+  writeTraining(source);
   submit('sessionDialog');await tick();assert.equal(payload.blocks.length,2);assert.equal(payload.blocks[1].children[1].description,'Marcher');
+  assert.equal(payload.workout_document.text,source);
   assert.equal(payload.sport,'running');assert.equal(payload.blocks[0].duration_seconds,600);
 });
 
@@ -258,12 +258,11 @@ test('coach can save a model without scheduling and program actions reenable the
   let model,scheduled=0;
   const {ui}=fixture({api:{saveTemplate:async p=>{model=p;},saveSession:async()=>{scheduled++;}}});
   ui.editSession();document.querySelector('[name="title"]').value='Mon modèle';
-  document.querySelector('[data-mode="text"]').click();const text=document.querySelector('.pe-text-input');
-  text.value='Shadow\n3rounds 1m/1m - Faire du 8/16';text.dispatchEvent(new window.Event('input',{bubbles:true}));
+  writeTraining('Shadow\n3 rounds\n- Shadow 1m @ RPE 6 - Faire du 8/16\n- Repos 1m');
   const keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Garder comme modèle');
-  keep.click();await tick();assert.equal(scheduled,0);assert.equal(model.kind,'session');assert.equal(model.coach_id,'coach1');assert.equal(model.blocks[0].rounds,3);
+  keep.click();await tick();assert.equal(scheduled,0);assert.equal(model.kind,'session');assert.equal(model.coach_id,'coach1');assert.equal(model.blocks[0].repeat_count,3);
   assert.equal(keep.disabled,true);assert.equal(document.getElementById('sessionDialog').open,true);
-  document.querySelector('[data-mode="program"]').click();document.querySelector('[data-action="duplicate"]').click();
+  writeTraining(model.workout_document.text+'\n\nConsigne supplémentaire');
   assert.equal(keep.disabled,false);assert.equal(keep.textContent,'Garder comme modèle');
 });
 
@@ -290,7 +289,8 @@ test('one library inserts blocks or replaces a session while keeping date and he
  let options,payload;
  const {ui}=fixture({openLibrary:value=>{options=value;},api:{saveSession:async value=>{payload=value;}}});
  ui.editSession(null,'2026-09-23');
- const library=document.querySelector('.session-library-button');assert.ok(library.querySelector('svg'));assert.equal(document.querySelectorAll('.session-library-access button').length,1);
+ const libraries=[...document.querySelectorAll('#sessionDialog button')].filter(button=>button.textContent.trim()==='Bibliothèque');
+ assert.equal(libraries.length,1);const library=libraries[0];assert.ok(library.querySelector('svg'));
  assert.ok(document.querySelector('.session-basics [name=is_locked]'));assert.ok(document.querySelector('.session-basics [name=title]'));assert.equal(document.querySelector('.dialog-body > .lock-control'),null);
  library.click();assert.equal(options.kind,undefined);
  const step={id:'first',kind:'step',type:'shadow',title:'Shadow',duration_seconds:60,children:[]};
@@ -344,4 +344,51 @@ test('historical sparring sessions reopen under boxing while retaining their tit
  assert.equal(document.querySelector('[name="sport"] option[value="sparring"]'),null);
  submit('sessionDialog');await tick();
  assert.equal(payload.sport,'boxing');assert.equal(payload.title,'Sparring technique');assert.equal(payload.blocks[0].type,'sparring');assert.equal(payload.blocks[0].duration_seconds,180);
+});
+
+test('formatted source survives duplication, scheduling, detail display and saving a model',async()=>{
+ let payload,model;
+ const {ui}=fixture({api:{saveSession:async value=>{payload=value;},saveTemplate:async value=>{model=value;}}});
+ const document={version:1,text:'Travail libre\n\n<img src=x onerror=alert(1)>',marks:[{start:0,end:7,bold:true,color:'mint'},{start:8,end:13,underline:true}]};
+ const original={...session(),workout_document:document,description:'Ancien contenu remplacé',notes:'Ancienne note remplacée'};
+ ui.editSession(original,'2026-10-05',true);submit('sessionDialog');await tick();await tick();
+ assert.deepEqual(payload.workout_document,document); assert.equal(payload.notes,''); assert.equal(payload.description,'');
+ ui.showSession({...original,...payload});
+ const view=globalThis.document.querySelector('#detailDialog .training-document');
+ assert.equal(view.textContent,document.text);assert.equal(view.querySelector('img'),null);
+ assert.ok(view.querySelector('[data-bold="true"][data-color="mint"]'));assert.ok(view.querySelector('[data-underline="true"]'));
+ assert.doesNotMatch(globalThis.document.querySelector('#detailDialog').textContent,/Ancien contenu remplacé|Ancienne note remplacée/);
+ assert.ok(globalThis.document.querySelector('#detailDialog .session-chart'));
+ [...globalThis.document.querySelectorAll('#detailDialog button')].find(button=>button.textContent==='Enregistrer comme modèle').click();await tick();
+ assert.deepEqual(model.workout_document,document);assert.equal(model.coach_id,'coach1');
+});
+
+test('library replacement retains formatting and free text when the model has no structured steps',async()=>{
+ let options,payload;
+ const {ui}=fixture({openLibrary:value=>{options=value;},api:{saveSession:async value=>{payload=value;}}});
+ ui.editSession(null,'2026-09-24');
+ [...document.querySelectorAll('#sessionDialog button')].find(button=>button.textContent.trim()==='Bibliothèque').click();
+ const source={version:1,text:'Technique au choix\n\nObserver les déplacements',marks:[{start:0,end:18,color:'blue',bold:true}]};
+ await options.onSelect({title:'Travail personnel',sport:'boxing',kind:'session',blocks:[],workout_document:source});
+ submit('sessionDialog');await tick();await tick();
+ assert.deepEqual(payload.workout_document,source);assert.deepEqual(payload.blocks,[]);assert.equal(payload.title,'Travail personnel');
+});
+
+test('replacing only free text still asks before discarding the draft',async()=>{
+ let options;
+ const {ui}=fixture({openLibrary:value=>{options=value;}});ui.editSession();writeTraining('Mes consignes à garder');
+ const confirmation=document.createElement('dialog');confirmation.id='confirmDialog';
+ confirmation.innerHTML='<h2 id="confirmTitle"></h2><p id="confirmText"></p><button id="confirmYes"></button>';document.body.append(confirmation);
+ [...document.querySelectorAll('#sessionDialog button')].find(button=>button.textContent.trim()==='Bibliothèque').click();
+ const replacing=options.onSelect({title:'Modèle',sport:'boxing',kind:'session',blocks:[],workout_document:{version:1,text:'Autres consignes',marks:[]}});
+ await tick();assert.equal(confirmation.open,true);confirmation.close('cancel');await replacing;
+ assert.equal(document.querySelector('.pe-text-input').textContent,'Mes consignes à garder');assert.equal(document.querySelector('[name=title]').value,'');
+});
+
+test('athletes may create their own reusable document without calendar access',async()=>{
+ let payload;
+ const {ui,state}=fixture({athlete:true,canAdd:()=>false,api:{saveTemplate:async value=>{payload=value;}}});state.selectedAthlete=null;
+ ui.editTemplate();document.querySelector('[name=title]').value='Mon entraînement';writeTraining('Consignes personnelles');
+ submit('sessionDialog');await tick();
+ assert.equal(payload.coach_id,'athlete1');assert.equal(payload.workout_document.text,'Consignes personnelles');assert.equal(payload.athlete_id,undefined);
 });

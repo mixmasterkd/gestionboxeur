@@ -70,7 +70,7 @@ test('explicit keep saves sanitized content once and gives per-model feedback', 
   await ui.open(); source('starter'); action('starter-jog-10', 'keep-template').click(); await tick();
   source('personal'); source('starter'); action('starter-jog-10', 'keep-template').click();
   assert.equal(writes.length, 1);
-  assert.deepEqual(Object.keys(writes[0]).sort(), ['blocks', 'coach_id', 'description', 'kind', 'notes', 'sport', 'title']);
+  assert.deepEqual(Object.keys(writes[0]).sort(), ['blocks', 'coach_id', 'description', 'kind', 'notes', 'sport', 'title', 'workout_document']);
   assert.equal(writes[0].coach_id, 'coach1');
   saving.resolve(); await tick();
   assert.equal(action('starter-jog-10', 'keep-template').disabled, true);
@@ -138,10 +138,25 @@ test('block selection copies blocks even when adding calendar sessions is not pe
   assert.equal(selected.kind, 'block'); assert.equal(document.getElementById('libraryDialog').open, false);
 });
 
-test('athlete role cannot load or act on coach templates', async () => {
-  const { ui, calls } = fixture({ athlete: true });
-  await ui.open(); assert.match(document.getElementById('libraryContent').textContent, /réservée aux coachs/);
-  assert.deepEqual(calls, []);
+test('athletes use their own library and cannot see another owner’s models', async () => {
+  const document={version:1,text:'Ma consigne personnalisée',marks:[{start:0,end:2,bold:true}]};
+  const own={...ownTemplate('athlete-template'),coach_id:'athlete1',workout_document:document};
+  const { ui, calls } = fixture({ athlete: true,templates:[own,ownTemplate('coach-template')] });
+  await ui.open(); assert.ok(card('athlete-template')); assert.equal(card('coach-template'),null);
+  action('athlete-template','use-template').click();
+  const copied=calls.find(call=>call[0]==='use')[1];
+  assert.deepEqual(copied.workout_document,document);
+  copied.workout_document.marks[0].end=5;
+  assert.equal(document.marks[0].end,2);
+});
+
+test('model preview displays authored text safely and its chart, including sessions without structured steps',async()=>{
+ const workout_document={version:1,text:'<script>texte libre</script>',marks:[{start:0,end:8,bold:true,color:'lavender'}]};
+ const {ui}=fixture({templates:[{...ownTemplate(),blocks:[],workout_document}]});await ui.open();
+ const preview=card('personal-1').querySelector('details');preview.open=true;preview.dispatchEvent(new window.Event('toggle'));
+ const body=preview.querySelector('.template-preview');assert.equal(body.querySelector('script'),null);
+ assert.equal(body.querySelector('.training-document')?.textContent ?? body.childNodes[0]?.textContent,workout_document.text);
+ assert.ok(body.querySelector('[data-color="lavender"]'));assert.ok(body.querySelector('.session-chart'));
 });
 
 test('permission and account changes are checked again when using or saving a model', async () => {

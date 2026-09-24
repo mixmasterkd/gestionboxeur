@@ -81,6 +81,34 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       await assert.rejects(()=>db.query('insert into auth.users(id,email,raw_user_meta_data) values($1,$2,$3)',['ab000000-0000-4000-8000-000000000003','valid@example.test',JSON.stringify(metadata)]),/contact invalide/);
     });
 
+    await t.test('workout documents preserve free text and formatting without broadening calendar or library access',async()=>{
+      const owner='ac000000-0000-4000-8000-000000000001';
+      await signup(owner,'athlete','Texte Libre'); await login(owner);
+      const athlete=await scalar('select id from public.athletes where user_id=auth.uid()');
+      const document={version:1,text:'🥊 Travail libre\n\n- Sac 3\' @ RPE 6',marks:[{start:0,end:2,bold:true},{start:3,end:16,underline:true,color:'coral'}]};
+      const entry=await scalar("insert into public.training_sessions(athlete_id,title,date,workout_document) values($1,'Texte','2026-09-24',$2) returning id",[athlete,JSON.stringify(document)]);
+      const model=await scalar("insert into public.session_templates(title,blocks,workout_document) values('Texte','[]',$1) returning id",[JSON.stringify(document)]);
+      assert.deepEqual(await scalar('select workout_document from public.training_sessions where id=$1',[entry]),document);
+      assert.deepEqual(await scalar('select workout_document from public.session_templates where id=$1',[model]),document);
+      await login(coach1);
+      assert.equal(await scalar('select count(*)::int from public.training_sessions where id=$1',[entry]),0);
+      assert.equal(await scalar('select count(*)::int from public.session_templates where id=$1',[model]),0);
+      assert.equal((await db.query('update public.training_sessions set workout_document=null where id=$1 returning id',[entry])).rows.length,0);
+      assert.equal((await db.query('update public.session_templates set workout_document=null where id=$1 returning id',[model])).rows.length,0);
+      await login(owner);
+      const invalid=[[],{}, {...document,version:2},{...document,text:'a'.repeat(20001)}, {...document,marks:{}}, {...document,marks:Array.from({length:2001},()=>({start:0,end:1,bold:true}))},
+        ...[{start:-1,end:1},{start:0,end:999},{start:0.5,end:1},{start:0,end:1,color:'javascript:bad'},{start:0,end:1,bold:false}].map(mark=>({...document,marks:[mark]}))];
+      for(const value of invalid) {
+        await denied(()=>db.query('update public.training_sessions set workout_document=$1 where id=$2',[JSON.stringify(value),entry]));
+        await denied(()=>db.query('update public.session_templates set workout_document=$1 where id=$2',[JSON.stringify(value),model]));
+      }
+      await db.query('update public.training_sessions set workout_document=$1 where id=$2',[JSON.stringify({version:1,text:'🥊',marks:[{start:0,end:2,bold:true}]}),entry]);
+      await denied(()=>db.query('update public.training_sessions set workout_document=$1 where id=$2',[JSON.stringify({version:1,text:'🥊',marks:[{start:0,end:3,bold:true}]}),entry]));
+      await db.query('update public.session_templates set workout_document=null where id=$1',[model]);
+      await admin(); await db.query('delete from auth.users where id=$1',[owner]); await db.query('delete from public.athletes where id=$1',[athlete]);
+      assert.equal(await scalar('select workout_document from public.training_sessions where id=$1',[legacyFeedbackSession]),null);
+    });
+
     await t.test('completion upgrade backfills existing feedback without modifying authors, content locks or feedback',async()=>{
       assert.equal(await scalar("select completed_at=timestamp with time zone '2026-09-20 19:15:00+00' from public.training_sessions where id=$1",[legacyFeedbackSession]),true);
       assert.equal(await scalar('select is_locked from public.training_sessions where id=$1',[legacyFeedbackSession]),true);

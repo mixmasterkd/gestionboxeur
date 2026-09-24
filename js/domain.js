@@ -12,14 +12,14 @@ export const BLOCK_TYPE_GROUPS = [
   { label: '🥊 Boxe', types: [['shadow', 'Shadow'], ['bag', 'Sac'], ['pads', 'Pads'], ['sparring', 'Sparring'], ['jump_rope', 'Corde à danser'], ['speed_ball', 'Speed ball'], ['double_end_bag', 'Double end bag'], ['technique', 'Technique'], ['footwork', 'Déplacements']] },
   { label: '🏃 Course', types: [['run', 'Course'], ['jog', 'Jog'], ['interval', 'Intervalle']] },
   { label: 'Préparation physique', types: [['warmup', 'Échauffement'], ['burpees', 'Burpees'], ['agility', 'Agilité'], ['conditioning', 'Conditioning'], ['cardio', 'Cardio'], ['strength', 'Renforcement'], ['mobility', 'Mobilité']] },
-  { label: 'Autres', types: [['recovery', 'Récupération'], ['other', 'Autre']] },
+  { label: 'Autres', types: [['recovery', 'Repos'], ['active_recovery', 'Repos actif'], ['walk', 'Marche'], ['other', 'Autre']] },
 ];
 export const BLOCK_TYPES = BLOCK_TYPE_GROUPS.flatMap(group => group.types.map(([id, label]) => ({ id, label })));
 export function blockName(block) {
   if (block.kind === 'repeat') return block.repeat_unit === 'rounds' ? 'Rounds' : 'Répétition';
   return block.type === 'other' ? block.title || 'Autre' : BLOCK_TYPES.find(type => type.id === block.type)?.label || block.type || 'Étape';
 }
-export const ZONE_COLORS = { 1: '#9298a1', 2: '#3b82f6', 3: '#25a567', 4: '#ed9427', 5: '#e54b4b', 6: '#9b60db', 7: '#442c65' };
+export const ZONE_COLORS = { 1: '#9298a1', 2: '#3b82f6', 3: '#25a567', 4: '#ed9427', 5: '#e54b4b', 6: '#9b60db', 7: '#aa82dd' };
 export const WORKOUT_LIMITS = Object.freeze({ depth: 4, blocks: 200, siblings: 100, repeat: 100, segments: 10000 });
 const finitePositive = value => typeof value === 'number' && Number.isFinite(value) && value > 0;
 const makeId = () => globalThis.crypto?.randomUUID?.() || `block-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;

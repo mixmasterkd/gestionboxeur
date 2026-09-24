@@ -1,20 +1,23 @@
 import { SPORTS, summarizeBlocks, formatDuration, makeBlock } from './domain.js';
 import { getStarterTemplates } from './starter-templates.js';
 import { renderWorkout } from './editor.js';
+import { renderTrainingDocument } from './workout-rich-text.js';
+import { parseTrainingText } from './workout-document.js';
+import { renderSessionChart } from './session-chart.js';
 import { $, el, button, heading, errorBox, showError, confirmAction, toast, field, input, select, busy } from './ui.js';
 
 const freshBlocks = blocks => (blocks || []).map(block => ({ ...structuredClone(block), id: makeBlock().id, children: freshBlocks(block.children) }));
 const copyTemplate = template => ({ ...structuredClone(template), blocks: freshBlocks(template.blocks) });
 const savedFields = (template, ownerId) => ({
   title: template.title, sport: template.sport, description: template.description || '', notes: template.notes || '',
-  blocks: freshBlocks(template.blocks), kind: template.kind, coach_id: ownerId,
+  blocks: freshBlocks(template.blocks), workout_document: template.workout_document ? structuredClone(template.workout_document) : null, kind: template.kind, coach_id: ownerId,
 });
 // Fresh block IDs differ on every copy; compare content to avoid identical kit copies.
 const withoutIds = value => Array.isArray(value) ? value.map(withoutIds)
   : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).filter(key => key !== 'id').sort().map(key => [key, withoutIds(value[key])])) : value;
 const fingerprint = template => JSON.stringify(withoutIds({
   title: template.title, sport: template.sport, description: template.description || '', notes: template.notes || '',
-  blocks: template.blocks || [], kind: template.kind,
+  blocks: template.blocks || [], workout_document: template.workout_document || null, kind: template.kind,
 }));
 
 export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTemplate, api }) {
@@ -30,9 +33,9 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     const body = el('div', { class: 'dialog-body' });
     wrap.replaceChildren(heading(kind === 'block' ? 'Tes blocs réutilisables' : 'Ta bibliothèque', 'SÉANCES ET BLOCS', dialog, 'libraryTitle'), body);
     if (!dialog.open) dialog.showModal();
-    const authorized = () => Boolean(ownerId && getState().user?.id === ownerId && getState().profile?.account_type === 'coach');
+    const authorized = () => Boolean(ownerId && getState().user?.id === ownerId);
     const active = () => current === ticket && dialog.open && wrap.contains(body) && authorized();
-    if (!authorized()) { body.append(el('p', {}, 'La bibliothèque est réservée aux coachs.')); return; }
+    if (!authorized()) { body.append(el('p', {}, 'Connecte-toi pour ouvrir ta bibliothèque.')); return; }
 
     if (onCreateTemplate && kind !== 'block' && !onSelect) body.append(button('＋ Créer un entraînement', () => { if (!authorized()) return; dialog.close(); onCreateTemplate(); }, 'button primary'));
     let source = 'personal', folder = 'personal', filter = kind || 'all', templates = [], folders = [], loading = true;
@@ -73,7 +76,7 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
       const baseGroup = t=>t.sport==='running'?'running':['boxing','sparring'].includes(t.sport)?'boxing':'other';
       const items = source === 'starter' ? starter.filter(t=>folder==='base:'+baseGroup(t)) : templates.filter(t=>own(t)&&(folder==='personal'||folder==='unfiled'&&!t.folder_id||t.folder_id===folder));
       const query = search.value.trim().toLocaleLowerCase('fr');
-      const list = items.filter(template => (filter === 'all' || template.kind === filter) && `${template.title} ${template.description || ''}`.toLocaleLowerCase('fr').includes(query));
+      const list = items.filter(template => (filter === 'all' || template.kind === filter) && `${template.title} ${template.description || ''} ${template.workout_document?.text || ''}`.toLocaleLowerCase('fr').includes(query));
       if (!list.length) {
         const empty = source === 'personal' && loading ? 'Chargement de tes modèles…'
           : query ? 'Aucun modèle correspondant.' : source === 'starter' && filter === 'block' ? 'Ce dossier contient des séances complètes.'
@@ -88,7 +91,14 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
           el('h3', {}, template.title), el('p', {}, [summary.hasTime ? formatDuration(summary.duration_seconds) : '', summary.hasDistance ? `${summary.distance_m / 1000} km` : '', `${(template.blocks || []).length} bloc(s)`].filter(Boolean).join(' · ')));
         const preview = el('details', {}, el('summary', {}, 'Aperçu du contenu')), previewBody = el('div', { class: 'template-preview' });
         let rendered = false;
-        preview.addEventListener('toggle', () => { if (active() && preview.open && !rendered) { renderWorkout(previewBody, template.blocks || [], { sport: template.sport }); rendered = true; } });
+        preview.addEventListener('toggle', () => { if (active() && preview.open && !rendered) {
+          if (template.workout_document) {
+            const documentView=el('div'); renderTrainingDocument(documentView, template.workout_document);
+            const partial=parseTrainingText(template.workout_document.text,{sport:template.sport}).errors.length>0;
+            previewBody.append(documentView,renderSessionChart(template, { compact: false, partial }));
+          } else renderWorkout(previewBody, template.blocks || [], { sport: template.sport });
+          rendered = true;
+        } });
         preview.append(previewBody); card.append(preview);
         const use = button(onSelect ? 'Utiliser' : 'Planifier', () => {
           if (!active() || (!onSelect && !canAdd())) return;
