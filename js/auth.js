@@ -3,7 +3,6 @@ import { isTestSession } from './config.js';
 import { returnFromTestSession } from './test-session.js';
 
 const $ = id => document.getElementById(id);
-const option = (label,value,selected=false) => { const item=document.createElement('option');item.textContent=label;item.value=value;item.selected=selected;return item; };
 const params = new URLSearchParams(location.search);
 const fragment = new URLSearchParams(location.hash.slice(1));
 const invite = params.get('invite');
@@ -12,8 +11,6 @@ const pendingInvite = invite || sessionStorage.getItem('pendingInvite');
 let mode = fragment.get('type') === 'recovery' || params.get('mode') === 'recovery' ? 'recovery' : 'login';
 let recoveryReady = false;
 let busy = false;
-let athleteSignupReady = false;
-let athleteSignupUnavailable = 'L’inscription athlète sera disponible après l’activation de la mise à jour de la plateforme.';
 
 function dashboardUrl() {
   const url = new URL('./planning.html', location.href);
@@ -48,21 +45,6 @@ function updateAccountType() {
 const today = new Date();
 const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
 $('birthDate').max = localDate;
-async function loadGyms() {
-  try {
-    const { data, error } = await client.from('gyms').select('id,name,address,is_default').order('name');
-    if (error) throw error;
-    $('athleteGym').replaceChildren(option('Sans gym pour le moment', ''));
-    for (const gym of data || []) $('athleteGym').append(option(`${gym.name}${gym.address ? ' · '+gym.address : ''}`, gym.id, gym.is_default));
-    athleteSignupReady = true;
-  } catch (error) {
-    athleteSignupReady = false;
-    if (!['42P01','42703','PGRST205','PGRST204'].includes(error?.code)) athleteSignupUnavailable = 'Impossible de vérifier l’accès à l’inscription athlète. Vérifie ta connexion et recharge cette page.';
-    $('athleteGym').replaceChildren(option('Sans gym pour le moment', ''));
-    $('gymDirectoryNotice').textContent = athleteSignupUnavailable;
-  }
-}
-const gymDirectoryLoad = loadGyms();
 function setMode(next) {
   mode = next;
   clearMessages();
@@ -155,7 +137,6 @@ $('authForm').addEventListener('submit', async event => {
     } else if (mode === 'signup') {
       const accountType = 'athlete';
       const athlete = accountType === 'athlete';
-      if (athlete) { await gymDirectoryLoad; if (!athleteSignupReady) throw new Error(athleteSignupUnavailable); }
       const nameParts = $('fullName').value.trim().split(/\s+/);
       const birthDate = $('birthDate').value;
       if (athlete && (!birthDate || birthDate > localDate)) throw new Error('Indique une date de naissance valide. Elle est obligatoire pour les athlètes.');
@@ -171,7 +152,7 @@ $('authForm').addEventListener('submit', async event => {
             full_name: $('fullName').value.trim(), account_type: accountType,
             gym_name: null,
             gym_address: null,
-            ...(athlete ? { first_name: nameParts[0], last_name: nameParts.slice(1).join(' '), birth_date: birthDate, sex: $('sex').value || null, weight_kg: weight === null ? null : $('weightUnit').value === 'lb' ? Math.round(weight / 2.2046226218 * 1000) / 1000 : weight, weight_unit: $('weightUnit').value, fights, wins, losses, gym_id: $('athleteGym').value || null } : {}),
+            ...(athlete ? { first_name: nameParts[0], last_name: nameParts.slice(1).join(' '), birth_date: birthDate, sex: $('sex').value || null, weight_kg: weight === null ? null : $('weightUnit').value === 'lb' ? Math.round(weight / 2.2046226218 * 1000) / 1000 : weight, weight_unit: $('weightUnit').value, fights, wins, losses, gym_id: null } : {}),
           },
         },
       });

@@ -234,7 +234,8 @@ import { mountNavigation } from './navigation.js';
         tr.append(node("td", {}, recordText(a)));
         const statusTd = node("td"); statusTd.append(node("span", { class: `status ${a.status}` }, statusLabels[a.status])); tr.append(statusTd);
         const editTd = node("td", { class: "athlete-actions-cell" });
-        const edit = node("button", { class: "edit athlete-edit", type: "button", ariaLabel: `Modifier la fiche de ${a.firstName} ${a.lastName}` }, "Modifier");
+        const edit = node("button", { class: "edit athlete-edit", type: "button", ariaLabel: `Modifier la fiche de ${a.firstName} ${a.lastName}` });
+        edit.append(node("span", {class:"roster-edit-label"}, "Modifier"),node("span", {class:"roster-edit-icon",ariaHidden:"true"}, "✎"));
         edit.addEventListener("click", () => openAthlete(a.id)); editTd.append(edit);
         tr.append(editTd);
         [...tr.children].forEach((cell,index)=>{cell.dataset.label=['Choisir','Athlète','Âge','Sexe','Poids','Combats','Statut','Action'][index];});
@@ -405,7 +406,7 @@ import { mountNavigation } from './navigation.js';
       const gym = $("shareGym").value.trim() || "Mon gym"; const athletes = selectedAthletes();
       const lines = [`ATHLÈTES DISPONIBLES POUR ${shareType === "combat" ? "COMBAT" : "SPARRING"}`];
       if ($("includeGymName").checked) lines.push(gym.toUpperCase());
-      if ($("includeGymAddress").checked && gymSettings?.address) lines.push(gymSettings.address);
+      if ($("includeGymAddress").checked && $("shareGymAddress").value.trim()) lines.push($("shareGymAddress").value.trim());
       if ($("includeDate").checked) lines.push(formattedDate($("shareDate").value));
       lines.push("");
       athletes.forEach(a => {
@@ -430,7 +431,7 @@ import { mountNavigation } from './navigation.js';
     }
     function updateSharePreview() { $("sharePreview").textContent = shareText(); }
     function openShare() {
-      $("shareGym").value = gymSettings?.gym_name || "Mon gym"; $("includeGymName").checked = true; $("includeGymAddress").checked = !!gymSettings?.address; $("includeGymAddress").disabled = !gymSettings?.address; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "sparring"; shareWeight = "both";
+      $("shareGym").value = gymSettings?.gym_name || "Mon gym"; $("includeGymName").checked = true; $("includeGymAddress").checked = !!gymSettings?.address; $("shareGymAddress").value = gymSettings?.address || ""; $("shareDate").value = todayLocal(); $("shareDate").disabled = false; $("includeDate").checked = true; $("includeRecord").checked = true; shareType = "sparring"; shareWeight = "both";
       setSegment($("typeButtons"), shareType); setSegment($("weightButtons"), shareWeight); renderCoachChoices(); updateSharePreview(); els.shareDialog.showModal();
     }
     function setSegment(group, value) { group.querySelectorAll("button").forEach(b => { const selected=b.dataset.value===value; b.classList.toggle("active",selected);b.setAttribute("aria-pressed",String(selected)); }); }
@@ -513,7 +514,7 @@ import { mountNavigation } from './navigation.js';
       renderAthletes();
     }));
     $("resetFilters").addEventListener("click", () => { $("searchInput").value = ""; $("statusFilter").value = "all"; $("sexFilter").value = "all";renderAthletes(); });
-    $("shareButton").addEventListener("click", openShare); $("shareGym").addEventListener("input", updateSharePreview); $("shareDate").addEventListener("input", updateSharePreview); $("includeRecord").addEventListener("change", updateSharePreview); $("includeGymName").addEventListener("change", updateSharePreview); $("includeGymAddress").addEventListener("change", updateSharePreview);
+    $("shareButton").addEventListener("click", openShare); $("shareGym").addEventListener("input", updateSharePreview); $("shareGymAddress").addEventListener("input", updateSharePreview); $("shareDate").addEventListener("input", updateSharePreview); $("includeRecord").addEventListener("change", updateSharePreview); $("includeGymName").addEventListener("change", updateSharePreview); $("includeGymAddress").addEventListener("change", updateSharePreview);
     $("includeDate").addEventListener("change", () => { $("shareDate").disabled = !$("includeDate").checked; updateSharePreview(); });
     $("typeButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareType = e.target.dataset.value; setSegment($("typeButtons"), shareType); updateSharePreview(); });
     $("weightButtons").addEventListener("click", e => { if (!e.target.dataset.value) return; shareWeight = e.target.dataset.value; setSegment($("weightButtons"), shareWeight); updateSharePreview(); });
@@ -526,7 +527,7 @@ import { mountNavigation } from './navigation.js';
       state = { athletes: [], coaches: [] }; currentUser = null; profileData = null; gymSettings = null;
       document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
       document.querySelectorAll('form').forEach(form => form.reset());
-      $('sharePreview').textContent = ''; $('shareGym').value = ''; $('coachChoices').replaceChildren();
+      $('sharePreview').textContent = ''; $('shareGym').value = ''; $('shareGymAddress').value = ''; $('coachChoices').replaceChildren();
       $('pageError').textContent = ''; $('pageError').classList.add('hidden'); $('adminButton').classList.add('hidden');
       renderAll(); setLoaded(false); applyGymSettings();
     }

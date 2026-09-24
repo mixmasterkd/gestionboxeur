@@ -14,15 +14,13 @@
 .athlete-picker-dialog .roster-shortcut { margin: 0; }
 .session-title-row { display: flex; align-items: center; gap: 2px; }
 .session-title-row .session-title { flex: 1; min-width: 0; }
-.session-title-row > .completion-button { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; min-height: 44px; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--ink); }
-.completion-mark { display: grid; place-items: center; width: 19px; height: 19px; border: 1px solid var(--muted); border-radius: 5px; font-size: 14px; line-height: 1; }
-.session-title-row > .completion-button:hover { background: var(--soft); }
-.session-title-row > .completion-button[aria-pressed="true"] .completion-mark { background: var(--accent-soft); color: var(--ink); border-color: var(--ink); }
 @media (max-width: 620px) {
   .calendar-identity h1 { font-size: 30px; }
   .month .session-title-row { flex-wrap: wrap; }
   .month .session-title-row .session-title { flex-basis: 100%; }
-  .month .session-title-row > .completion-button { display: inline-grid; width: 100%; flex-basis: 100%; min-height: 36px; }
-  .month .session-card.is-completed .session-title::after { content: none; }
   .athlete-picker-dialog .athlete-sidebar { padding: 16px; }
 }
+
+.month .session-card.is-completed .session-title::after {content:' ✓';color:var(--ink);}
+
+.month .session-card-footer {display:none;}

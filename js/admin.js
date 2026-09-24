@@ -137,35 +137,6 @@ async function createTestUser() {
     }
   }
 }
-async function loadGyms() {
-  if (!authorized) return;
-  const account=accountGeneration,userId=currentUserId;
-  try {
-    const {data,error}=await client.from('gyms').select('id,name,address,is_default').order('name');
-    if(!activeAccount(account,userId))return;
-    if(error)throw error;
-    $('gymDirectory').replaceChildren();$('gymError').classList.add('hidden');
-    for(const gym of data||[]) {
-      const row=document.createElement('div');row.className='gym-directory-item';
-      const description=document.createElement('div'),name=document.createElement('strong'),address=document.createElement('p');
-      name.textContent=gym.name+(gym.is_default?' · Par défaut':'');address.textContent=gym.address||'Adresse à compléter';description.append(name,address);
-      const edit=document.createElement('button');edit.type='button';edit.className='button';edit.textContent='Modifier';
-      edit.addEventListener('click',()=>{if(!authorized)return;$('editingGymId').value=gym.id;$('newGymName').value=gym.name;$('newGymAddress').value=gym.address||'';$('saveAdminGymButton').textContent='Enregistrer le gym';$('cancelGymEditButton').classList.remove('hidden');$('newGymName').focus();});
-      row.append(description,edit);$('gymDirectory').append(row);
-    }
-  }catch(error){if(activeAccount(account,userId)){$('gymError').textContent=['42P01','PGRST205'].includes(error?.code)?'Le répertoire sera disponible après l’activation de la mise à jour de la plateforme.':error.message;$('gymError').classList.remove('hidden');}}
-}
-function resetGymForm() {$('adminGymForm').reset();$('editingGymId').value='';$('saveAdminGymButton').textContent='Ajouter le gym';$('cancelGymEditButton').classList.add('hidden');}
-$('cancelGymEditButton').addEventListener('click',resetGymForm);
-$('adminGymForm').addEventListener('submit',async event=>{
-  event.preventDefault();if(!authorized||$('saveAdminGymButton').disabled)return;
-  const account=accountGeneration,userId=currentUserId;$('saveAdminGymButton').disabled=true;$('gymError').classList.add('hidden');
-  try{
-    const {error}=await client.rpc('admin_save_gym',{p_name:$('newGymName').value.trim(),p_address:$('newGymAddress').value.trim(),p_gym_id:$('editingGymId').value||null});
-    if(!activeAccount(account,userId))return;if(error)throw error;resetGymForm();await loadGyms();if(activeAccount(account,userId))toast('Gym enregistré dans le répertoire.');
-  }catch(error){if(activeAccount(account,userId)){$('gymError').textContent=error.message;$('gymError').classList.remove('hidden');}}
-  finally{if(activeAccount(account,userId))$('saveAdminGymButton').disabled=false;}
-});
 function clearPrivateState() {
   accountGeneration++; listGeneration++; currentUserId = null;
   users = []; authorized = false;
@@ -175,7 +146,6 @@ function clearPrivateState() {
   $('createTestButton').disabled = true; $('refreshButton').disabled = true;
   $('createTestButton').textContent = 'Passer en mode athlète de test';
   $('createTestButton').removeAttribute('aria-busy'); showTestError();
-  $('saveAdminGymButton').disabled = true;$('gymDirectory').replaceChildren();resetGymForm();$('gymError').textContent='';$('gymError').classList.add('hidden');
   $('emptyState').classList.add('hidden'); showError();
   clearTimeout(timer); $('toast').textContent = ''; $('toast').classList.add('hidden');
 }
@@ -225,8 +195,6 @@ async function initialize() {
     authorized = true;
     mountNavigation({role:'coach',isAdmin:true});
     $('createTestButton').disabled = false;
-    $('saveAdminGymButton').disabled = false;
-    loadGyms();
     await loadUsers();
   } catch (error) { if (account === accountGeneration) showError(error.message); }
 }

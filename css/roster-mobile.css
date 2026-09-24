@@ -56,12 +56,38 @@
  #athleteDirectory .mobile-roster-sort {width:100%;}
  #athleteDirectory .mobile-roster-sort select {flex:1;}
  #athleteDirectory[data-roster-view="cards"] .roster tbody {padding:12px;}
- #athleteDirectory[data-roster-view="table"] .roster td:nth-child(2),#athleteDirectory[data-roster-view="table"] .roster th:nth-child(2) {position:sticky;left:0;z-index:1;background:var(--white);min-width:140px;max-width:180px;border-right:1px solid var(--line);}
- #athleteDirectory[data-roster-view="table"] .roster th:nth-child(2) {background:var(--soft);}
- #athleteDirectory[data-roster-view="table"] .roster tr.selected td:nth-child(2) {background:var(--accent-soft);}
 }
 
 #athleteDirectory[data-roster-view="cards"] .roster tbody tr.selected td:first-child {box-shadow:none;}
 #athleteDirectory .mobile-roster-sort label {white-space:nowrap;}
 #athleteDirectory .sort-button {border:0;background:none;min-height:44px;padding:0;display:inline-flex;align-items:center;}
 .coach-card .edit {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--soft);color:var(--ink);text-decoration:none;}
+
+.roster-edit-icon {display:none;}
+/* Portrait list keeps all data and actions in one bounded row per athlete. */
+@media(max-width:620px) {
+ #athleteDirectory[data-roster-view="table"] .table-wrap {overflow:visible;}
+ #athleteDirectory[data-roster-view="table"] .roster {display:block;min-width:0;}
+ #athleteDirectory[data-roster-view="table"] .roster thead {display:none;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody {display:block;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody tr {display:grid;grid-template-columns:36px repeat(4,minmax(0,1fr)) 44px;gap:2px 4px;padding:10px 8px;border-bottom:1px solid var(--line);}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td {display:block;min-width:0;padding:2px 0;border:0;font-size:11px;overflow-wrap:anywhere;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td::before {display:block;content:attr(data-label);color:var(--muted);font-size:10px;margin-bottom:4px;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(1) {grid-column:1;grid-row:1 / 4;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;width:auto;min-width:0;box-shadow:none;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(2) {grid-column:2 / 6;grid-row:1;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(3) {grid-column:2;grid-row:2;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(4) {grid-column:3;grid-row:2;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(5) {grid-column:4;grid-row:2;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(6) {grid-column:5 / 7;grid-row:2;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(7) {grid-column:2 / 7;grid-row:3;padding-top:8px;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(8) {grid-column:6;grid-row:1;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(1)::before,#athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(2)::before,#athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(7)::before,#athleteDirectory[data-roster-view="table"] .roster tbody td:nth-child(8)::before {display:none;}
+ #athleteDirectory[data-roster-view="table"] .roster .name-button {font-size:14px;min-height:44px;}
+ #athleteDirectory[data-roster-view="table"] .athlete-name-cell .subtext {display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;margin:0 0 5px;}
+ #athleteDirectory[data-roster-view="table"] .roster .chip {padding:0;background:transparent;border:0;font-size:11px;}
+ #athleteDirectory[data-roster-view="table"] .roster .status {font-size:10px;padding:4px 7px;}
+ #athleteDirectory[data-roster-view="table"] .roster .athlete-edit {width:44px;padding:0;}
+ #athleteDirectory[data-roster-view="table"] .roster-edit-label {display:none;}
+ #athleteDirectory[data-roster-view="table"] .roster-edit-icon {display:inline;font-size:22px;}
+ #athleteDirectory[data-roster-view="table"] .roster tbody tr.selected {box-shadow:inset 3px 0 var(--accent);}
+}

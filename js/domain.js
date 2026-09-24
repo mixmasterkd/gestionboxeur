@@ -1,8 +1,9 @@
 /** Shared workout model. Dates are local calendar dates; no UTC conversion. */
 export const SPORTS = [
-  { id: 'running', label: 'Course', icon: '↗' },
   { id: 'boxing', label: 'Boxe', icon: '◈' },
-  { id: 'sparring', label: 'Sparring', icon: '◈' },
+  { id: 'running', label: 'Course', icon: '↗' },
+  // Retained for reading historical sessions; never offered as a discipline.
+  { id: 'sparring', label: 'Boxe', icon: '◈', legacy: true },
   { id: 'strength', label: 'Musculation', icon: '▰' },
   { id: 'mobility', label: 'Mobilité', icon: '◎' },
   { id: 'other', label: 'Autre', icon: '＋' },

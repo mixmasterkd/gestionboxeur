@@ -194,13 +194,14 @@ function sessionCard(session) {
   if(canEdit(session))top.append(button('⠿',()=>{},'drag-handle',{'aria-label':`Déplacer ${session.title} par glisser-déposer`,title:'Glisser pour déplacer. Pour changer la date au clavier, ouvre la séance puis Modifier.'}));
   top.append(el('span',{class:`lock-badge ${session.is_locked===false?'unlocked':'locked'}`,title:session.is_locked===false?'Modifiable par l’athlète et ses coachs autorisés':'Modifiable uniquement par son créateur'},session.is_locked===false?'Partagée':'Verrouillée'));
   const titleRow=el('div',{class:'session-title-row'},button(session.title,()=>sessionUI.showSession(session),'session-title'));
+  if(state.view==='month')titleRow.querySelector('button').setAttribute('aria-label',`${session.title} · ${completed?'Faite':'À faire'} · Ouvrir la séance`);
   card.append(top,titleRow);
   const meta=[];if(summary.hasTime)meta.push(formatDuration(summary.duration_seconds));if(summary.hasDistance)meta.push(`${new Intl.NumberFormat('fr-CA',{maximumFractionDigits:2}).format(summary.distance_m/1000)} km`);
   if(!meta.length)meta.push(session.blocks.length?`${session.blocks.length} bloc${session.blocks.length>1?'s':''}`:'Instructions libres');
   card.append(el('div',{class:'session-meta'},meta.join(' · ')));
   if(['running','boxing','sparring'].includes(session.sport))card.append(renderSessionChart(session,{summary}));
   card.append(el('p',{class:'session-author'},`Par ${session.author_name||'Coach'}`));
-  if(ownsCalendar()) {
+  if(ownsCalendar()&&state.view!=='month') {
     const toggle=button('',async()=>{
       if(toggle.disabled)return;
       toggle.disabled=true;
@@ -210,7 +211,7 @@ function sessionCard(session) {
     toggle.title=completed?'Annuler « faite »':'Marquer comme faite';
     toggle.append(el('span',{'aria-hidden':'true'},completed?'✓':'○'),el('span',{},'Fait'));
     card.append(el('div',{class:'session-card-footer'},toggle));
-  }else card.append(el('span',{class:`completion-pill ${completed?'completed':'pending'}`},completed?'✓ Faite':'À faire'));
+  }else if(state.view!=='month')card.append(el('span',{class:`completion-pill ${completed?'completed':'pending'}`},completed?'✓ Faite':'À faire'));
   const feedback=state.feedback.find(f=>f.session_id===session.id);
   if(completed&&feedback&&(!isCoach()||state.relation?.can_view_feedback!==false))card.append(el('div',{class:'feedback-pill'},`${feedback.feeling?feelings[feedback.feeling]+' ':''}${feedback.rpe?'RPE '+feedback.rpe+'/10':'Retour reçu'}${feedback.comment?' · commentaire':''}`));
   return card;

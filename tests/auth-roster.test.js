@@ -91,24 +91,24 @@ test('signup defaults to athlete and rejects missing date of birth before contac
   }finally{await ui.close();}
 });
 
-test('athlete signup selects default gym and stores pounds as normalized kilograms',async()=>{
+test('athlete signup has no gym directory and stores pounds as normalized kilograms',async()=>{
   const mock=authMock();mock.client.from=()=>({select(){return this;},async order(){return {data:[{id:'crew-id',name:'Le Crew',address:'Adresse du gym',is_default:true}],error:null};}});
   const ui=await surface('login.html','auth.js',mock.client);
   try{
     ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2001-02-03';ui.$('weight').value='154.3';ui.$('weightUnit').value='lb';ui.$('fights').value='4';ui.$('wins').value='3';ui.$('losses').value='1';
     ui.$('email').value='alex@example.test';ui.$('password').value='secret123';submit(ui,'authForm');await settle();
-    const payload=mock.calls[0][1].options.data;assert.equal(payload.gym_id,'crew-id');assert.equal(payload.weight_unit,'lb');assert.ok(Math.abs(payload.weight_kg-70)<0.1);assert.equal(payload.first_name,'Alex');assert.equal(payload.last_name,'Test');
+    const payload=mock.calls[0][1].options.data;assert.equal(payload.gym_id,null);assert.equal(payload.weight_unit,'lb');assert.ok(Math.abs(payload.weight_kg-70)<0.1);assert.equal(payload.first_name,'Alex');assert.equal(payload.last_name,'Test');
     assert.equal(payload.fights,4);assert.equal(payload.wins,3);assert.equal(payload.losses,1);assert.equal(payload.is_admin,undefined);
   }finally{await ui.close();}
 });
 
-test('athlete signup is blocked on legacy schema or failed capability check instead of creating a coach',async()=>{
+test('athlete signup no longer depends on gym directory availability',async()=>{
   for(const error of [{code:'PGRST205',message:'gyms not found'},{message:'Network request failed'}]){
     const mock=authMock();mock.client.from=()=>({select(){return this;},async order(){return {data:null,error};}});
     const ui=await surface('login.html','auth.js',mock.client);
     try{
       ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-02-03';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';
-      submit(ui,'authForm');await settle();assert.equal(mock.calls.length,0);assert.match(ui.$('authError').textContent,/activation|connexion/);
+      submit(ui,'authForm');await settle();assert.equal(mock.calls.length,1);assert.equal(mock.calls[0][1].options.data.account_type,'athlete');assert.equal(mock.calls[0][1].options.data.gym_id,null);assert.equal(ui.$('athleteGym'),null);
     }finally{await ui.close();}
   }
 });
@@ -357,6 +357,12 @@ test('legacy roster keeps eight existing athletes, unavailable statuses, gym add
     assert.match(ui.$('sharePreview').textContent, /SPARRING/);
     assert.match(ui.$('sharePreview').textContent, /MON ÉQUIPE/);
     assert.match(ui.$('sharePreview').textContent, /123, rue du Gym/);
+    ui.$('shareGymAddress').value='45 rue du Combat';ui.$('shareGymAddress').dispatchEvent(new ui.window.Event('input'));
+    assert.match(ui.$('sharePreview').textContent,/45 rue du Combat/);assert.doesNotMatch(ui.$('sharePreview').textContent,/123, rue du Gym/);
+    assert.equal(ui.$('gymAddress').textContent,'123, rue du Gym');
+    ui.$('includeGymAddress').checked=false;ui.$('includeGymAddress').dispatchEvent(new ui.window.Event('change'));
+    assert.doesNotMatch(ui.$('sharePreview').textContent,/45 rue du Combat/);
+    ui.$('shareDialog').close();ui.$('shareButton').click();assert.equal(ui.$('shareGymAddress').value,'123, rue du Gym');
     assert.doesNotMatch(ui.$('sharePreview').textContent, /privée existante/);
     ui.$('typeButtons').querySelector('[data-value="combat"]').click();
     assert.match(ui.$('sharePreview').textContent, /COMBAT/);

@@ -243,15 +243,18 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       assert.equal((await db.query('update public.athletes set weight_kg=80 where id=$1 returning id',[legacyAthlete])).rows.length,0);
     });
 
-    await t.test('signup requires DOB and gym directory is shared without granting calendar access',async()=>{
+    await t.test('signup requires DOB and gym coordinates stay private without altering historical directory links',async()=>{
       await admin();
       await assert.rejects(()=>db.query('insert into auth.users(id,email,raw_user_meta_data) values(gen_random_uuid(),$1,$2)',['invalid@example.test',JSON.stringify({account_type:'athlete',full_name:'Incomplet'})]),/date de naissance/);
       const withoutGym='10000000-0000-4000-8000-000000000007';
       await db.query('insert into auth.users(id,email,raw_user_meta_data) values($1,$2,$3)',[withoutGym,'nogym@example.test',JSON.stringify({account_type:'athlete',full_name:'Sans gym',birth_date:'2000-01-01',gym_id:null})]);
       assert.equal(await scalar('select gym_id from public.athletes where user_id=$1',[withoutGym]),null);
       await login(coach2);
+      const profileGymBefore=await scalar('select gym_id from public.profiles');
+      const directoryBefore=await scalar('select count(*)::int from public.gyms');
       const gym=await scalar('select public.save_gym($1,$2)',['  Club   exemple ',' 123  Rue Test ']);
-      assert.equal(await scalar('select gym_id from public.profiles'),gym);
+      assert.equal(await scalar('select gym_id from public.profiles'),profileGymBefore);
+      assert.equal(await scalar('select count(*)::int from public.gyms'),directoryBefore);
       assert.equal(await scalar('select gym_name from public.gym_settings'),'Club exemple');
       assert.equal(await scalar('select public.save_gym($1,$2)',['club exemple','123 rue test']),gym);
       await denied(()=>db.query('select public.admin_save_gym($1,$2,null)',['Interdit','Rue test']));
@@ -265,8 +268,8 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       assert.equal(await scalar('select address from public.gyms where id=$1',[crew]),'Adresse de test');
       await login(outsider);
       await denied(()=>db.query('select public.save_gym($1,$2)',['Interdit','Rue test']));
-      await db.query('select public.save_athlete_profile($1)',[JSON.stringify({gym_id:gym})]);
-      assert.equal(await scalar('select gym_id from public.athletes'),gym);
+      await db.query('select public.save_athlete_profile($1)',[JSON.stringify({gym_id:added})]);
+      assert.equal(await scalar('select gym_id from public.athletes'),added);
       await login(coach2);
       assert.equal((await db.query('select id from public.athletes where user_id=$1',[outsider])).rows.length,0);
       await admin(); await db.exec('set role anon');

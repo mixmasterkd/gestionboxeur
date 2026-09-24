@@ -376,16 +376,18 @@ test('thirty calendars stay behind a searchable picker and selection preserves t
   } finally { await page.close(); }
 });
 
-test('monthly tile completion is reversible without opening the session details',async()=>{
+test('monthly tiles open details and reserve quick completion for week and day views',async()=>{
   const page=await surface({role:'athlete',sessions:[{...makeSession('quick'),is_locked:true}]});
   try {
     page.app.state.view='month';await page.app.refreshCalendar();
+    assert.equal(page.$('calendar').querySelector('.completion-button'),null);
+    page.app.state.view='week';await page.app.refreshCalendar();
     let toggle=page.$('calendar').querySelector('.session-card-footer .completion-button');
     assert.ok(toggle);toggle.click();await settle();
-    toggle=page.$('calendar').querySelector('.completion-button');
-    assert.equal(toggle.getAttribute('aria-pressed'),'true');
-    toggle.click();await settle();
-    assert.equal(page.$('calendar').querySelector('.completion-button').getAttribute('aria-pressed'),'false');
+    assert.equal(page.$('calendar').querySelector('.completion-button').getAttribute('aria-pressed'),'true');
+    page.app.state.view='month';await page.app.refreshCalendar();
+    assert.equal(page.$('calendar').querySelector('.completion-button'),null);
+    assert.match(page.$('calendar').querySelector('.session-title').getAttribute('aria-label'),/Faite/);
     assert.equal(page.calls.filter(c=>c[0]==='show').length,0);
     page.$('calendar').querySelector('.session-title').click();
     assert.equal(page.calls.filter(c=>c[0]==='show').length,1);

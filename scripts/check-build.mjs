@@ -32,11 +32,13 @@ for (const page of pages) {
         assert.equal(window.getComputedStyle(actions).display,'grid','calendar actions share equal grid cells');
         assert.ok(parseFloat(window.getComputedStyle(actions.querySelector('#addEventButton')).minHeight)>=80,'event action uses the common panel height');
         const calendar=window.document.getElementById('calendar');
-        calendar.className='calendar month';
-        calendar.innerHTML='<article class="session-card"><div class="session-title-row"><button class="session-title">Jog</button><button class="completion-button" aria-pressed="false"><span class="completion-mark"></span></button></div></article>';
+        calendar.className='calendar';
+        calendar.innerHTML='<article class="session-card"><div class="session-title-row"><button class="session-title">Jog</button></div><div class="session-card-footer"><button class="completion-button" aria-pressed="false">○ Fait</button></div></article>';
         const completion=window.getComputedStyle(calendar.querySelector('.completion-button'));
-        assert.equal(completion.display,'inline-grid','completion remains visible in monthly mobile view');
-        assert.ok(parseFloat(completion.minHeight)>=36,'monthly completion target remains usable');
+        assert.equal(completion.display,'inline-flex','quick completion remains visible in week view');
+        assert.ok(parseFloat(completion.minHeight)>=36,'completion target remains usable');
+        const monthCalendar=calendar.cloneNode(true);monthCalendar.className='calendar month';calendar.replaceWith(monthCalendar);
+        assert.equal(window.getComputedStyle(monthCalendar.querySelector('.session-card-footer')).display,'none','monthly tiles never overflow with quick completion controls');
       }
       if (page === 'roster.html') {
         const coach=window.document.createElement('div');coach.className='coach-choice';coach.innerHTML='<label class="coach-choice-head"><strong>Coach test</strong></label>';
@@ -54,8 +56,9 @@ for (const page of pages) {
       }
       if (page === 'roster.html') {
         const directory=window.document.getElementById('athleteDirectory');
-        assert.equal(window.getComputedStyle(directory.querySelector('.roster')).display,'table','table is the default at every width');
-        assert.notEqual(window.getComputedStyle(directory.querySelector('thead')).display,'none','mobile table keeps its column headers');
+        assert.equal(window.getComputedStyle(directory.querySelector('.roster')).display,width<620?'block':'table','mobile uses a compact list and desktop keeps the table');
+        if(width<620)assert.equal(window.getComputedStyle(directory.querySelector('thead')).display,'none','mobile uses individual field labels');
+        else assert.notEqual(window.getComputedStyle(directory.querySelector('thead')).display,'none','desktop keeps its column headers');
         const cards=directory.cloneNode(true);cards.dataset.rosterView='cards';directory.replaceWith(cards);
         assert.equal(window.getComputedStyle(cards.querySelector('.roster tbody')).display,'grid','cards remain available at every width');
         assert.equal(window.getComputedStyle(cards.querySelector('thead')).display,'none','cards use individual field labels');

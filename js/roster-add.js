@@ -38,32 +38,35 @@ export function createAthleteAddUI({client,getUserId,onCreateSheet,onChanged}) {
  }
  function findAthlete() {
   const version=++generation,user=getUserId(),body=shell('Inviter un athlète');
-  const email=input('athlete_email','','email',{required:true,maxLength:320,autocomplete:'off'}),error=errorBox(),results=el('div',{'aria-live':'polite'});
+  const query=input('athlete_search','','text',{required:true,minLength:2,maxLength:320,autocomplete:'off'}),error=errorBox(),results=el('div',{'aria-live':'polite'});
   const search=el('button',{type:'submit',class:'button primary'},'Rechercher');
-  const form=el('form',{},field('Courriel du compte',email),search,error);
-  body.append(button('← Retour',open,'button secondary'),el('p',{class:'muted'},'Recherche son compte par courriel. L’athlète recevra ton invitation sur le site et pourra l’accepter ou la refuser.'),form,results);
+  const form=el('form',{},field('Nom ou courriel du compte',query),search,error);
+  body.append(button('← Retour',open,'button secondary'),el('p',{class:'muted'},'Recherche son compte par nom ou avec son courriel complet. L’athlète recevra ton invitation sur le site et pourra l’accepter ou la refuser.'),form,results);
   let ticket=0;
-  email.addEventListener('input',()=>{ticket++;results.replaceChildren();});
+  query.addEventListener('input',()=>{ticket++;results.replaceChildren();});
   form.addEventListener('submit',async event=>{
    event.preventDefault();if(pending||!form.reportValidity())return;
-   const request=++ticket,address=email.value.trim();pending=true;search.disabled=true;error.hidden=true;results.replaceChildren();
+   const request=++ticket,term=query.value.trim();pending=true;search.disabled=true;error.hidden=true;results.replaceChildren();
    try {
-    const matches=await rpc('find_athlete_by_email',{p_email:address});if(!current(version,user)||request!==ticket)return;
-    const match=matches?.[0];if(!match){results.append(el('p',{},'Aucun compte trouvé. Vérifie le courriel ou crée une fiche pour ton répertoire.'));return;}
+    const matches=await rpc('search_athletes',{p_query:term});if(!current(version,user)||request!==ticket)return;
+    if(!matches?.length){results.append(el('p',{},'Aucun compte trouvé. Vérifie le nom ou le courriel, ou crée une fiche pour ton répertoire.'));return;}
+    results.append(el('p',{class:'muted'},matches.length===20?'20 résultats · précise le nom pour affiner la recherche.':`${matches.length} résultat${matches.length>1?'s':''}`));
+    for(const match of matches) {
     const card=el('article',{class:'connection-card'},el('h3',{},match.display_name));results.append(card);
-    if(match.connection_status==='accepted'){card.append(el('p',{},'Déjà dans ton effectif.'));return;}
-    if(match.connection_status==='pending'){card.append(el('p',{},'Invitation déjà envoyée · en attente de son acceptation.'));return;}
+    if(match.connection_status==='accepted'){card.append(el('p',{},'Déjà dans ton effectif.'));continue;}
+    if(match.connection_status==='pending'){card.append(el('p',{},'Invitation déjà envoyée · en attente de son acceptation.'));continue;}
     const send=button('Envoyer l’invitation',async()=>{
-     if(pending||request!==ticket)return;pending=true;send.disabled=true;email.disabled=true;search.disabled=true;
+     if(pending||request!==ticket)return;pending=true;send.disabled=true;query.disabled=true;search.disabled=true;
      try {
-      await rpc('invite_existing_athlete',{p_email:address});
+      await rpc('invite_athlete',{p_athlete_id:match.athlete_id});
       if(!current(version,user))return;
       card.replaceChildren(el('h3',{},match.display_name),el('p',{role:'status'},'Invitation envoyée. Le suivi sera disponible après son acceptation.'));
       await onChanged?.();
-     }catch(e){if(current(version,user))showError(error,e);}finally{pending=false;send.disabled=false;email.disabled=false;search.disabled=false;}
-    },'button primary');card.append(send);
+     }catch(e){if(current(version,user))showError(error,e);}finally{pending=false;send.disabled=false;query.disabled=false;search.disabled=false;}
+    },'button primary',{'aria-label':`Inviter ${match.display_name}`});card.append(send);
+    }
    }catch(e){if(current(version,user)&&request===ticket)showError(error,e);}finally{pending=false;search.disabled=false;}
-  });email.focus();
+  });query.focus();
  }
  return {open};
 }

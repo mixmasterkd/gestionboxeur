@@ -12,25 +12,25 @@ async function fixture(responder) {
  const click=text=>{const b=[...w.document.querySelectorAll('button')].find(el=>el.textContent===text||el.getAttribute('aria-label')===text);assert.ok(b,text);b.click();};
  return {w,calls,click,sheets:()=>sheets,submit:()=>{w.document.querySelector('form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));}};
 }
-test('add athlete separates roster sheet from exact-email search and explicit invitation',async()=>{
- const f=await fixture(async name=>name==='my_coaching_invitations'?[]:name==='find_athlete_by_email'?[{athlete_id:'a',display_name:'Alex <script>',connection_status:'available'}]:'invitation');
+test('add athlete separates roster sheet from name search and explicit invitation',async()=>{
+ const f=await fixture(async name=>name==='my_coaching_invitations'?[]:name==='search_athletes'?[{athlete_id:'a',display_name:'Alex <script>',connection_status:'available'},{athlete_id:'b',display_name:'Alex Autre',connection_status:'available'}]:'invitation');
  try{
   f.w.__add.open();f.click('Créer une fiche');assert.equal(f.sheets(),1);assert.equal(f.w.document.querySelector('dialog').open,false);
-  f.w.__add.open();f.click('Inviter un athlète');f.w.document.querySelector('[name=athlete_email]').value='alex@example.test';f.submit();await settle();
+  f.w.__add.open();f.click('Inviter un athlète');f.w.document.querySelector('[name=athlete_search]').value='Alex';f.submit();await settle();
   assert.equal(f.w.document.querySelector('script'),null);assert.match(f.w.document.body.textContent,/Alex <script>/);
-  assert.equal(f.calls.filter(c=>c[0]==='invite_existing_athlete').length,0);
-  f.click('Envoyer l’invitation');await settle();
-  assert.deepEqual(JSON.parse(JSON.stringify(f.calls.find(c=>c[0]==='invite_existing_athlete')[1])),{p_email:'alex@example.test'});
+  assert.equal(f.calls.filter(c=>c[0]==='invite_athlete').length,0);
+  f.click('Inviter Alex Autre');await settle();
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls.find(c=>c[0]==='invite_athlete')[1])),{p_athlete_id:'b'});
   assert.match(f.w.document.body.textContent,/après son acceptation/);assert.equal(f.sheets(),1);
  }finally{await f.w.happyDOM.abort();}
 });
-test('changing searched email invalidates the result and never sends the wrong invitation',async()=>{
+test('changing searched name or email invalidates the result and never sends the wrong invitation',async()=>{
  let release;const result=new Promise(r=>{release=r;});
  const f=await fixture(async name=>name==='my_coaching_invitations'?[]:result);
  try{
-  f.w.__add.open();f.click('Inviter un athlète');const email=f.w.document.querySelector('[name=athlete_email]');email.value='first@example.test';f.submit();
+  f.w.__add.open();f.click('Inviter un athlète');const email=f.w.document.querySelector('[name=athlete_search]');email.value='first@example.test';f.submit();
   email.value='second@example.test';email.dispatchEvent(new f.w.Event('input',{bubbles:true}));
   release([{display_name:'First',connection_status:'available'}]);await settle();
-  assert.doesNotMatch(f.w.document.body.textContent,/First|Envoyer l’invitation/);assert.equal(f.calls.filter(c=>c[0]==='invite_existing_athlete').length,0);
+  assert.doesNotMatch(f.w.document.body.textContent,/First|Envoyer l’invitation/);assert.equal(f.calls.filter(c=>c[0]==='invite_athlete').length,0);
  }finally{await f.w.happyDOM.abort();}
 });

@@ -72,14 +72,14 @@ test('athlete profile reads own identity and saves normalized sports data withou
     ui.$('athleteProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
     const data=ui.calls.find(c=>c[0]==='save_athlete_profile')[1].p_data;
     assert.ok(Math.abs(data.weight_kg-75)<0.1);assert.equal(data.birth_date,'2000-03-04');assert.equal(data.weight_unit,'lb');assert.equal(data.user_id,undefined);assert.equal(data.is_admin,undefined);assert.equal(data.coach_id,undefined);
-    assert.equal(data.status,'unavailable');
+    assert.equal(data.status,'unavailable');assert.equal(data.gym_id,undefined);assert.equal(ui.$('profileGym'),null);
     assert.equal(ui.$('profileSuccess').classList.contains('hidden'),false);
   }finally{await ui.close();}
 });
 test('coach profile exposes own sports profile and saves gym separately',async()=>{
   const ui=await profileSurface('coach');try{
     assert.equal(ui.$('coachPanel').classList.contains('hidden'),false);assert.equal(ui.$('athletePanel').classList.contains('hidden'),false);
-    ui.$('coachGymName').value='Autre gym';ui.$('coachGymAddress').value='45 rue Test';ui.$('coachGymForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
+    assert.equal(ui.$('existingGym'),null);ui.$('coachGymName').value='Autre gym';ui.$('coachGymAddress').value='45 rue Test';ui.$('coachGymForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
     assert.deepEqual(ui.calls.find(c=>c[0]==='save_gym'),['save_gym',{p_name:'Autre gym',p_address:'45 rue Test'}]);assert.equal(ui.$('gymBrand').textContent,'Autre gym');
   }finally{await ui.close();}
 });

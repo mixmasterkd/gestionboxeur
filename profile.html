@@ -25,7 +25,6 @@
           <label class="field"><span>Date de naissance · obligatoire</span><input id="profileBirthDate" type="date" required autocomplete="bday"></label>
           <label class="field"><span>Genre</span><select id="profileSex"><option value="">À compléter</option><option value="M">M — Masculin</option><option value="F">F — Féminin</option></select></label>
           <label class="field"><span>Téléphone</span><input id="profilePhone" type="tel" autocomplete="tel" maxlength="60"></label>
-          <label class="field"><span>Mon gym</span><select id="profileGym"><option value="">Sans gym pour le moment</option></select></label>
           <label class="field"><span>Disponibilité pour les listes</span><select id="profileStatus"><option value="available">Disponible</option><option value="unavailable">Indisponible</option><option value="injured">Blessé</option><option value="sick">Malade</option><option value="not_ready">Pas prêt</option></select></label>
           <label class="field"><span>Poids</span><input id="profileWeight" type="number" min="0.1" max="1500" step="0.1" inputmode="decimal"></label>
           <label class="field"><span>Unité</span><select id="profileWeightUnit"><option value="kg">KG</option><option value="lb">LBS</option></select></label>
@@ -33,15 +32,13 @@
           <label class="field"><span>Victoires</span><input id="profileWins" type="number" min="0" step="1" inputmode="numeric"></label>
           <label class="field"><span>Défaites</span><input id="profileLosses" type="number" min="0" step="1" inputmode="numeric"></label>
         </div>
-        <p class="muted">Le choix d’un gym n’autorise aucun coach à voir ton calendrier. Tes accès se gèrent dans « Mes coachs ».</p>
         <button id="saveProfileButton" class="button button-dark" type="submit">Enregistrer mon profil</button>
       </form>
     </section>
     <section class="panel hidden" id="coachPanel">
       <div class="panel-head"><h2>Coordonnées</h2></div>
-      <p class="muted">Ajoute le nom et l’adresse de ton gym. Il sera proposé aux athlètes lors de leur inscription.</p>
+      <p class="muted">Le nom et l’adresse de ton gym sont affichés dans ton espace et proposés pour tes listes.</p>
       <form id="coachGymForm">
-        <label class="field"><span>Choisir un gym existant</span><select id="existingGym"><option value="">Ajouter mon gym</option></select></label>
         <div class="form-grid"><label class="field"><span>Nom du gym</span><input id="coachGymName" required maxlength="160" autocomplete="organization"></label><label class="field"><span>Adresse du gym</span><input id="coachGymAddress" required maxlength="500" autocomplete="street-address"></label></div>
         <button id="saveGymButton" class="button button-dark" type="submit">Enregistrer mon gym</button>
       </form>

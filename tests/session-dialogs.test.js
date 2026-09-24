@@ -31,12 +31,14 @@ test('a coach can create a reusable workout without an athlete or calendar write
   state.selectedAthlete = null;
   ui.editTemplate();
   document.querySelector('[name="title"]').value = 'Sparring technique';
-  document.querySelector('[name="sport"]').value = 'sparring';
+  assert.equal(document.querySelector('[name="sport"]').value, 'boxing');
+  assert.equal(document.querySelector('[name="sport"] option').value, 'boxing');
+  assert.equal(document.querySelector('[name="sport"] option[value="sparring"]'), null);
   document.querySelector('[data-mode="text"]').click();
   const text = document.querySelector('.pe-text-input'); text.value = '# Travail léger, détails à préciser'; text.dispatchEvent(new window.Event('input'));
   assert.equal(document.querySelector('[name="date"]'), null);
   submit('sessionDialog'); await tick();
-  assert.equal(payload.kind, 'session'); assert.equal(payload.sport, 'sparring'); assert.equal(payload.coach_id, 'coach1');
+  assert.equal(payload.kind, 'session'); assert.equal(payload.sport, 'boxing'); assert.equal(payload.coach_id, 'coach1');
   assert.equal(payload.notes, 'Travail léger, détails à préciser'); assert.deepEqual(payload.blocks, []);
   assert.equal(payload.athlete_id, undefined);
 });
@@ -241,6 +243,7 @@ test('text program saves the shared structure but invalid lines block the sessio
   let payload;
   const {ui}=fixture({api:{saveSession:async p=>{payload=p;}}}); ui.editSession();
   document.querySelector('[name="title"]').value='Course texte';
+  document.querySelector('[name="sport"]').value='running';document.querySelector('[name="sport"]').dispatchEvent(new window.Event('change'));
   document.querySelector('[data-mode="text"]').click();
   const text=document.querySelector('.pe-text-input');
   text.value='Course\n10m @ Z2\n2x\n  1m @ Z4\n  1m @ Z1 - Marcher\ninvalid';text.dispatchEvent(new window.Event('input',{bubbles:true}));
@@ -329,4 +332,16 @@ test('failed automatic review keeps the draft and offers retry without claiming 
  assert.match(document.querySelector('.feedback-save-status').textContent,/non enregistré/);assert.equal(document.querySelector('[name=rpe]').value,'9');
  const retry=[...document.querySelectorAll('.post-session-review button')].find(b=>b.textContent==='Réessayer');assert.equal(retry.hidden,false);retry.click();await tick();
  assert.equal(calls,2);assert.equal(retry.hidden,true);assert.match(document.querySelector('.feedback-save-status').textContent,/Bilan enregistré/);
+});
+
+
+test('historical sparring sessions reopen under boxing while retaining their title and blocks', async () => {
+ let payload;
+ const {ui}=fixture({api:{saveSession:async data=>{payload=data;}}});
+ const blocks=[{id:'spar-step',kind:'step',type:'sparring',title:'',duration_seconds:180,children:[]}];
+ ui.editSession({...session(),sport:'sparring',title:'Sparring technique',blocks});
+ assert.equal(document.querySelector('[name="sport"]').value,'boxing');
+ assert.equal(document.querySelector('[name="sport"] option[value="sparring"]'),null);
+ submit('sessionDialog');await tick();
+ assert.equal(payload.sport,'boxing');assert.equal(payload.title,'Sparring technique');assert.equal(payload.blocks[0].type,'sparring');assert.equal(payload.blocks[0].duration_seconds,180);
 });

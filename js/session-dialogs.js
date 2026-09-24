@@ -114,9 +114,10 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const dialog = $('sessionDialog'), container = $('sessionDialogContent');
     if (activeEditor) { activeEditor.destroy(); activeEditor = null; }
     const title = input('title', duplicate && !session?.kind ? `${session?.title || 'Séance'} (copie)`.slice(0, 200) : session?.title || '', 'text', { required: true, maxLength: 200 });
-    const sportOptions = SPORTS.map(item => ({ value: item.id, label: item.label }));
-    if (session?.sport && !sportOptions.some(option => option.value === session.sport)) sportOptions.push({ value: session.sport, label: session.sport });
-    const sport = select('sport', sportOptions, session?.sport || 'running', { required: true });
+    const initialSport = session?.sport === 'sparring' ? 'boxing' : session?.sport || 'boxing';
+    const sportOptions = SPORTS.filter(item => !item.legacy).map(item => ({ value: item.id, label: item.label }));
+    if (!sportOptions.some(option => option.value === initialSport)) sportOptions.push({ value: initialSport, label: initialSport });
+    const sport = select('sport', sportOptions, initialSport, { required: true });
     const day = input('date', duplicate ? date : session?.date || date, 'date', { required: true });
     const lock = lockControl(existing), preview = el('div', { class: 'workout-preview' });
     const graph = el('details', { class: 'session-form-details session-program-preview' }, el('summary', {}, 'Aperçu graphique du programme'), preview);
@@ -156,8 +157,9 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           if (!isCurrent()) return;
           blocksError(template.blocks || []); editor.setValue(template.blocks || [], [template.description, template.notes].filter(Boolean).join('\n\n'));
           title.value = template.title || '';
-          if (![...sport.options].some(option => option.value === template.sport)) sport.append(el('option', { value: template.sport }, sportName(template.sport)));
-          sport.value = template.sport || 'other'; editor.setSport(sport.value); drawPreview(editor.getValue());
+          const templateSport = template.sport === 'sparring' ? 'boxing' : template.sport || 'other';
+          if (![...sport.options].some(option => option.value === templateSport)) sport.append(el('option', { value: templateSport }, sportName(templateSport)));
+          sport.value = templateSport; editor.setSport(sport.value); drawPreview(editor.getValue());
         } catch (err) { showError(error, err); }
       } }), 'button session-library-button');
       library.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 4h5v16H3zM10 4h4v16h-4zM16 5l3-1 3 15-3 1z"/></svg><span>Bibliothèque</span><span aria-hidden="true">↗</span>';
