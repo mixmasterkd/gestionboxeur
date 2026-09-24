@@ -151,3 +151,8 @@ La vérification locale après installation propre et le workflow distant ont r�
 Les advisories Supabase ne signalent plus de fonction privilégiée accessible anonymement ni de `search_path` manquant. Les avis sur les RPC accessibles aux utilisateurs authentifiés et sur la table d'invitations réservée aux RPC correspondent au modèle d'accès prévu. L'avis préexistant [protection des mots de passe compromis désactivée](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) reste présent.
 
 Pour les prochaines mises en ligne, conserver une sauvegarde adaptée, vérifier le projet ciblé et son historique, puis appliquer uniquement les nouvelles migrations. Ne pas réinitialiser la base et ne pas rejouer celles déjà enregistrées. Ne pas revenir à l'ancienne interface historique : ses lectures globales des athlètes sont incompatibles avec les protections des notes privées. Les [instructions Supabase](supabase/README.md) détaillent les contrats et les vérifications.
+
+
+### Règles de rédaction de l’interface
+
+Aucun slogan ni accroche promotionnelle. Les champs de saisie ne contiennent aucun exemple en filigrane ou prérempli; leurs libellés identifient leur fonction. Les exemples de notation restent dans l’aide repliée. Les valeurs de données existantes et les entraînements choisis dans la bibliothèque restent affichés normalement.

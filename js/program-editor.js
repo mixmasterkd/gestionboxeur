@@ -238,19 +238,19 @@ export class ProgramEditor {
   miniPanel() {
     const draft = this.mini, block = draft.block, repeating = block.kind === 'repeat';
     const panel = el('section', { class: 'pe-mini', 'aria-label': draft.id ? 'Modifier une étape' : 'Ajouter une étape' });
-    const title = input('block_title', block.title, 'text', { maxLength: 500, placeholder: repeating ? 'Intervalles' : typeLabel(block.type), dataset: { field: 'title' } });
+    const title = input('block_title', block.title, 'text', { maxLength: 500, dataset: { field: 'title' } });
     panel.append(el('h4', {}, draft.id ? 'Modifier cette ligne' : repeating ? 'Ajouter une séquence répétée' : 'Ajouter une étape'), field('Nom', title));
     const count = input('block_count', block.repeat_count || 2, 'text', { inputMode: 'numeric', dataset: { field: 'repeat_count' } });
     const effort = input('block_effort', '1m', 'text', { dataset: { field: 'effort' } });
     const recovery = input('block_recovery', '1m', 'text', { dataset: { field: 'recovery' } });
     const originalFormat = block.rounds && block.work_seconds != null ? 'rounds' : block.distance_m != null ? block.duration_seconds != null ? 'mixed' : 'distance' : block.duration_seconds != null ? 'time' : 'free';
     const format = choose('block_format', [['time', 'Durée'], ['rounds', 'Rounds'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['free', 'Consignes seules']], originalFormat);
-    const minutes = input('block_duration', secondsText(block.duration_seconds), 'text', { placeholder: 'Ex. 5m ou 30s', dataset: { field: 'duration' } });
+    const minutes = input('block_duration', secondsText(block.duration_seconds), 'text', { dataset: { field: 'duration' } });
     const rounds = input('block_rounds', block.rounds ?? 3, 'text', { inputMode: 'numeric', dataset: { field: 'rounds' } });
     const work = input('block_work', secondsText(block.work_seconds ?? 120), 'text', { dataset: { field: 'work' } });
     const restDefault = block.rest_seconds ?? (draft.id ? 0 : 60);
     const rest = input('block_rest', secondsText(restDefault), 'text', { dataset: { field: 'rest' } });
-    const meters = input('block_distance', block.distance_m ?? '', 'text', { inputMode: 'decimal', placeholder: 'Ex. 400', dataset: { field: 'distance' } });
+    const meters = input('block_distance', block.distance_m ?? '', 'text', { inputMode: 'decimal', dataset: { field: 'distance' } });
     if (repeating) {
       const fields = el('div', { class: 'pe-mini-fields' }, field('Répétitions', count));
       if (!draft.id) fields.append(field('Effort', effort), field('Récupération', recovery, '0s pour ne pas en ajouter.'));
@@ -261,7 +261,7 @@ export class ProgramEditor {
       format.addEventListener('change', drawFormat); drawFormat();
       panel.append(el('div', { class: 'pe-mini-fields' }, field('Format', format), timed, distance), roundFields);
     }
-    const description = textarea('block_description', block.description, { rows: 2, maxLength: 10000, placeholder: 'Une consigne, si nécessaire…', dataset: { field: 'description' } });
+    const description = textarea('block_description', block.description, { rows: 2, maxLength: 10000, dataset: { field: 'description' } });
     panel.append(field('Consigne', description));
     const types = BLOCK_TYPES.map(item => [item.id, item.label]); if (!types.some(([type]) => type === block.type)) types.push([block.type, block.type]);
     const type = choose('block_type', types, block.type);

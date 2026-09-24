@@ -132,16 +132,8 @@ tbody tr.selected { background: #eaeaeb; }
 .app-toast, .toast { background: var(--arena-night); }
 .auth-page { position: relative; isolation: isolate; overflow-x: clip; background: radial-gradient(ellipse at 15% 35%, #45474b 0, transparent 52%), var(--arena-night); gap: 8vw; justify-content: center; padding: 48px 6vw; }
 .auth-card { flex: 0 1 490px; position: relative; border-radius: 25px; background: #f5f5f6; border: 1px solid #d8d9db; box-shadow: 0 30px 90px #10101155; }
-.auth-card h1 { font-size: 42px; color: var(--ink); }
+.auth-card h1 { margin-bottom: 24px; font-size: 42px; color: var(--ink); }
 .auth-card .muted, .auth-links .link-button { color: #55585d; }
-.auth-scene { flex: 1 1 400px; max-width: 590px; min-width: 0; color: #e9eaeb; position: relative; padding: 80px 0; }
-.auth-scene .eyebrow { color: #cccdcf; font-size: 11px; letter-spacing: .19em; }
-.auth-scene h2 { font: 800 clamp(45px, 5.5vw, 82px)/1.02 "Inter", "Aptos", "Segoe UI", sans-serif; letter-spacing: -.065em; text-transform: none; position: relative; margin: 24px 0; }
-.auth-scene h2 span { color: var(--accent); }
-.auth-scene p:last-child { max-width: 310px; font-size: 14px; line-height: 1.8; color: #c4c6c9; }
-.auth-rings { position: absolute; width: min(35vw, 440px); aspect-ratio: 1; right: -15px; top: -15px; border: 1px solid #a7a9ad50; border-radius: 50%; transform: rotateX(58deg) rotateZ(-30deg); box-shadow: 0 22px 0 -1px #24272c, 0 23px 0 #9c9fa450, 0 45px 0 -1px #24272c, 0 46px 0 #9c9fa430; z-index: -1; }
-.auth-rings::before { content: ''; position: absolute; inset: 25px; border: 1px solid #a7a9ad60; border-radius: 50%; }
-.auth-rings::after { content: ''; width: 24px; height: 24px; border-radius: 50%; background: var(--arena-coral); position: absolute; top: 32px; right: 32px; box-shadow: 0 0 60px #f4a18a80; }
 
 /* Full-screen destination map; links remain real links and the dialog is keyboard native. */
 body.space-is-open { overflow: hidden; }
@@ -194,7 +186,6 @@ body.space-is-open { overflow: hidden; }
 @keyframes page-in { from { opacity: 0; transform: translateY(7px); } }
 @media (min-width: 1600px) { :root { --nav-width: 220px; } .content { max-width: 1550px; margin-left: auto; margin-right: auto; padding: 0 35px; } }
 @media (min-width: 801px) and (max-width: 1100px) { :root { --nav-width: 172px; } .primary-navigation { padding-left: 10px; padding-right: 10px; } .nav-links a { font-size: 12px; gap: 8px; } }
-@media (max-width: 1050px) { .auth-page { gap: 4vw; } .auth-scene { padding: 30px 0; } .auth-scene h2 { font-size: 54px; } }
 @media (max-width: 800px) {
   body.has-navigation { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
   .primary-navigation { flex-direction: row; align-items: center; gap: 5px; padding: 9px 10px calc(9px + env(safe-area-inset-bottom)); background: #f4f4f5ed; border-top: 1px solid #c7c9cc; box-shadow: 0 -5px 25px #28292b0a; }
@@ -208,11 +199,6 @@ body.space-is-open { overflow: hidden; }
   .intro-actions { width: 100%; max-width: none; }
   .intro-actions .button { flex: 1 1 150px; }
   .auth-page { display: flex; flex-direction: column; padding: 30px 20px; gap: 24px; }
-  .auth-scene { flex: none; width: 100%; max-width: 490px; padding: 5px 5px 0; }
-  .auth-scene h2 { font-size: 39px; margin: 12px 0 0; }
-  .auth-scene p:last-child { display: none; }
-  .auth-scene .eyebrow { font-size: 10px; }
-  .auth-rings { width: 220px; right: -25px; top: -40px; opacity: .65; }
   .auth-card { flex: none; margin: 0; max-width: 490px; width: 100%; padding: 28px; }
   .auth-card h1 { font-size: 32px; }
   .space-navigation { padding: 25px; }
@@ -270,7 +256,7 @@ body.space-is-open { overflow: hidden; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
 @media print {
-  .space-navigation, .auth-scene { display: none !important; }
+  .space-navigation { display: none !important; }
   body { background: #fff; }
 }
 

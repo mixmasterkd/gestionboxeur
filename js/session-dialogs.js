@@ -112,7 +112,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const existing = duplicate ? null : session;
     const dialog = $('sessionDialog'), container = $('sessionDialogContent');
     if (activeEditor) { activeEditor.destroy(); activeEditor = null; }
-    const title = input('title', duplicate && !session?.kind ? `${session?.title || 'Séance'} (copie)`.slice(0, 200) : session?.title || '', 'text', { required: true, maxLength: 200, placeholder: 'Ex. Intervalles · allure maîtrisée' });
+    const title = input('title', duplicate && !session?.kind ? `${session?.title || 'Séance'} (copie)`.slice(0, 200) : session?.title || '', 'text', { required: true, maxLength: 200 });
     const sportOptions = SPORTS.map(item => ({ value: item.id, label: item.label }));
     if (session?.sport && !sportOptions.some(option => option.value === session.sport)) sportOptions.push({ value: session.sport, label: session.sport });
     const sport = select('sport', sportOptions, session?.sport || 'running', { required: true });
@@ -240,7 +240,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const choices = el('div', { class: 'feeling-options' });
     FEELINGS.forEach(feeling => choices.append(el('label', { class: 'feeling-choice' }, el('input', { type: 'radio', name: 'feeling', value: String(feeling.value), required: true, checked: feedback?.feeling === feeling.value }), el('span', {}, feeling.emoji, el('small', {}, `${feeling.value} · ${feeling.label}`)))));
     feelingGroup.append(choices); feelingGroup.style.border = '0'; feelingGroup.style.padding = '0'; feelingGroup.style.margin = '0';
-    const comment = textarea('comment', feedback?.comment || '', { maxLength: 20000, placeholder: 'Ce qui a bien été, une douleur, une adaptation…' });
+    const comment = textarea('comment', feedback?.comment || '', { maxLength: 20000 });
     const error = errorBox(), submit = el('button', { type: 'submit', class: 'button primary' }, feedback ? 'Mettre à jour mon retour' : 'Partager mon retour');
     const form = el('form', {}, field('Effort perçu · RPE', rpe, '1 = très facile · 10 = effort maximal'), feelingGroup, field('Commentaire', comment), error, submit);
     let saving = false;
@@ -293,14 +293,14 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     if (event ? !canEdit(event) : !canAdd()) { toast('Tu n’as pas la permission de modifier cet événement.'); return; }
     const state = getState(), athleteId = state.selectedAthlete.id;
     const dialog = $('eventDialog'), container = $('eventDialogContent');
-    const title = input('title', event?.title || '', 'text', { required: true, maxLength: 200, placeholder: 'Ex. Examen de fin de session' });
+    const title = input('title', event?.title || '', 'text', { required: true, maxLength: 200 });
     const options = [...EVENT_CATEGORIES];
     if (event?.category && !options.some(item => item.value === event.category)) options.push({ value: event.category, label: event.category });
     const category = select('category', options, event?.category || 'note', { required: true });
     const dateInput = input('date', event?.date || date, 'date', { required: true });
     const endDate = input('end_date', event?.end_date || '', 'date', { min: event?.date || date });
     dateInput.addEventListener('input', () => { endDate.min = dateInput.value; });
-    const notes = textarea('notes', event?.notes || '', { maxLength: 20000, placeholder: 'Ex. Pas disponible avant 18 h.' });
+    const notes = textarea('notes', event?.notes || '', { maxLength: 20000 });
     const colors = el('fieldset', { class: 'event-colors' }, el('legend', {}, 'Couleur pastel'));
     for (const choice of EVENT_COLORS) {
       const control = input('event_color', choice.id, 'radio', { checked: choice.id === (event?.color || 'sand') });

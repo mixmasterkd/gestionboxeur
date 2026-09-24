@@ -33,7 +33,7 @@ function mountExplorer(nav, items, route, onPlanning) {
   dialog.id = 'spaceNavigation';
   dialog.className = 'space-navigation';
   dialog.setAttribute('aria-labelledby', 'spaceTitle');
-  dialog.innerHTML = '<div class="space-orbit" aria-hidden="true"><i></i><i></i><i></i></div><header class="space-heading"><div><p class="eyebrow">Navigation</p><h2 id="spaceTitle">Ton espace.</h2></div><button type="button" class="space-close" aria-label="Fermer la navigation">×</button></header><div class="space-stage"><div class="space-grid"></div></div><p class="space-hint">Choisis une rubrique pour continuer.</p>';
+  dialog.innerHTML = '<div class="space-orbit" aria-hidden="true"><i></i><i></i><i></i></div><header class="space-heading"><div><h2 id="spaceTitle">Navigation</h2></div><button type="button" class="space-close" aria-label="Fermer la navigation">×</button></header><div class="space-stage"><div class="space-grid"></div></div><p class="space-hint">Choisis une rubrique pour continuer.</p>';
   const descriptions = {
     athletes: 'Fiches, disponibilités et listes.',
     calendar: 'Séances, événements et suivi.',

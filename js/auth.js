@@ -80,7 +80,8 @@ function setMode(next) {
   $('confirmPasswordField').classList.toggle('hidden', !recovery);
   $('confirmPassword').required = recovery;
   $('authTitle').textContent = signup ? 'Créer un compte' : recovery ? 'Nouveau mot de passe' : forgot ? 'Mot de passe oublié' : 'Connexion';
-  $('authIntro').textContent = signup ? 'Choisis ton rôle. Un coach pourra inviter un athlète à partir de sa fiche.' : recovery ? 'Choisis un mot de passe d’au moins 6 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : 'Retrouve les athlètes de ton gym, tes listes combat/sparring et tes entraînements.';
+  $('authIntro').textContent = signup ? 'Choisis ton rôle. Un coach pourra inviter un athlète à partir de sa fiche.' : recovery ? 'Choisis un mot de passe d’au moins 6 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : '';
+  $('authIntro').hidden = !$('authIntro').textContent;
   $('authSubmit').textContent = signup ? 'Créer mon compte' : recovery ? 'Enregistrer le mot de passe' : forgot ? 'Envoyer le lien' : 'Se connecter';
   $('authSubmit').disabled = recovery && !recoveryReady;
   $('authToggle').textContent = mode === 'login' ? 'Créer un compte' : 'Retour à la connexion';

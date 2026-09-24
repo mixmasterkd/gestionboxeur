@@ -17,7 +17,7 @@ function button(text, action, title = text, className = '') {
   node.type = 'button'; node.dataset.action = action; node.title = title;
   node.setAttribute('aria-label', title); return node;
 }
-function field(label, name, value, { type = 'text', options, min, max, step, placeholder, unit } = {}) {
+function field(label, name, value, { type = 'text', options, min, max, step, unit } = {}) {
   const wrapper = element('label', 'be-field'); wrapper.append(element('span', '', label));
   let input;
   if (options) {
@@ -27,7 +27,6 @@ function field(label, name, value, { type = 'text', options, min, max, step, pla
   else { input = element('input'); input.type = type; }
   input.dataset.field = name; input.value = value ?? '';
   if (type === 'number') { input.inputMode = 'decimal'; input.min = min ?? 0; input.step = step ?? 'any'; if (max != null) input.max = max; }
-  if (placeholder) input.placeholder = placeholder;
   if (unit) input.dataset.unit = unit;
   if (name === 'title') input.maxLength = 500;
   if (name === 'description' || name === 'notes') input.maxLength = 10000;
@@ -203,7 +202,7 @@ export class BlockEditor {
     card.dataset.id = block.id;
     const header = element('div', 'be-card-head');
     const handle = button('⠿', 'handle', 'Glisser pour déplacer ce bloc', 'be-handle'); handle.tabIndex = -1;
-    const title = field('Titre du bloc', 'title', block.title, { placeholder: block.kind === 'repeat' ? 'Répétition' : typeLabel(block.type) }); title.classList.add('be-title');
+    const title = field('Titre du bloc', 'title', block.title); title.classList.add('be-title');
     header.append(handle, title);
     if (block.kind === 'repeat') {
       const repeat = field('Répétitions', 'repeat_count', block.repeat_count, { type: 'number', min: 1, max: WORKOUT_LIMITS.repeat, step: 1 }); repeat.classList.add('be-repeat-count'); header.append(repeat);
@@ -214,7 +213,7 @@ export class BlockEditor {
     const body = element('div', 'be-body');
     const details = element('details', 'be-advanced'); details.open = this.disclosures.get(block.id) || false;
     details.append(element('summary', '', block.description ? `Consignes · ${block.description.replace(/\s+/g, ' ').slice(0, 64)}${block.description.length > 64 ? '…' : ''}` : 'Consignes et options'));
-    details.append(field(block.kind === 'repeat' ? 'Instructions de la séquence' : 'Instructions', 'description', block.description, { type: 'textarea', placeholder: block.kind === 'repeat' ? 'Consignes communes aux étapes…' : 'Consignes, technique, objectifs…' }));
+    details.append(field(block.kind === 'repeat' ? 'Instructions de la séquence' : 'Instructions', 'description', block.description, { type: 'textarea' }));
     if (block.kind === 'repeat') {
       body.append(details);
       const nested = element('div', 'be-children'); nested.append(this.renderList(block.children, depth + 1));
@@ -227,16 +226,16 @@ export class BlockEditor {
       controls.append(field('Type', 'type', block.type, { options: types }), field('Format', 'mode', modeOf(block), { options: [['free', 'Libre'], ['time', 'Durée'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['rounds', 'Rounds / séries']] }));
       body.append(controls);
       const dose = element('div', 'be-dose'); const mode = modeOf(block);
-      if (mode === 'time' || mode === 'mixed') dose.append(field('Durée (minutes)', 'duration_seconds', block.duration_seconds == null ? '' : Number((block.duration_seconds / 60).toFixed(4)), { type: 'number', unit: 'minutes', step: 'any', placeholder: 'Ex. 1,5 = 90 s' }));
-      if (mode === 'distance' || mode === 'mixed') dose.append(field('Distance (mètres)', 'distance_m', block.distance_m, { type: 'number', placeholder: 'Ex. 400' }));
+      if (mode === 'time' || mode === 'mixed') dose.append(field('Durée (minutes)', 'duration_seconds', block.duration_seconds == null ? '' : Number((block.duration_seconds / 60).toFixed(4)), { type: 'number', unit: 'minutes', step: 'any' }));
+      if (mode === 'distance' || mode === 'mixed') dose.append(field('Distance (mètres)', 'distance_m', block.distance_m, { type: 'number' }));
       if (mode === 'rounds') {
-        dose.append(field('Rounds / séries', 'rounds', block.rounds, { type: 'number', min: 1, max: 10000, step: 1 }), field('Travail (secondes)', 'work_seconds', block.work_seconds, { type: 'number', placeholder: 'Ex. 120' }), field('Repos entre rounds (s)', 'rest_seconds', block.rest_seconds, { type: 'number', placeholder: 'Ex. 60' }));
+        dose.append(field('Rounds / séries', 'rounds', block.rounds, { type: 'number', min: 1, max: 10000, step: 1 }), field('Travail (secondes)', 'work_seconds', block.work_seconds, { type: 'number' }), field('Repos entre rounds (s)', 'rest_seconds', block.rest_seconds, { type: 'number' }));
       }
       if (dose.childElementCount) controls.append(dose);
       controls.append(field('Zone cible', 'zone', block.zone, { options: [['', 'Libre'], ...Array.from({ length: 7 }, (_, index) => [String(index + 1), `Z${index + 1}`])] }));
       const advanced = element('div', 'be-controls');
-      advanced.append(field('Répétitions de mouvement', 'repetitions', block.repetitions, { type: 'number', min: 1, max: 10000, step: 1, placeholder: 'Facultatif' }));
-      details.append(advanced, field('Notes', 'notes', block.notes, { type: 'textarea', placeholder: 'Précisions, matériel, variantes…' })); body.append(details);
+      advanced.append(field('Répétitions de mouvement', 'repetitions', block.repetitions, { type: 'number', min: 1, max: 10000, step: 1 }));
+      details.append(advanced, field('Notes', 'notes', block.notes, { type: 'textarea' })); body.append(details);
     }
     const footer = element('div', 'be-card-footer');
     footer.append(button('Dupliquer', 'duplicate', 'Dupliquer ce bloc'));

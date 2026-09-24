@@ -298,7 +298,7 @@
       </div>
 
       <div class="filters" aria-label="Filtres">
-        <label class="field-inline search-field"><span>Recherche</span><input id="searchInput" type="search" placeholder="Nom de l’athlète…"></label>
+        <label class="field-inline search-field"><span>Recherche</span><input id="searchInput" type="search"></label>
         <label class="field-inline"><span>Statut</span><select id="statusFilter"><option value="all">Tous les statuts</option><option value="available">Disponible</option><option value="unavailable">Indisponible</option><option value="injured">Blessé</option><option value="sick">Malade</option><option value="not_ready">Pas prêt</option></select></label>
         <label class="field-inline"><span>Sexe</span><select id="sexFilter"><option value="all">Tous</option><option value="M">Homme</option><option value="F">Femme</option></select></label>
         <button class="reset" id="resetFilters" type="button">Effacer les filtres</button>
@@ -360,12 +360,12 @@
           <legend>Expérience</legend>
           <div class="form-grid cols-3">
             <label><span>Nombre de combats *</span><input id="fights" type="number" min="0" max="999" value="0" required></label>
-            <label><span>Victoires — facultatif</span><input id="wins" type="number" min="0" max="999" placeholder="—"></label>
-            <label><span>Défaites — facultatif</span><input id="losses" type="number" min="0" max="999" placeholder="—"></label>
+            <label><span>Victoires — facultatif</span><input id="wins" type="number" min="0" max="999"></label>
+            <label><span>Défaites — facultatif</span><input id="losses" type="number" min="0" max="999"></label>
           </div>
-          <p class="hint">Exemple : 6 combats (4-2). Si le dossier est inscrit, les victoires et les défaites doivent totaliser le nombre de combats.</p>
+          <p class="hint">Si le dossier est inscrit, les victoires et les défaites doivent totaliser le nombre de combats.</p>
         </fieldset>
-        <label><span>Note privée du coach — jamais incluse dans une liste</span><textarea id="athleteNote" maxlength="20000" placeholder="Disponibilités, précision utile…"></textarea></label>
+        <label><span>Note privée du coach — jamais incluse dans une liste</span><textarea id="athleteNote" maxlength="20000"></textarea></label>
         <p class="error hidden" id="athleteError" role="alert"></p>
         <footer class="dialog-foot">
           <button class="danger hidden" id="deleteAthleteButton" type="button">Retirer de mon effectif</button><span class="spacer"></span>

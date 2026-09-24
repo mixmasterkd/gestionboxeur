@@ -28,7 +28,7 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     const dialog = $('libraryDialog'), wrap = $('libraryContent'), errors = errorBox();
     const current = ++ticket, ownerId = getState().user?.id;
     const body = el('div', { class: 'dialog-body' });
-    wrap.replaceChildren(heading(kind === 'block' ? 'Tes blocs réutilisables' : 'Ta bibliothèque', 'DES BASES À PERSONNALISER', dialog, 'libraryTitle'), body);
+    wrap.replaceChildren(heading(kind === 'block' ? 'Tes blocs réutilisables' : 'Ta bibliothèque', 'SÉANCES ET BLOCS', dialog, 'libraryTitle'), body);
     if (!dialog.open) dialog.showModal();
     const authorized = () => Boolean(ownerId && getState().user?.id === ownerId && getState().profile?.account_type === 'coach');
     const active = () => current === ticket && dialog.open && wrap.contains(body) && authorized();
@@ -41,7 +41,7 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     if (!pendingByCoach.has(ownerId)) pendingByCoach.set(ownerId, new Set());
     const copies = copiesByCoach.get(ownerId);
     const pending = pendingByCoach.get(ownerId);
-    const search = el('input', { type: 'search', placeholder: 'Rechercher un modèle', 'aria-label': 'Rechercher un modèle' });
+    const search = el('input', { type: 'search', 'aria-label': 'Rechercher un modèle' });
     const sources = el('div', { class: 'library-sources', role: 'group', 'aria-label': 'Source des modèles' });
     const tabs = el('div', { class: 'template-tabs', role: 'group', 'aria-label': 'Type de modèle' });
     const grid = el('div', { class: 'template-grid' });
