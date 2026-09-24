@@ -142,3 +142,10 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Encadré supérieur regroupant titre, discipline, date et verrouillage. Accès unique Bibliothèque avec icône : séances et blocs dans la même fenêtre, ajout des blocs, remplacement confirmé des séances.
 - Validation : 278 tests réussis, dont type visible, nom Autre, séquences de rounds, ordre et durées, sécurité d’affichage, bibliothèque commune et conservation du verrouillage/date. Vérifications visuelles locales à 1280, 375 et 320 px; recherche, bibliothèque, rounds et absence de débordement horizontal contrôlés.
 - Publication réussie : application `aa885c2`, workflow `36031516383`; les 18 fichiers publics correspondent à l’artefact déployé. Contrôle connecté : encadré de séance avec verrouillage, bibliothèque unique avec icône, bouton Rounds ouvrant une séquence avec unité Rounds et sans champ de nom du groupe. Aucun contenu réel enregistré durant ce contrôle.
+
+## 24 septembre 2026 — Boxe prioritaire et consignes visibles
+
+- Types d’étapes : Boxe avant Course. Nouveaux blocs de rounds limités aux types de boxe et Autre; liste adaptée au changement d’unité, sans conversion silencieuse d’un type incompatible. Anciens blocs conservés à l’édition.
+- Étapes seules : Consigne unique, retrait de Plus d’options / Notes. Lignes des répétitions et rounds : Consigne visible sous les mesures, zone facultative et retrait de la case Repos. Contenu historique des notes conservé et présenté dans la consigne; anciennes récupérations préservées.
+- Changer sans chevron; initiales sur six couleurs pastel stables selon l’identité de l’athlète. Surface Texte ardoise claire en sombre et ivoire en clair, sans exemple prérempli.
+- Validation : 282 tests réussis, vérification de structure et compilation réussies. Contrôles visuels à 375 et 1280 px : consignes des rounds, types disponibles, initiales pastel et contraste du champ Texte dans les deux thèmes.

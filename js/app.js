@@ -95,6 +95,13 @@ function renderSurface(){
 }
 function setSurface(surface){state.surface=surface;const url=new URL(location.href);url.hash=surface==='journal'?'journal':'';history.replaceState(history.state,'',url);if(surface==='calendar')journalUI.invalidate();renderAccount();}
 function searchName(value) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr'); }
+function avatarTone(athlete) {
+  // Stable identity, independent of list order, search or a changed display name.
+  const identity = String(athlete.id || athlete.user_id || displayName(athlete));
+  let hash = 0;
+  for (const character of identity) hash = (Math.imul(hash, 31) + character.codePointAt(0)) >>> 0;
+  return String(hash % 6);
+}
 function renderAthleteList() {
   const query=searchName($('athleteSearch').value.trim());
   $('athleteList').replaceChildren();
@@ -108,7 +115,7 @@ function renderAthleteList() {
     },`athlete-item${athlete.id===state.selectedAthlete?.id?' active':''}`,{'aria-pressed':String(athlete.id===state.selectedAthlete?.id)});
     const relation=state.relations.find(r=>r.athlete_id===athlete.id);
     const status=athlete.user_id===state.user?.id?'Personnel':!athlete.user_id?'Fiche sans compte':relation?.can_view_calendar===false?'Accès calendrier non autorisé':'Compte lié';
-    item.append(el('span',{class:'athlete-avatar','aria-hidden':'true'},initials(athlete)),el('span',{},el('strong',{},athlete.user_id===state.user?.id?'Mon calendrier':displayName(athlete)),el('small',{},status)));
+    item.append(el('span',{class:'athlete-avatar','aria-hidden':'true',dataset:{avatarTone:avatarTone(athlete)}},initials(athlete)),el('span',{},el('strong',{},athlete.user_id===state.user?.id?'Mon calendrier':displayName(athlete)),el('small',{},status)));
     if(athlete.user_id)item.append(el('span',{class:'dot','aria-hidden':'true'}));
     $('athleteList').append(item);
   }

@@ -7,11 +7,14 @@ const clone = value => structuredClone(value);
 const typeLabel = type => BLOCK_TYPES.find(item => item.id === type)?.label || type || 'Étape';
 const secondsText = value => value == null ? '' : value % 60 === 0 ? `${value / 60}m` : `${value}s`;
 const choose = (name, options, value) => select(name, options.map(([value, label]) => ({ value, label })), value);
-function typeSelect(name, value, hybrid = false) {
+const boxingTypes = BLOCK_TYPE_GROUPS.find(group => group.types.some(([id]) => id === 'shadow')).types;
+const isRoundType = value => value === 'other' || boxingTypes.some(([id]) => id === value);
+function typeSelect(name, value, hybrid = false, rounds = false) {
   const control = el('select', { name }, el('option', { value: '' }, 'Choisir'));
-  if (hybrid) control.append(el('option', { value: 'hybrid' }, 'Hybride'));
-  for (const group of BLOCK_TYPE_GROUPS) control.append(el('optgroup', { label: group.label }, group.types.map(([id, label]) => el('option', { value: id }, label))));
-  if (value && value !== 'hybrid' && !BLOCK_TYPES.some(type => type.id === value)) control.append(el('option', { value }, value));
+  if (hybrid && !rounds) control.append(el('option', { value: 'hybrid' }, 'Hybride'));
+  for (const group of rounds ? [{label:'🥊 Boxe',types:boxingTypes},{label:'Autres',types:[['other','Autre']]}] : BLOCK_TYPE_GROUPS) control.append(el('optgroup', { label: group.label }, group.types.map(([id, label]) => el('option', { value: id }, label))));
+  if (rounds && value && !isRoundType(value)) control.append(el('option', {value,disabled:true}, `${value === 'hybrid' ? 'Types existants' : typeLabel(value)} (existant)`));
+  if (!rounds && value && value !== 'hybrid' && !BLOCK_TYPES.some(type => type.id === value)) control.append(el('option', { value }, value));
   control.value = value; return control;
 }
 function validate(blocks) {
@@ -221,7 +224,7 @@ export class ProgramEditor {
     if (this.mini || action === 'handle') return;
     this.errors.hidden = true;
     if (action.startsWith('add-')) {
-      this.mini = { action, parentId: id || '', block: ['add-repeat','add-rounds'].includes(action) ? { ...makeBlock('repeat'), ...(action === 'add-rounds' ? {repeat_unit:'rounds',repeat_count:3} : {}), type: this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other') };
+      this.mini = { action, parentId: id || '', block: ['add-repeat','add-rounds'].includes(action) ? { ...makeBlock('repeat'), ...(action === 'add-rounds' ? {repeat_unit:'rounds',repeat_count:3} : {}), type: action === 'add-rounds' ? this.sport === 'sparring' ? 'sparring' : 'shadow' : this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other' } : makeBlock(this.sport === 'running' ? 'run' : this.sport === 'boxing' ? 'shadow' : this.sport === 'sparring' ? 'sparring' : 'other') };
       if (action === 'add-step') this.mini.block.duration_seconds = 300;
       this.render(); [...this.container.querySelectorAll('.pe-mini input,.pe-mini select,.pe-mini textarea')].find(control=>!control.closest('[hidden]'))?.focus(); return;
     }
@@ -250,7 +253,7 @@ export class ProgramEditor {
     const children = block.children.length ? block.children : [makeBlock(block.type)];
     const workTypes = new Set(children.filter(child => child.type !== 'recovery').map(child => child.kind === 'repeat' ? 'hybrid' : child.type));
     const initialType = workTypes.size > 1 || workTypes.has('hybrid') ? 'hybrid' : [...workTypes][0] || 'run';
-    const commonType = typeSelect('repeat_type', initialType, true);
+    const commonType = typeSelect('repeat_type', initialType, true, block.repeat_unit === 'rounds');
     const unit = choose('repeat_unit', [['repetitions','Répétitions'],['rounds','Rounds']], block.repeat_unit || 'repetitions');
     panel.append(el('h4', {}, draft.id ? 'Modifier le bloc répété' : 'Ajouter un bloc répété'), el('div', { class: 'pe-repeat-settings' }, field('Nombre', count), field('Unité', unit), field('Type du bloc', commonType)));
     const lines = el('div', { class: 'pe-sequence-lines' });
@@ -273,13 +276,11 @@ export class ProgramEditor {
         row.read = () => clone(source);
       } else {
         const type = typeSelect(`step_type_${source.id}`, source.type);
-        const recovery = input(`step_recovery_${source.id}`, '', 'checkbox', {checked:source.type==='recovery',dataset:{field:'recovery'}});
-        const recoveryField = el('label',{class:'pe-recovery'},recovery,el('span',{},'Repos'));
         const typeField = field('Type', type);
-        row.element.querySelector('.pe-sequence-head').insertBefore(recoveryField,row.element.querySelector('.pe-sequence-actions'));
-        row.updateType = () => { typeField.hidden = commonType.value !== 'hybrid'; recoveryField.hidden = commonType.value === 'hybrid'; };
-        type.addEventListener('change', () => { recovery.checked = type.value === 'recovery'; });
-        recovery.addEventListener('change', () => { type.value = recovery.checked ? 'recovery' : commonType.value; });
+        // Existing recovery lines keep their meaning without a separate checkbox.
+        const recoveryLabel = el('span', {class:'pe-hint'}, 'Récupération');
+        row.element.querySelector('.pe-sequence-head').insertBefore(recoveryLabel,row.element.querySelector('.pe-sequence-actions'));
+        row.updateType = () => { typeField.hidden = commonType.value !== 'hybrid'; recoveryLabel.hidden = commonType.value === 'hybrid' || source.type !== 'recovery'; };
         const originalFormat = source.rounds && source.work_seconds != null ? 'rounds' : source.distance_m != null ? source.duration_seconds != null ? 'mixed' : 'distance' : source.duration_seconds != null ? 'time' : 'free';
         const isNew = !block.children.includes(source);
         const format = choose(`step_format_${source.id}`, [['time', 'Durée'], ['distance', 'Distance'], ['mixed', 'Durée + distance'], ['rounds', 'Rounds'], ['free', 'Consignes seules']].filter(([value]) => value !== 'rounds' || originalFormat === 'rounds'), isNew ? 'time' : originalFormat);
@@ -298,13 +299,13 @@ export class ProgramEditor {
         const originalNotes = [source.description,source.notes].filter(Boolean).join('\n\n');
         const notes = textarea(`step_notes_${source.id}`, originalNotes, { rows: 2, maxLength: Math.max(10000,originalNotes.length) });
         const nameField = field('Nom',title);
-        const updateName = () => {nameField.hidden = (commonType.value === 'hybrid' ? type.value : recovery.checked ? 'recovery' : commonType.value) !== 'other';};
+        const updateName = () => {nameField.hidden = (commonType.value === 'hybrid' ? type.value : source.type === 'recovery' ? 'recovery' : commonType.value) !== 'other';};
         const updateType = row.updateType; row.updateType = () => {updateType();updateName();};
-        type.addEventListener('change',updateName);recovery.addEventListener('change',updateName);
+        type.addEventListener('change',updateName);
         row.element.append(el('div', { class: 'pe-sequence-fields' }, typeField, nameField, field('Mesure', format), timeField, metersField, field('Zone d’effort', zone)), roundFields,
-          el('details', { class: 'pe-line-options' }, el('summary', {}, 'Notes'), field('Notes', notes)));
+          field('Consigne', notes));
         row.read = () => {
-          const next = { ...clone(source), type: commonType.value === 'hybrid' ? type.value : recovery.checked ? 'recovery' : commonType.value, zone: zone.value ? Number(zone.value) : null, title: title.value.trim(), ...(notes.value === originalNotes ? {} : {description:'',notes:notes.value}) };
+          const next = { ...clone(source), type: commonType.value === 'hybrid' ? type.value : source.type === 'recovery' ? 'recovery' : commonType.value, zone: zone.value ? Number(zone.value) : null, title: title.value.trim(), ...(notes.value === originalNotes ? {} : {description:notes.value,notes:''}) };
           if (!next.type) throw new Error('Choisis le type de chaque ligne du bloc hybride.');
           if (next.type === 'other' && !next.title) throw new Error('Indique le nom de l’étape Autre.');
           if (next.type !== 'other' && (isNew || next.type !== source.type)) next.title = typeLabel(next.type);
@@ -320,6 +321,14 @@ export class ProgramEditor {
     };
     children.forEach(addRow);
     commonType.addEventListener('change', refresh);
+    unit.addEventListener('change', () => {
+      const rounds = unit.value === 'rounds';
+      const current = commonType.value;
+      // Switching units must never silently turn running steps into boxing steps.
+      const value = rounds && !isRoundType(current) ? (block.repeat_unit === 'rounds' && current === initialType ? current : '') : current;
+      const choices = typeSelect('repeat_type', value, true, rounds);
+      commonType.replaceChildren(...choices.childNodes); commonType.value = value; refresh();
+    });
     const error = errorBox();
     const add = button('＋ Ajouter une ligne', () => {
       if (rows.length >= WORKOUT_LIMITS.siblings) { showError(error, new Error(`Maximum ${WORKOUT_LIMITS.siblings} lignes dans une répétition.`)); return; }
@@ -371,20 +380,18 @@ export class ProgramEditor {
     const drawFormat = () => { timed.hidden = !['time', 'mixed'].includes(format.value); distance.hidden = !['distance', 'mixed'].includes(format.value); roundFields.hidden = format.value !== 'rounds'; };
     format.addEventListener('change', drawFormat); drawFormat();
     panel.append(el('div', { class: 'pe-mini-fields' }, field('Format', format), timed, distance), roundFields);
-    const description = textarea('block_description', block.description, { rows: 2, maxLength: 10000, dataset: { field: 'description' } });
+    const originalInstruction = [block.description, block.notes].filter(Boolean).join('\n\n');
+    const description = textarea('block_description', originalInstruction, { rows: 2, maxLength: Math.max(10000, originalInstruction.length), dataset: { field: 'description' } });
     panel.append(field('Consigne', description));
     const type = typeSelect('block_type', block.type);
     const zone = choose('block_zone', [['', 'Non précisée'], ...Array.from({ length: 7 }, (_, i) => [String(i + 1), `Z${i + 1}`])], block.zone == null ? '' : String(block.zone));
-    const notes = textarea('block_notes', block.notes || '', { maxLength: 10000 });
     const measurementFields = panel.querySelector('.pe-mini-fields');
     measurementFields.prepend(field('Type', type),nameField); measurementFields.append(field('Zone d’effort', zone));
     const updateName = () => {nameField.hidden = type.value !== 'other';}; type.addEventListener('change',updateName);updateName();
-    const advanced = el('details', { class: 'pe-mini-advanced' }, el('summary', {}, 'Plus d’options'), field('Notes', notes));
-    panel.append(advanced);
     const error = errorBox();
     const apply = () => {
       try {
-        const nextBlock = { ...clone(block), title: title.value.trim(), description: description.value.trim(), type: type.value, zone: zone.value ? Number(zone.value) : null, notes: notes.value };
+        const nextBlock = { ...clone(block), title: title.value.trim(), ...(description.value === originalInstruction ? {} : {description: description.value.trim(), notes: ''}), type: type.value, zone: zone.value ? Number(zone.value) : null };
         if (!nextBlock.type) throw new Error('Choisis le type de l’étape.');
         if (nextBlock.type === 'other' && !nextBlock.title) throw new Error('Indique le nom de l’étape Autre.');
         if (nextBlock.type !== 'other' && (!draft.id || nextBlock.type !== block.type)) nextBlock.title = typeLabel(nextBlock.type);

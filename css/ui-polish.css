@@ -27,7 +27,12 @@
 
 .skip-link {color:var(--paper);}
 
-.program-editor .pe-text-input {background:var(--white);color:var(--ink);border-color:var(--line);}
+/* A writing surface must be distinct from the surrounding dialog. */
+:root {--writing-surface:#35404e;--writing-ink:#f4f6f9;--writing-border:#8190a3;}
+:root[data-theme="light"] {--writing-surface:#fff8e8;--writing-ink:#273243;--writing-border:#b6a78a;}
+:root .program-editor .pe-text-input {background:var(--writing-surface);color:var(--writing-ink);border:1px solid var(--writing-border);box-shadow:inset 0 2px 5px #0000000d;cursor:text;caret-color:var(--writing-ink);}
+:root .program-editor .pe-text-input:focus {border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+:root .program-editor .pe-text-input[aria-invalid="true"] {border-color:var(--danger);}
 
 /* Repeat rows keep their type, measure and optional zone together. */
 .program-editor .pe-repeat-settings {display:grid;grid-template-columns:minmax(110px,.65fr) minmax(150px,1fr);gap:12px;}
@@ -118,3 +123,12 @@
  .program-editor .pe-repeat-settings {grid-template-columns:minmax(55px,.65fr) minmax(110px,1fr);gap:10px;}
 }
 @media(max-width:420px) {.session-basics-grid > .form-field {grid-column:1/-1;}}
+
+/* Soft identity colors remain the same in both appearances. */
+.athlete-avatar[data-avatar-tone="0"] {--avatar-pastel:#d6e8f7;}
+.athlete-avatar[data-avatar-tone="1"] {--avatar-pastel:#e6dcf4;}
+.athlete-avatar[data-avatar-tone="2"] {--avatar-pastel:#d6ece4;}
+.athlete-avatar[data-avatar-tone="3"] {--avatar-pastel:#fae3d1;}
+.athlete-avatar[data-avatar-tone="4"] {--avatar-pastel:#f3dbe6;}
+.athlete-avatar[data-avatar-tone="5"] {--avatar-pastel:#f0e9cb;}
+:root .athlete-picker-dialog .athlete-avatar[data-avatar-tone] {background:var(--avatar-pastel);color:#273243;border:1px solid #27324318;box-shadow:inset 0 1px 0 #ffffff80;}

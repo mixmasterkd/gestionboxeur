@@ -8,8 +8,8 @@ export const SPORTS = [
   { id: 'other', label: 'Autre', icon: '＋' },
 ];
 export const BLOCK_TYPE_GROUPS = [
-  { label: '🏃 Course', types: [['run', 'Course'], ['jog', 'Jog'], ['interval', 'Intervalle']] },
   { label: '🥊 Boxe', types: [['shadow', 'Shadow'], ['bag', 'Sac'], ['pads', 'Pads'], ['sparring', 'Sparring'], ['jump_rope', 'Corde à danser'], ['speed_ball', 'Speed ball'], ['double_end_bag', 'Double end bag'], ['technique', 'Technique'], ['footwork', 'Déplacements']] },
+  { label: '🏃 Course', types: [['run', 'Course'], ['jog', 'Jog'], ['interval', 'Intervalle']] },
   { label: 'Préparation physique', types: [['warmup', 'Échauffement'], ['burpees', 'Burpees'], ['agility', 'Agilité'], ['conditioning', 'Conditioning'], ['cardio', 'Cardio'], ['strength', 'Renforcement'], ['mobility', 'Mobilité']] },
   { label: 'Autres', types: [['recovery', 'Récupération'], ['other', 'Autre']] },
 ];

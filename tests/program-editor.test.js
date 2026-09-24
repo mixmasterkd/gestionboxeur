@@ -28,7 +28,8 @@ test('program is readable rows, one mini form at a time, and editing preserves a
   assert.match(mount.querySelector('.pe-line').textContent, /Shadow.*3 × 1 min.*repos 1 min.*Faire du 8\/16/);
   click(mount, 'edit');
   assert.equal(mount.querySelectorAll('.pe-mini').length, 1);
-  assert.equal(mount.querySelector('.pe-mini-advanced').open, false);
+  assert.equal(mount.querySelector('.pe-mini-advanced'), null);
+  assert.equal(mount.querySelector('[name=block_description]').value, 'Faire du 8/16\n\nNote avancée');
   assert.throws(() => editor.getValue(), /Valide ou annule/);
   fill(mount, 'work', '30s'); click(mount, 'apply-mini');
   const updated = editor.getValue()[0];
@@ -46,7 +47,8 @@ test('a pyramid repeats every line in order with an explicit final recovery', ()
   const rows=[...mount.querySelectorAll('.pe-sequence-row')];
   ['2m','1m','30s','3m'].forEach((value,i)=>change(rows[i].querySelector('[data-field="duration"]'),value));
   ['2','3','4',''].forEach((value,i)=>change(rows[i].querySelector('[data-field="zone"]'),value));
-  rows[3].querySelector('[data-field="recovery"]').click();
+  change(mount.querySelector('[name=repeat_type]'),'hybrid');
+  change(rows[3].querySelector('[data-field=type]'),'recovery');
   click(mount,'apply-mini');
   const repeat=editor.getValue()[0];
   assert.equal(repeat.repeat_count,5);assert.equal(repeat.zone,null);
@@ -235,10 +237,53 @@ test('round and repeat buttons use the same sequence editor without effort or na
   assert.equal(mount.querySelector('[name=repeat_unit]').value,action==='add-rounds'?'rounds':'repetitions');
   assert.equal(mount.querySelector('[data-field=phase]'),null);assert.equal(mount.querySelector('[name=block_title]'),null);assert.equal(mount.querySelector('[name=block_description]'),null);
   fill(mount,'repeat_count','3');change(mount.querySelector('.pe-sequence-row [data-field=duration]'),'2m');click(mount,'add-repeat-line');
-  const last=mount.querySelectorAll('.pe-sequence-row')[1];last.querySelector('[data-field=recovery]').click();change(last.querySelector('[data-field=duration]'),'1m');
+  const last=mount.querySelectorAll('.pe-sequence-row')[1];assert.equal(last.querySelector('[data-field=recovery]'),null);change(last.querySelector('[data-field=duration]'),'1m');
   click(mount,'apply-mini');assert.equal(editor.getValue()[0].kind,'repeat');assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
   textMode(mount);const text=mount.querySelector('.pe-text-input');if(action==='add-rounds')assert.match(text.value,/^3 rounds/);change(text,text.value);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
   assert.equal(editor.getValue()[0].repeat_unit,action==='add-rounds'?'rounds':undefined);
   if(action==='add-rounds')assert.deepEqual(summarizeBlocks(editor.getValue()).segments.map(b=>b.round),[1,1,2,2,3,3]);
  }
+});
+
+
+test('one instruction edits legacy notes without duplicating or losing their content',()=>{
+ const original={...makeBlock('bag'),duration_seconds:120,description:'Technique',notes:'Garde haute'};
+ const {editor,mount}=fixture({blocks:[original]});click(mount,'edit');
+ assert.equal(mount.querySelector('[name=block_notes]'),null);
+ fill(mount,'description','Technique\n\nGarde haute et retour rapide');click(mount,'apply-mini');
+ assert.equal(editor.getValue()[0].notes,'');
+ click(mount,'edit');assert.equal(mount.querySelector('[name=block_description]').value,'Technique\n\nGarde haute et retour rapide');
+});
+
+test('round types are boxing only while repetition types remain available',()=>{
+ const {editor,mount}=fixture({sport:'running'});click(mount,'add-rounds');
+ const type=mount.querySelector('[name=repeat_type]'),unit=mount.querySelector('[name=repeat_unit]');
+ assert.equal(type.value,'shadow');
+ assert.deepEqual([...type.options].map(o=>o.value),['','shadow','bag','pads','sparring','jump_rope','speed_ball','double_end_bag','technique','footwork','other']);
+ change(unit,'repetitions');change(type,'run');change(unit,'rounds');
+ assert.equal(type.value,'');click(mount,'apply-mini');assert.match(mount.querySelector('.pe-mini .form-error').textContent,/Choisis le type/);
+ change(type,'other');const row=mount.querySelector('.pe-sequence-row');
+ change(row.querySelector('input[name^=step_title]'),'Exercice boxe');change(row.querySelector('[data-field=duration]'),'2m');click(mount,'apply-mini');
+ assert.equal(editor.getValue()[0].children[0].title,'Exercice boxe');
+});
+
+test('existing non-boxing rounds survive an unrelated count edit',()=>{
+ const original={...makeBlock('repeat'),repeat_unit:'rounds',children:[{...makeBlock('run'),duration_seconds:60},{...makeBlock('bag'),duration_seconds:120}]};
+ const {editor,mount}=fixture({blocks:[original]});click(mount,'edit');
+ assert.equal(mount.querySelector('[name=repeat_type]').value,'hybrid');
+ fill(mount,'repeat_count','4');click(mount,'apply-mini');assert.deepEqual(editor.getValue(),[{...original,repeat_count:4}]);
+});
+
+
+test('sequence instructions stay visible and editing combines old notes without duplication',()=>{
+ const child={...makeBlock('bag'),duration_seconds:120,description:'Direct',notes:'Retour en garde'};
+ const original={...makeBlock('repeat'),repeat_unit:'rounds',children:[child,{...makeBlock('recovery'),duration_seconds:60}]};
+ const {editor,mount}=fixture({blocks:[original]});click(mount,'edit');
+ const row=mount.querySelector('.pe-sequence-row'),instruction=row.querySelector('textarea');
+ assert.equal(row.querySelector('details'),null);assert.equal(row.querySelector('[data-field=recovery]'),null);
+ assert.match(instruction.closest('label').textContent,/Consigne/);assert.equal(instruction.value,'Direct\n\nRetour en garde');
+ change(instruction,'Direct et retour en garde');click(mount,'apply-mini');
+ assert.equal(editor.getValue()[0].children[0].description,'Direct et retour en garde');
+ assert.equal(editor.getValue()[0].children[0].notes,'');
+ assert.deepEqual(editor.getValue()[0].children[1],original.children[1]);
 });
