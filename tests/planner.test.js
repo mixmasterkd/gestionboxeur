@@ -331,3 +331,21 @@ test('running and boxing calendar tiles contain accessible miniature charts',asy
     assert.match(boxChart.querySelector('svg').getAttribute('aria-label'),/type d’atelier ou repos/);
   }finally{await page.close();}
 });
+
+
+test('coach switches between personal and coached calendars with independent permissions',async()=>{
+ const page=await surface();
+ try{
+   const own={id:'personal',user_id:page.account.profile.id,first_name:'Coach'};
+   page.account.athletes.push(own);page.app.state.selectedAthlete=null;
+   await page.app.refreshAccount();await page.app.refreshCalendar();
+   assert.equal(page.app.state.selectedAthlete.id,'personal');assert.equal(page.app.canAdd(),true);
+   assert.equal(page.$('athleteTitle').textContent,'Mon calendrier');
+   const personal={...makeSession('personal-session',page.account.profile.id),athlete_id:'personal'};
+   assert.equal(page.app.canEdit(personal),true);
+   assert.equal(page.app.canEdit(makeSession('foreign')),false);
+   assert.match(page.$('athleteList').textContent,/Mon calendrier/);
+   page.$('athleteList').querySelectorAll('button')[1].click();await settle();
+   assert.equal(page.app.state.selectedAthlete.id,'athlete');assert.equal(page.app.canEdit(personal),false);
+ }finally{await page.close();}
+});

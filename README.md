@@ -156,3 +156,20 @@ Pour les prochaines mises en ligne, conserver une sauvegarde adaptée, vérifier
 ### Règles de rédaction de l’interface
 
 Aucun slogan ni accroche promotionnelle. Les champs de saisie ne contiennent aucun exemple en filigrane ou prérempli; leurs libellés identifient leur fonction. Les exemples de notation restent dans l’aide repliée. Les valeurs de données existantes et les entraînements choisis dans la bibliothèque restent affichés normalement.
+
+
+### Compte unique et calendrier personnel
+
+L’inscription crée un compte personnel, sans choix athlète/coach. Dans Mon profil, « Activer les fonctions coach » ajoute les outils d’encadrement au même compte; les coachs existants les conservent. Chaque compte possède son propre profil sportif et calendrier. Le calendrier du coach apparaît sous « Mon calendrier » avant ses athlètes. Mon profil réunit ses renseignements sportifs et les coordonnées de son gym.
+
+Dans les connexions, les coachs ont deux vues : Mes athlètes (code et demandes à accepter) et Mes coachs (code d’un autre coach, demande et permissions personnelles). Pour relier deux comptes existants : saisir le code dans Mes coachs, puis faire accepter la demande par l’autre coach. Les permissions portent sur la personne encadrée, jamais automatiquement sur ses propres athlètes. Les liens d’invitation vers une fiche sans compte restent disponibles et refusent toute fusion qui effacerait un profil déjà utilisé.
+
+Le compte athlète de test reste distinct, lié au même administrateur, avec son historique et le retour vers Administration. L’activation des fonctions coach y est bloquée pour conserver ce rôle de test. Les profils personnels des anciens coachs sont créés sans inventer de date de naissance; compléter Mon profil permet de renseigner ces informations.
+
+Techniquement, `account_type` est conservé pour compatibilité : `coach` signifie que les fonctions d’encadrement sont actives. Ce n’est plus un choix exclusif entre deux identités. `enable_coaching()` ne peut activer que le compte connecté, ne donne aucun droit administrateur et préserve les identifiants et l’historique.
+
+### Journal et groupes — décisions à discuter avant implantation
+
+Le journal est indépendant des notes du calendrier. Deux vues du même journal sont retenues : Kanban et Chronologie, sans liens ni vidéos. Les entrées et leurs suivis ne doivent pas être dupliqués entre les vues. Les statuts, les entrées sans action à suivre et les droits d’écriture restent à préciser. L’option de notes privées du coach est souhaitée mais pas encore ajoutée.
+
+Proposition de groupes : plusieurs groupes par coach, appartenances multiples, calendrier commun synchronisé dans les calendriers personnels, suivi individuel et petite étiquette d’origine (Personnel / coach / nom du groupe). Les détails de visibilité, d’arrivée/départ et d’adaptation individuelle restent à valider. Aucune fonction Journal ou Groupes n’est publiée dans cette étape.

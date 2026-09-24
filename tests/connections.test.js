@@ -223,3 +223,13 @@ test('successful mutation with failed refresh reports saved status without repea
     assert.match(ui.content.textContent, /Modification enregistrée/);
   } finally { await ui.close(); }
 });
+
+
+test('coach personal connections always use their own profile even when viewing another athlete',async()=>{
+ const state=initialCoach();state.athletes.push({id:'personal',user_id:'coach-id',first_name:'Coach'});
+ const ui=await setup(state);
+ try{
+   await ui.api.open({personal:true});
+   assert.ok(ui.calls.some(call=>call.name==='athlete_coaches'&&call.args.p_athlete_id==='personal'));
+ }finally{await ui.close();}
+});

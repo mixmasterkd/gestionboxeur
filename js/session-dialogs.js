@@ -34,7 +34,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   const completing = new Set();
   const coach = () => getState().profile?.account_type === 'coach';
   const ownsAthlete = () => {
-    const state = getState(); return state.profile?.account_type === 'athlete' && !!state.user?.id && state.selectedAthlete?.user_id === state.user.id;
+    const state = getState(); return !!state.user?.id && state.selectedAthlete?.user_id === state.user.id;
   };
   const canDelete = item => canEdit(item) && item.created_by === getState().user?.id;
   const ownsSession = session => ownsAthlete() && session.athlete_id === getState().selectedAthlete.id;

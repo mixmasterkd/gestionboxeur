@@ -113,7 +113,7 @@ test('migration, data preservation and cross-account PostgreSQL security', async
     });
 
     await t.test('additive upgrade retains eight athletes, account and private roster data',async()=>{
-      assert.equal(await scalar('select count(*)::int from public.athletes'),8);
+      assert.equal(await scalar('select count(*)::int from public.athletes where user_id is null'),8);
       assert.equal(await scalar('select count(*)::int from public.coach_athletes'),8);
       assert.equal(await scalar('select is_admin from public.profiles where id=$1',[coach1]),true);
       assert.equal(await scalar('select private_notes from public.coach_athletes where athlete_id=$1',[legacyAthlete]),'Note confidentielle');
@@ -161,12 +161,12 @@ test('migration, data preservation and cross-account PostgreSQL security', async
     await t.test('coach connection requires athlete request plus coach acceptance, and private notes stay per coach',async()=>{
       await login(coach2);
       const code=await scalar('select join_code from public.coach_profiles');
-      assert.equal(await scalar('select count(*)::int from public.athletes'),0);
+      assert.equal(await scalar('select count(*)::int from public.athletes where user_id is distinct from auth.uid()'),0);
       await login(athleteUser);
       assert.equal(await scalar('select public.request_coach($1)',[code]),coach2);
       await login(coach2);
       assert.equal(await scalar('select status from public.coach_athletes'),'pending');
-      assert.equal(await scalar('select count(*)::int from public.athletes'),1);
+      assert.equal(await scalar('select count(*)::int from public.athletes where user_id is distinct from auth.uid()'),1);
       await denied(()=>db.query("insert into public.training_sessions(athlete_id,title,date) values($1,'Trop tôt','2026-09-21')",[legacyAthlete]));
       await db.query('select public.respond_coach_request($1,true)',[legacyAthlete]);
       assert.equal(await scalar('select private_notes from public.coach_athletes'),'');
@@ -286,6 +286,8 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       await denied(()=>db.query('insert into public.admin_test_accounts(admin_id,test_user_id) values($1,$2)',[coach2,athleteUser]));
       await login(outsider);
       assert.equal(await scalar('select count(*)::int from public.admin_test_accounts'),0);
+      await denied(()=>db.query('select public.enable_coaching()'));
+      assert.equal(await scalar('select account_type from public.profiles where id=auth.uid()'),'athlete');
     });
 
     await t.test('completion is athlete-only, independent from locked content and feedback, and idempotent',async()=>{
@@ -377,7 +379,7 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       await db.query('select public.revoke_coach_relation($1,$2)',[legacyAthlete,coach2]);
       await login(coach2);
       assert.equal(await scalar('select count(*)::int from public.training_sessions'),0);
-      assert.equal(await scalar('select count(*)::int from public.athletes'),0);
+      assert.equal(await scalar('select count(*)::int from public.athletes where user_id is distinct from auth.uid()'),0);
     });
 
     await t.test('invalid nested blocks and template bounds are rejected by PostgreSQL',async()=>{
@@ -590,9 +592,47 @@ test('migration, data preservation and cross-account PostgreSQL security', async
       assert.equal(await scalar('select author_name from public.training_sessions where id=$1',[session1]),'Coach historique');
     });
 
+    await t.test('a coach owns a personal calendar and can be coached without sharing their roster',async()=>{
+      const owner='90000000-0000-4000-8000-000000000001', mentor='90000000-0000-4000-8000-000000000002';
+      await signup(owner,'coach','Coach avec calendrier'); await signup(mentor,'coach','Coach mentor');
+      await login(owner);
+      const personal=await scalar('select id from public.athletes where user_id=auth.uid()'); assert.ok(personal);
+      const entry=await scalar("insert into public.training_sessions(athlete_id,title,date) values($1,'Séance personnelle','2026-09-24') returning id",[personal]);
+      assert.ok(await scalar('select public.set_session_completed($1,true)',[entry]));
+      const trainee=await scalar('select public.create_roster_athlete($1)',[JSON.stringify({first_name:'Boxeur du coach'})]);
+      const selfCode=await scalar('select join_code from public.coach_profiles where user_id=auth.uid()');
+      await assert.rejects(()=>db.query('select public.request_coach($1)',[selfCode]),/toi-même/);
+      await login(mentor);
+      const code=await scalar('select join_code from public.coach_profiles where user_id=auth.uid()');
+      assert.equal(await scalar('select count(*)::int from public.training_sessions where id=$1',[entry]),0);
+      await login(owner); await db.query('select public.request_coach($1)',[code]);
+      await login(mentor); await db.query('select public.respond_coach_request($1,true)',[personal]);
+      assert.equal(await scalar('select count(*)::int from public.training_sessions where id=$1',[entry]),1);
+      assert.equal(await scalar('select count(*)::int from public.athletes where id=$1',[trainee]),0);
+      await db.query("insert into public.training_sessions(athlete_id,title,date) values($1,'Séance du mentor','2026-09-25')",[personal]);
+      await denied(()=>db.query('select public.set_session_completed($1,false)',[entry]));
+      await login(owner); await db.query('select public.revoke_coach_relation($1,$2)',[personal,mentor]);
+      assert.equal(await scalar('select count(*)::int from public.training_sessions where athlete_id=$1',[personal]),2);
+      await login(mentor); assert.equal(await scalar('select count(*)::int from public.training_sessions where athlete_id=$1',[personal]),0);
+    });
+    await t.test('enabling coaching preserves personal identity and history without granting admin access',async()=>{
+      const person='90000000-0000-4000-8000-000000000003';await signup(person,'athlete','Nouveau coach');await login(person);
+      const id=await scalar('select id from public.athletes where user_id=auth.uid()');
+      const note=await scalar("insert into public.personal_events(athlete_id,title,date) values($1,'Historique personnel','2026-09-24') returning id",[id]);
+      await db.query('select public.enable_coaching()');await db.query('select public.enable_coaching()');
+      assert.equal(await scalar('select account_type from public.profiles where id=auth.uid()'),'coach');
+      assert.equal(await scalar('select is_admin from public.profiles where id=auth.uid()'),false);
+      assert.equal(await scalar('select id from public.athletes where user_id=auth.uid()'),id);
+      assert.equal(await scalar('select count(*)::int from public.personal_events where id=$1',[note]),1);
+      assert.equal(await scalar('select count(*)::int from public.coach_profiles where user_id=auth.uid()'),1);
+      await denied(()=>db.query('update public.profiles set is_admin=true where id=auth.uid()'));
+
+    });
+
     await t.test('anonymous callers have neither table access nor invitation RPC access',async()=>{
       await admin(); await db.exec('set role anon');
       await denied(()=>db.query('select id from public.athletes'));
+      await denied(()=>db.query('select public.enable_coaching()'));
       await denied(()=>db.query('select public.accept_invitation($1)',[token]));
       await denied(()=>db.query('select public.set_session_completed($1,true)',[session1]));
       await denied(()=>db.query("select public.merge_roster_athlete($1,$1,now(),now(),now(),now(),'{\"weight\":\"target\",\"record\":\"target\"}')",[legacyAthlete]));

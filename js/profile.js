@@ -45,21 +45,29 @@ async function initialize() {
       $(id).replaceChildren(option(id==='profileGym'?'Sans gym pour le moment':'Ajouter mon gym',''));
       gyms.forEach(g=>$(id).append(option(`${g.name}${g.address?' · '+g.address:''}`,g.id)));
     }
-    if(role==='athlete'){
+    if(['athlete','coach'].includes(role)){
       athlete=await result(client.from('athletes').select('id,first_name,last_name,birth_date,sex,status,weight_kg,weight_unit,fights,wins,losses,gym_id').eq('user_id',currentUser.id).single());
       if(ticket!==generation)return;
       fillAthlete(profile); $('athletePanel').classList.remove('hidden');
-    }else if(role==='coach'){
+    }else throw new Error('Le compte n’est pas reconnu.');
+    $('enableCoachingButton').hidden = role==='coach' || currentUser.app_metadata?.is_test_athlete === true;
+    if(role==='coach'){
       const gym=await result(client.from('gym_settings').select('gym_name,address').eq('coach_id',currentUser.id).maybeSingle());
       if(ticket!==generation)return;
-      $('profileTitle').textContent='Mon gym'; document.title='Mon gym';
-      $('profileIntro').textContent='Sélectionne un gym existant ou renseigne ses coordonnées.';
+      $('profileTitle').textContent='Mon profil'; document.title='Mon profil';
       $('coachGymName').value=gym?.gym_name||''; $('coachGymAddress').value=gym?.address||''; $('existingGym').value=profile.gym_id||'';
       setBrand({name:gym?.gym_name,address:gym?.address}); $('coachPanel').classList.remove('hidden');
-    }else throw new Error('Le rôle de ton compte n’est pas reconnu.');
+    }
   }catch(error){if(ticket===generation)failure(error);}
   finally{if(ticket===generation)$('profileLoading').classList.add('hidden');}
 }
+$('enableCoachingButton').addEventListener('click',async()=>{
+  if(!currentUser || $('enableCoachingButton').disabled)return;
+  const ticket=generation; $('enableCoachingButton').disabled=true; clearMessages();
+  try{ await result(client.rpc('enable_coaching',{})); if(ticket!==generation)return; await initialize(); }
+  catch(error){if(ticket===generation)failure(error);}
+  finally{$('enableCoachingButton').disabled=false;}
+});
 $('profileBirthDate').addEventListener('input',updateAge);
 $('existingGym').addEventListener('change',()=>{const gym=gyms.find(g=>g.id===$('existingGym').value);$('coachGymName').value=gym?.name||'';$('coachGymAddress').value=gym?.address||'';});
 $('profileWeightUnit').addEventListener('change',event=>{
@@ -68,7 +76,7 @@ $('profileWeightUnit').addEventListener('change',event=>{
   $('profileWeight').value=String(Math.round(value*10)/10);
 });
 $('athleteProfileForm').addEventListener('submit',async event=>{
-  event.preventDefault(); if(!currentUser||role!=='athlete'||$('saveProfileButton').disabled)return;
+  event.preventDefault(); if(!currentUser||!athlete||$('saveProfileButton').disabled)return;
   const ticket=generation; $('saveProfileButton').disabled=true;clearMessages();
   try{
     const number=id=>$(id).value===''?null:Number($(id).value);

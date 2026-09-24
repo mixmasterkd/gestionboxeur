@@ -14,7 +14,7 @@ import { renderSessionChart } from './session-chart.js';
 const state = { user:null, profile:null, gym:null, planningAvailable:true, coach:null, relations:[], athletes:[], selectedAthlete:null, relation:null, sessions:[],events:[],feedback:[],runningWeekSessions:null,runningWeekError:false,view:'week',anchor:todayLocal() };
 let calendarTicket=0, accountTicket=0, dragSaving=false, sortables=[], destroyed=false;
 const isCoach=()=>state.profile?.account_type==='coach';
-const ownsCalendar=()=>state.profile?.account_type==='athlete' && !!state.user?.id && state.selectedAthlete?.user_id===state.user.id;
+const ownsCalendar=()=>!!state.user?.id && state.selectedAthlete?.user_id===state.user.id;
 const canView=()=>state.planningAvailable && !!state.selectedAthlete?.user_id && (ownsCalendar() || isCoach() && state.relation?.status==='accepted' && state.relation.can_view_calendar);
 const canAdd=()=>canView() && (ownsCalendar() || !!state.relation?.can_add_sessions);
 const canEdit=session=>canView() && session.athlete_id===state.selectedAthlete.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (session.created_by===state.user?.id || session.is_locked===false);
@@ -39,7 +39,7 @@ function rememberView(view) {
 }
 
 function fatal(error) { showError($('globalError'),error);$('loading').hidden=true; }
-function acceptedAthletes() { const ids=new Set(state.relations.filter(r=>r.status==='accepted').map(r=>r.athlete_id)); return isCoach()?state.athletes.filter(a=>ids.has(a.id)&&a.user_id):state.athletes.filter(a=>a.user_id===state.user?.id); }
+function acceptedAthletes() { const ids=new Set(state.relations.filter(r=>r.status==='accepted').map(r=>r.athlete_id)); return state.athletes.filter(a=>a.user_id===state.user?.id || isCoach()&&ids.has(a.id)&&a.user_id).sort((a,b)=>Number(b.user_id===state.user?.id)-Number(a.user_id===state.user?.id)); }
 function clearCalendar() {sortables.forEach(s=>s.destroy());sortables=[];$('calendar').replaceChildren();}
 async function refreshAccount() {
   if(!state.user||destroyed)return false;
@@ -49,7 +49,7 @@ async function refreshAccount() {
   Object.assign(state,account);
   const available=acceptedAthletes();
   const fromURL=new URL(location.href).searchParams.get('athlete');
-  state.selectedAthlete=available.find(a=>a.id===state.selectedAthlete?.id)||available.find(a=>a.id===fromURL)||available[0]||null;
+  state.selectedAthlete=(location.hash==='#coachs'?available.find(a=>a.user_id===state.user.id):null)||available.find(a=>a.id===state.selectedAthlete?.id)||available.find(a=>a.id===fromURL)||available[0]||null;
   state.relation=state.relations.find(r=>r.athlete_id===state.selectedAthlete?.id && r.coach_id===state.user.id)||null;
   renderAccount();
   return true;
@@ -78,7 +78,7 @@ function renderAccount() {
   $('inviteButton').hidden=!isCoach()||!state.selectedAthlete||!!state.selectedAthlete.user_id;
   $('noAthlete').hidden=!!state.selectedAthlete||!isCoach();
   $('calendarSection').hidden=!state.selectedAthlete;
-  $('athleteTitle').textContent=isCoach()?(state.selectedAthlete?displayName(state.selectedAthlete):'Calendrier d’entraînement'):'Mon calendrier';
+  $('athleteTitle').textContent=ownsCalendar()?'Mon calendrier':isCoach()?(state.selectedAthlete?displayName(state.selectedAthlete):'Calendrier d’entraînement'):'Mon calendrier';
   $('viewEyebrow').textContent='PLANIFICATION DES ENTRAÎNEMENTS';
   $('athleteSubtitle').textContent=isCoach()?'Séances et événements de cet athlète.':'Séances, événements et bilans.';
   if(!isCoach()&&!state.selectedAthlete) {$('calendarStatus').textContent='Aucun profil athlète lié. Ouvre ton lien d’invitation ou reconnecte-toi après la création de ton compte.';$('calendarSection').hidden=false;}
@@ -95,8 +95,8 @@ function renderAthleteList() {
       renderAccount();await refreshCalendar();
     },`athlete-item${athlete.id===state.selectedAthlete?.id?' active':''}`,{'aria-pressed':String(athlete.id===state.selectedAthlete?.id)});
     const relation=state.relations.find(r=>r.athlete_id===athlete.id);
-    const status=!athlete.user_id?'Fiche sans compte':relation?.can_view_calendar===false?'Accès calendrier non autorisé':'Compte lié';
-    item.append(el('span',{class:'athlete-avatar','aria-hidden':'true'},initials(athlete)),el('span',{},el('strong',{},displayName(athlete)),el('small',{},status)));
+    const status=athlete.user_id===state.user?.id?'Personnel':!athlete.user_id?'Fiche sans compte':relation?.can_view_calendar===false?'Accès calendrier non autorisé':'Compte lié';
+    item.append(el('span',{class:'athlete-avatar','aria-hidden':'true'},initials(athlete)),el('span',{},el('strong',{},athlete.user_id===state.user?.id?'Mon calendrier':displayName(athlete)),el('small',{},status)));
     if(athlete.user_id)item.append(el('span',{class:'dot','aria-hidden':'true'}));
     $('athleteList').append(item);
   }
@@ -248,7 +248,7 @@ $('viewButtons').addEventListener('click',event=>{const view=event.target.closes
 $('addSessionButton').addEventListener('click',()=>sessionUI.editSession(null,state.anchor));
 $('addEventButton').addEventListener('click',()=>sessionUI.editEvent(null,state.anchor));
 $('inviteButton').addEventListener('click',()=>connectionsUI.inviteAthlete());
-$('connectionsButton').addEventListener('click',()=>connectionsUI.open());
+$('connectionsButton').addEventListener('click',()=>connectionsUI.open({personal:ownsCalendar()}));
 $('manageConnectionsButton').addEventListener('click',()=>connectionsUI.open());
 $('libraryButton').addEventListener('click',()=>libraryUI.open());
 $('logoutButton').addEventListener('click',async()=>{try{const {error}=await client.auth.signOut();if(error)throw error;}catch(error){toast(error.message);}});

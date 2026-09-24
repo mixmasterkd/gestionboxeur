@@ -13,7 +13,6 @@
     <p class="muted" id="authIntro" hidden></p>
     <p class="invite-notice hidden" id="inviteNotice">Une invitation t’attend. Connecte-toi à ton compte athlète ou crée-le pour rejoindre ton coach.</p>
     <form id="authForm">
-      <label class="field signup-only hidden"><span>Je suis</span><select id="accountType"><option value="athlete" selected>Athlète — mon calendrier et mes entraînements</option><option value="coach">Coach — mon équipe et ses entraînements</option></select></label>
       <label class="field signup-only hidden"><span>Ton nom</span><input id="fullName" autocomplete="name" maxlength="160"></label>
       <div class="signup-only athlete-only hidden">
         <div class="form-grid">
@@ -28,8 +27,6 @@
         <label class="field"><span>Mon gym</span><select id="athleteGym"><option value="">Chargement des gyms…</option></select></label>
         <p class="muted" id="gymDirectoryNotice">Choisir un gym ne donne pas accès à ton calendrier. Les accès des coachs se gèrent séparément.</p>
       </div>
-      <label class="field signup-only coach-only hidden"><span>Nom du gym <small>(facultatif)</small></span><input id="gymName" autocomplete="organization" maxlength="160"></label>
-      <label class="field signup-only coach-only hidden"><span>Adresse du gym <small>(facultatif)</small></span><input id="gymAddress" autocomplete="street-address" maxlength="500"></label>
       <label class="field" id="emailField"><span>Courriel</span><input id="email" type="email" required autocomplete="email"></label>
       <label class="field" id="passwordField"><span id="passwordLabel">Mot de passe</span><input id="password" type="password" required minlength="6" autocomplete="current-password"></label>
       <label class="field hidden" id="confirmPasswordField"><span>Confirmer le nouveau mot de passe</span><input id="confirmPassword" type="password" minlength="6" autocomplete="new-password"></label>

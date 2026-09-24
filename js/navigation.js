@@ -131,7 +131,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false } = {}) {
   identity.className = 'nav-identity';
   identity.href = route(athlete || previewRole ? 'planning.html' : '');
   identity.innerHTML = '<span class="nav-track" aria-hidden="true"></span><span class="nav-role"></span>';
-  identity.querySelector('.nav-role').textContent = athlete ? 'Espace athlète' : 'Espace coach';
+  identity.querySelector('.nav-role').textContent = athlete ? 'Mon compte' : 'Fonctions coach';
   nav.append(identity);
   const items = athlete
     ? [
@@ -142,7 +142,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false } = {}) {
     : [
       { icon: 'athletes', text: 'Mes athlètes', href: '', active: !onPlanning && !onProfile && !inAdmin },
       { icon: 'calendar', text: 'Calendrier', href: 'planning.html', active: onPlanning },
-      { icon: 'gym', text: 'Mon gym', href: 'profile.html', active: onProfile },
+      { icon: 'gym', text: 'Mon profil', href: 'profile.html', active: onProfile },
     ];
   if (isAdmin) items.push({ icon: 'admin', text: 'Administration', short: 'Admin', href: 'admin/', active: inAdmin });
   const links = document.createElement('div');
@@ -169,7 +169,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false } = {}) {
     requestAnimationFrame(() => { const library = document.getElementById('libraryButton'); if (library && !library.hidden) library.click(); });
   }
   mountTestSessionBanner();
-  if (athlete && onPlanning && location.hash === '#coachs') {
+  if (onPlanning && location.hash === '#coachs') {
     // Consume this deep link before scheduling: a data refresh may mount the
     // navigation again before the first frame, or after the dialog was closed.
     const clean = new URL(location.href);

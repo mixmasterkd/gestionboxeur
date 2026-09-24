@@ -48,7 +48,7 @@ test('athlete signup preserves invitation across confirmation and omits coach gy
   try {
     assert.equal(ui.window.sessionStorage.getItem('pendingInvite'), 'opaque-token');
     ui.$('authToggle').click();
-    assert.equal(ui.$('accountType').value, 'athlete');
+    assert.equal(ui.$('accountType'), null);
     ui.$('fullName').value = 'Martin'; ui.$('birthDate').value = '2000-05-12'; ui.$('email').value = 'martin@example.test'; ui.$('password').value = 'motdepasse';
     submit(ui, 'authForm'); await settle();
     const payload = mock.calls[0][1];
@@ -78,12 +78,11 @@ test('signup defaults to athlete and rejects missing date of birth before contac
   const mock=authMock();const ui=await surface('login.html','auth.js',mock.client);
   try{
     ui.$('authToggle').click();
-    assert.equal(ui.$('accountType').value,'athlete');assert.equal(ui.$('birthDate').required,true);
+    assert.equal(ui.$('accountType'),null);assert.equal(ui.$('birthDate').required,true);
     ui.$('fullName').value='Alex Test';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';
     submit(ui,'authForm');await settle();assert.equal(mock.calls.length,0);assert.match(ui.$('authError').textContent,/naissance/);
-    ui.$('accountType').value='coach';ui.$('accountType').dispatchEvent(new ui.window.Event('change'));
-    assert.equal(ui.$('birthDate').required,false);assert.equal(ui.$('birthDate').disabled,true);
-    submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.account_type,'coach');
+    ui.$('birthDate').value='2000-03-12';
+    submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.account_type,'athlete');
   }finally{await ui.close();}
 });
 

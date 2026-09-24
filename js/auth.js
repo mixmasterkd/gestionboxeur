@@ -39,7 +39,7 @@ function friendlyError(error) {
   return text;
 }
 function updateAccountType() {
-  const coach = $('accountType').value === 'coach';
+  const coach = false;
   document.querySelectorAll('.coach-only').forEach(el => el.classList.toggle('hidden', mode !== 'signup' || !coach));
   document.querySelectorAll('.athlete-only').forEach(el => el.classList.toggle('hidden', mode !== 'signup' || coach));
   $('birthDate').required = mode === 'signup' && !coach;
@@ -80,7 +80,7 @@ function setMode(next) {
   $('confirmPasswordField').classList.toggle('hidden', !recovery);
   $('confirmPassword').required = recovery;
   $('authTitle').textContent = signup ? 'Créer un compte' : recovery ? 'Nouveau mot de passe' : forgot ? 'Mot de passe oublié' : 'Connexion';
-  $('authIntro').textContent = signup ? 'Choisis ton rôle. Un coach pourra inviter un athlète à partir de sa fiche.' : recovery ? 'Choisis un mot de passe d’au moins 6 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : '';
+  $('authIntro').textContent = signup ? 'Crée ton compte. Les fonctions coach s’activent ensuite dans ton profil.' : recovery ? 'Choisis un mot de passe d’au moins 6 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : '';
   $('authIntro').hidden = !$('authIntro').textContent;
   $('authSubmit').textContent = signup ? 'Créer mon compte' : recovery ? 'Enregistrer le mot de passe' : forgot ? 'Envoyer le lien' : 'Se connecter';
   $('authSubmit').disabled = recovery && !recoveryReady;
@@ -92,12 +92,10 @@ function setMode(next) {
 
 if (pendingInvite) {
   $('inviteNotice').classList.remove('hidden');
-  $('accountType').value = 'athlete';
 }
 setMode(mode);
 $('authToggle').addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
 $('forgotPassword').addEventListener('click', () => setMode('forgot'));
-$('accountType').addEventListener('change', updateAccountType);
 $('continueButton').href = dashboardUrl();
 
 client.auth.onAuthStateChange((event, session) => {
@@ -155,7 +153,7 @@ $('authForm').addEventListener('submit', async event => {
       $('continueButton').classList.remove('hidden');
       history.replaceState(null, '', location.pathname);
     } else if (mode === 'signup') {
-      const accountType = $('accountType').value;
+      const accountType = 'athlete';
       const athlete = accountType === 'athlete';
       if (athlete) { await gymDirectoryLoad; if (!athleteSignupReady) throw new Error(athleteSignupUnavailable); }
       const nameParts = $('fullName').value.trim().split(/\s+/);
@@ -171,8 +169,8 @@ $('authForm').addEventListener('submit', async event => {
           emailRedirectTo: dashboardUrl(),
           data: {
             full_name: $('fullName').value.trim(), account_type: accountType,
-            gym_name: accountType === 'coach' ? $('gymName').value.trim() || 'Mon gym' : null,
-            gym_address: accountType === 'coach' ? $('gymAddress').value.trim() || null : null,
+            gym_name: null,
+            gym_address: null,
             ...(athlete ? { first_name: nameParts[0], last_name: nameParts.slice(1).join(' '), birth_date: birthDate, sex: $('sex').value || null, weight_kg: weight === null ? null : $('weightUnit').value === 'lb' ? Math.round(weight / 2.2046226218 * 1000) / 1000 : weight, weight_unit: $('weightUnit').value, fights, wins, losses, gym_id: $('athleteGym').value || null } : {}),
           },
         },

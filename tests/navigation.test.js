@@ -43,8 +43,8 @@ test('admin navigation resolves routes correctly from the nested administration 
     ui.mount({ role: 'coach', isAdmin: true });
     assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/');
     assert.equal(ui.link('Mes listes'), undefined);
-    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Mes athlètes', 'Calendrier', 'Mon gym', 'Administration']);
-    assert.equal(ui.link('Mon gym').href, 'https://example.test/boxing/profile.html');
+    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Mes athlètes', 'Calendrier', 'Mon profil', 'Administration']);
+    assert.equal(ui.link('Mon profil').href, 'https://example.test/boxing/profile.html');
     assert.equal(ui.link('Administration').getAttribute('aria-current'), 'page');
     ui.mount({ role: 'coach', isAdmin: true });
     assert.equal(ui.window.document.querySelectorAll('#primaryNavigation').length, 1);
@@ -56,7 +56,7 @@ test('coach navigation has one athlete entry and keeps old list URLs on that tab
     const ui = navigation(`https://example.test${path}`);
     try {
       ui.mount({ role: 'coach', isAdmin: false });
-      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Mes athlètes', 'Calendrier', 'Mon gym']);
+      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Mes athlètes', 'Calendrier', 'Mon profil']);
       assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/');
       assert.equal(ui.link('Mes athlètes').getAttribute('aria-current'), 'page');
       assert.equal(ui.window.document.querySelectorAll('[aria-current="page"]').length, 1);
@@ -66,7 +66,7 @@ test('coach navigation has one athlete entry and keeps old list URLs on that tab
 });
 
 test('obsolete list query cannot mark the roster active on another page', () => {
-  for (const [path, active] of [['planning.html?liste=1', 'Calendrier'], ['profile.html?liste=1', 'Mon gym'], ['admin/?liste=1', 'Administration']]) {
+  for (const [path, active] of [['planning.html?liste=1', 'Calendrier'], ['profile.html?liste=1', 'Mon profil'], ['admin/?liste=1', 'Administration']]) {
     const ui = navigation(`https://example.test/boxing/${path}`);
     try {
       ui.mount({ role: 'coach', isAdmin: true });
@@ -84,7 +84,7 @@ for (const role of ['coach', 'athlete']) {
       ui.mount({ role, isAdmin: false });
       assert.equal(ui.link('Calendrier').href, `https://example.test/boxing/planning.html?demo=${role}`);
       assert.equal(ui.window.document.querySelector('.nav-identity').href, `https://example.test/boxing/planning.html?demo=${role}`);
-      const profile = ui.link(role === 'coach' ? 'Mon gym' : 'Mon profil');
+      const profile = ui.link(role === 'coach' ? 'Mon profil' : 'Mon profil');
       assert.equal(profile.href, 'https://example.test/boxing/profile.html');
       assert.match(profile.title, /Quitter l’aperçu/);
       if (role === 'athlete') assert.equal(ui.link('Mes coachs').href, 'https://example.test/boxing/planning.html?demo=athlete#coachs');
@@ -97,7 +97,7 @@ test('production does not present a demo query as an active isolated preview', (
   try {
     ui.mount({ role: 'coach', isAdmin: false });
     assert.equal(ui.link('Calendrier').href, 'https://example.test/boxing/planning.html');
-    assert.equal(ui.link('Mon gym').title, '');
+    assert.equal(ui.link('Mon profil').title, '');
     assert.equal(ui.window.document.querySelector('.nav-identity').href, 'https://example.test/boxing/');
   } finally { ui.window.happyDOM.abort(); }
 });

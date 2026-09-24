@@ -76,10 +76,19 @@ test('athlete profile reads own identity and saves normalized sports data withou
     assert.equal(ui.$('profileSuccess').classList.contains('hidden'),false);
   }finally{await ui.close();}
 });
-test('coach gym form publishes through own-gym RPC and never exposes athlete editing',async()=>{
+test('coach profile exposes own sports profile and saves gym separately',async()=>{
   const ui=await profileSurface('coach');try{
-    assert.equal(ui.$('coachPanel').classList.contains('hidden'),false);assert.equal(ui.$('athletePanel').classList.contains('hidden'),true);
+    assert.equal(ui.$('coachPanel').classList.contains('hidden'),false);assert.equal(ui.$('athletePanel').classList.contains('hidden'),false);
     ui.$('coachGymName').value='Autre gym';ui.$('coachGymAddress').value='45 rue Test';ui.$('coachGymForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
     assert.deepEqual(ui.calls.find(c=>c[0]==='save_gym'),['save_gym',{p_name:'Autre gym',p_address:'45 rue Test'}]);assert.equal(ui.$('gymBrand').textContent,'Autre gym');
   }finally{await ui.close();}
+});
+
+
+test('personal account can request coaching activation only for itself',async()=>{
+ const ui=await profileSurface();try{
+  assert.equal(ui.$('enableCoachingButton').hidden,false);
+  ui.$('enableCoachingButton').click();await settle();
+  assert.deepEqual(ui.calls.find(call=>call[0]==='enable_coaching'),['enable_coaching',{}]);
+ }finally{await ui.close();}
 });

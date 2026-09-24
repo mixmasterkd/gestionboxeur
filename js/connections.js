@@ -12,7 +12,7 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
   const dialog = $('connectionsDialog');
   const content = $('connectionsContent');
   let generation = 0;
-  let pending = false;
+  let pending = false, personalView = false;
 
   dialog.addEventListener('close', () => {
     generation++;
@@ -151,7 +151,7 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
     body.append(el('p', { class: 'permission-help' }, 'Nouveau compte : le lien d’invitation créé depuis une fiche permet à l’athlète de s’inscrire en conservant cette fiche.'), existingAccountHelp());
   }
   async function renderAthlete(state, body, version) {
-    const athlete = selectedAthlete(state);
+    const athlete = state.athletes.find(item => item.user_id === state.user?.id);
     if (!athlete) {
       body.append(el('p', { class: 'empty-message' }, 'Ton profil athlète n’est pas encore disponible. Actualise ton compte avant de connecter un coach.'));
       return;
@@ -225,9 +225,10 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
     const version = ++generation;
     const state = getState();
     const isCoach = state.profile?.account_type === 'coach';
-    const body = shell(isCoach ? 'Athlètes et invitations' : 'Mes coachs');
+    const body = shell(isCoach && !personalView ? 'Athlètes et invitations' : 'Mes coachs');
+    if (isCoach) body.append(el('div', { class: 'template-tabs', role: 'group', 'aria-label': 'Connexions' }, ...[['Mes athlètes', false], ['Mes coachs', true]].map(([label, personal]) => button(label, () => { if (pending) return; personalView = personal; render(); }, 'button secondary', { 'aria-pressed': String(personalView === personal) }))));
     try {
-      if (isCoach) renderCoach(state, body);
+      if (isCoach && !personalView) renderCoach(state, body);
       else await renderAthlete(state, body, version);
     } catch (error) {
       if (isCurrent(version, state.user?.id)) {
@@ -236,8 +237,9 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
     }
     return isCurrent(version, state.user?.id) ? body : null;
   }
-  async function open() {
+  async function open({ personal = false } = {}) {
     if (pending) return;
+    personalView = personal;
     if (!dialog.open) dialog.showModal();
     await render();
   }
