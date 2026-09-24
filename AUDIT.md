@@ -205,3 +205,9 @@ Contrôler visuellement le partage de liste, les formulaires et le répertoire d
 - Courriel identifié comme identifiant de connexion à l’inscription; téléphone, combats, victoires et défaites explicitement facultatifs.
 - Double saisie du mot de passe, estimation locale de force et indication textuelle de concordance en direct. Une différence bloque la création avant tout appel Auth; la confirmation n’est jamais transmise. Parcours de connexion et de récupération préservés.
 - Vérification : suite existante de 297 tests réussie, puis test de concordance supplémentaire et tests Auth réussis (298 au total), build et contrôles de structure réussis. Formulaire vérifié à 375 px, sans création de compte réel ni envoi de courriel.
+
+## 24 septembre 2026 — Identité et actions de l’en-tête
+
+- Nom du compte connecté déplacé sous le logo du menu latéral sur le calendrier et le journal, conservé lors des changements de vue.
+- Bouton Coachs et invitations avec icône de personnes et libellé sur ordinateur; icône compacte sur mobile. Boutons d’apparence, d’invitations et de déconnexion regroupés.
+- Validation : 298 tests, structure et build réussis; affichage ordinateur et conservation du nom après changement de vue vérifiés au navigateur sur données fictives.

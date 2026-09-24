@@ -229,3 +229,12 @@
 .password-match{margin:-6px 0 18px;font-size:12px;color:var(--ink)}
 .password-match[data-match="false"]{font-weight:650}
 #confirmPassword[aria-invalid="true"]{border-color:#b87369}
+
+/* Account identity stays with the sidebar brand; header actions stay together. */
+.nav-identity .account-name{display:block;max-width:none;margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--ink);white-space:normal;overflow-wrap:anywhere}
+.connections-label{display:none}
+.has-navigation #connectionsButton svg{flex-shrink:0}
+@media(min-width:801px){
+ .has-navigation #connectionsButton{width:auto;padding:0 12px;font-size:12px;font-weight:600;white-space:nowrap}
+ .connections-label{display:inline}
+}

@@ -20,6 +20,7 @@ function icon(name) {
 
 /** Role-specific primary navigation. Authorization remains in the data layer. */
 export function mountNavigation({ role = 'athlete', isAdmin = false, section = '' } = {}) {
+  const accountName = document.getElementById('accountName');
   document.getElementById('primaryNavigation')?.remove();
   const path = location.pathname;
   const inAdmin = /\/admin(?:\/|$)/.test(path);
@@ -45,6 +46,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   identity.innerHTML = '<img class="nav-logo" alt="" width="104" height="104"><span class="nav-role"></span>';
   identity.querySelector('img').src = base + 'images/boxing-logo.png';
   identity.querySelector('.nav-role').textContent = athlete ? 'Mon compte' : 'Fonctions coach';
+  if (accountName) identity.append(accountName);
   nav.append(identity);
   const items = athlete
     ? [
@@ -78,6 +80,8 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
+  const connections=document.getElementById('connectionsButton');
+  if(connections) connections.innerHTML=icon('athletes')+'<span class="connections-label">Coachs et invitations</span>';
   const logout=document.getElementById('logoutButton');
   if(logout){logout.classList.add('header-logout');logout.innerHTML=icon('logout')+'<span>Déconnexion</span>';logout.setAttribute('aria-label','Déconnexion');logout.title='Déconnexion';}
   const brand=document.querySelector('.app-header .gym-identity, .topbar .brand');
