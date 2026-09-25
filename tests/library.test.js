@@ -16,11 +16,15 @@ const ownTemplate = (id = 'personal-1', kind = 'session') => ({ id, coach_id: 'c
 function fixture({ athlete = false, templates = [], canAdd = () => true, api = {}, onUseTemplate, onCreateTemplate, onEditTemplate } = {}) {
   document.body.innerHTML = '<dialog id="libraryDialog"><div id="libraryContent"></div></dialog><dialog id="confirmDialog"><h2 id="confirmTitle"></h2><p id="confirmText"></p><button id="confirmYes"></button></dialog><div id="toast" hidden></div>';
   const state = { user: { id: athlete ? 'athlete1' : 'coach1' }, profile: { account_type: athlete ? 'athlete' : 'coach' }, selectedAthlete: { id: 'a1' } };
+  let initialized=false,records=structuredClone(templates);const baseFolders=[];
   const calls = [], backend = {
-    getLibraryFolders: async()=>[],
-    getTemplates: async () => { calls.push(['get']); return structuredClone(templates); },
+    initializeLibrary:async()=>{if(initialized)return;initialized=true;for(const t of getStarterTemplates()){const id=t.sport==='running'?'base:running':'base:boxing';if(!baseFolders.some(f=>f.id===id))baseFolders.push({id,owner_id:state.user.id,name:t.sport==='running'?'Jog - Base':'Boxe - Base'});const copy={...t,coach_id:state.user.id,folder_id:id,updated_at:'v1'};delete copy.source;records.push(copy);}},
+    getLibraryFolders: async()=>baseFolders,
+    getTemplates: async () => { calls.push(['get']); return structuredClone(records); },
     saveTemplate: async payload => { calls.push(['save', payload]); return { ...payload, id: 'saved-1' }; },
-    deleteTemplate: async id => { calls.push(['delete', id]); }, ...api,
+    deleteTemplate: async id => { calls.push(['delete', id]);records=records.filter(t=>t.id!==id); },
+    deleteLibraryFolder:async(folder,contents)=>{calls.push(['deleteFolder',folder,contents]);records=records.filter(t=>t.folder_id!==folder.id);const i=baseFolders.findIndex(f=>f.id===folder.id);if(i>=0)baseFolders.splice(i,1);}, ...api,
+    getLibraryFolders:async()=>[...baseFolders,...(await api.getLibraryFolders?.()||[])],
   };
   const ui = createLibraryUI({ getState: () => state, canAdd, onCreateTemplate, onEditTemplate, onUseTemplate: onUseTemplate || (copy => calls.push(['use', copy])), api: backend });
   return { ui, state, calls, backend };
@@ -32,26 +36,21 @@ const confirm = value => document.getElementById('confirmDialog').close(value ? 
 test.afterEach(() => { document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close()); });
 test.after(async () => { await window.happyDOM.abort(); });
 
-test('coach library separates private models and the starter kit without automatic saves', async () => {
+test('bases become owned library workouts with the same delete action', async () => {
   const { ui, calls } = fixture({ templates: [ownTemplate(), { ...ownTemplate('foreign'), coach_id: 'other' }] });
   await ui.open();
   assert.equal(document.querySelectorAll('.template-card').length, getStarterTemplates().length+1);
   assert.equal(card('foreign'), null);
   source('starter');
   assert.equal(document.querySelectorAll('.template-card').length, getStarterTemplates().filter(t=>t.sport==='running').length);
-  assert.equal(document.querySelectorAll('[data-action="delete-template"]').length, 0);
+  assert.equal(document.querySelectorAll('[data-action="delete-template"]').length, 11);
   assert.deepEqual(calls, [['get']]);
 });
 
-test('kit remains usable while private models load or fail', async () => {
-  const pending = deferred();
-  const { ui, calls } = fixture({ api: { getTemplates: () => pending.promise } });
-  const opening = ui.open(); await tick(); source('starter');
-  assert.equal(document.querySelectorAll('.template-card').length, getStarterTemplates().filter(t=>t.sport==='running').length);
-  pending.reject(new Error('Service indisponible')); await opening;
-  assert.match(document.querySelector('[role="alert"]').textContent, /dossiers de base restent disponibles/);
-  action('starter-jog-10', 'use-template').click();
-  assert.equal(calls[0][0], 'use');
+test('loading failures do not show temporary bases that could undo a previous deletion',async()=>{
+ const pending=deferred();const {ui}=fixture({api:{getTemplates:()=>pending.promise}});const opening=ui.open();await tick();
+ assert.equal(document.querySelectorAll('.template-card').length,0);pending.reject(new Error('Indisponible'));await opening;
+ assert.match(document.querySelector('[role=alert]').textContent,/bibliothèque n’a pas pu être chargée/);assert.equal(document.querySelectorAll('.template-card').length,0);
 });
 
 test('using a kit session makes a fresh editable copy without saving or changing its source', async () => {
@@ -64,14 +63,14 @@ test('using a kit session makes a fresh editable copy without saving or changing
   assert.equal(calls.some(call => call[0] === 'save'), false);
 });
 
-test('search and session/block filters remain active across library sources', async () => {
-  const { ui } = fixture({ templates: [ownTemplate(), ownTemplate('block1', 'block')] });
-  await ui.open(); const type=document.querySelector('[name=library_type]');type.value='block';type.dispatchEvent(new window.Event('change'));
-  assert.equal(document.querySelectorAll('.template-card').length, 1);
-  source('starter'); assert.equal(document.querySelectorAll('.template-card').length, 0);
-  type.value='session';type.dispatchEvent(new window.Event('change'));
-  const search = document.querySelector('input[type="search"]'); search.value = 'JOG 25'; search.dispatchEvent(new window.Event('input'));
-  assert.equal(document.querySelectorAll('.template-card').length, 1); assert.ok(card('starter-jog-25'));
+test('discipline filters combine with folders and search, including historical sparring',async()=>{
+ const templates=[ownTemplate(),{...ownTemplate('b1'),sport:'boxing',folder_id:'f1'},{...ownTemplate('b2'),sport:'sparring',folder_id:'f1'},{...ownTemplate('r1'),sport:'running',folder_id:'f1'}];
+ const {ui}=fixture({templates,api:{getLibraryFolders:async()=>[{id:'f1',owner_id:'coach1',name:'Test'}]}});
+ await ui.open();const filter=document.querySelector('[name=library_discipline]');assert.equal(document.querySelector('[name=library_type]'),null);
+ filter.value='boxing';filter.dispatchEvent(new window.Event('change'));assert.equal(document.querySelectorAll('.template-card').length,4);
+ source('f1');assert.equal(document.querySelectorAll('.template-card').length,2);
+ filter.value='running';filter.dispatchEvent(new window.Event('change'));assert.equal(document.querySelectorAll('.template-card').length,1);assert.ok(card('r1'));
+ source('all');const search=document.querySelector('input[type=search]');search.value='JOG 25';search.dispatchEvent(new window.Event('input'));assert.equal(document.querySelectorAll('.template-card').length,1);assert.ok(card('starter-jog-25'));
 });
 
 test('block selection copies blocks even when adding calendar sessions is not permitted', async () => {
@@ -181,9 +180,32 @@ test('editing and cancelling return to the same filtered library and creating de
  document.querySelector('[data-action=create-template]').click();assert.equal(options.folderId,'f1');options.onClose();await tick();await tick();assert.equal(document.getElementById('libraryDialog').open,true);
 });
 
-test('personalizing opens an independent draft without writing and obsolete returns cannot reopen the library',async()=>{
+test('editing an owned base opens an independent draft and obsolete returns cannot reopen the library',async()=>{
  let options,draft;const {ui,state,calls}=fixture({onEditTemplate:(t,o)=>{draft=t;options=o;}});
- await ui.open();action('starter-jog-10','edit-template').click();assert.equal(draft.source,'starter');assert.equal(calls.some(c=>c[0]==='save'),false);
+ await ui.open();action('starter-jog-10','edit-template').click();assert.equal(draft.source,undefined);assert.equal(draft.coach_id,'coach1');assert.equal(calls.some(c=>c[0]==='save'),false);
  draft.workout_document.text='Changed';draft.blocks[0].duration_seconds=1;assert.equal(getStarterTemplates()[0].blocks[0].duration_seconds,600);
  state.user.id='other';options.onClose();await tick();assert.equal(document.getElementById('libraryDialog').open,false);
+});
+
+
+test('deleted base workouts and folders stay gone after reopening',async()=>{
+ const {ui}=fixture();await ui.open();action('starter-jog-10','delete-template').click();await tick();confirm(true);await tick();
+ document.getElementById('libraryDialog').close();await ui.open();assert.equal(card('starter-jog-10'),null);
+ source('base:boxing');document.querySelector('[data-action=delete-folder]').click();await tick();assert.match(document.getElementById('confirmText').textContent,/2 éléments/);confirm(true);await tick();
+ document.getElementById('libraryDialog').close();await ui.open();assert.equal(card('starter-sparring'),null);assert.equal(card('starter-boxing-fundamentals'),null);assert.equal(document.querySelector('[name=library_folder] option[value="base:boxing"]'),null);
+});
+
+test('folder confirmation counts hidden workouts and cancellation or account replacement prevents deletion',async()=>{
+ const folder={id:'f1',owner_id:'coach1',name:'Mon dossier'},templates=[{...ownTemplate('run'),folder_id:'f1'},{...ownTemplate('box'),folder_id:'f1',sport:'boxing'},ownTemplate('outside')];
+ const {ui,state,calls}=fixture({templates,api:{getLibraryFolders:async()=>[folder]}});await ui.open();source('f1');const filter=document.querySelector('[name=library_discipline]');filter.value='running';filter.dispatchEvent(new window.Event('change'));
+ assert.equal(document.querySelectorAll('.template-card').length,1);document.querySelector('[data-action=delete-folder]').click();await tick();
+ assert.match(document.getElementById('confirmText').textContent,/2 éléments.*tous filtres.*TOUS.*définitivement/s);confirm(false);await tick();assert.equal(calls.some(c=>c[0]==='deleteFolder'),false);
+ document.querySelector('[data-action=delete-folder]').click();await tick();state.user.id='other';confirm(true);await tick();assert.equal(calls.some(c=>c[0]==='deleteFolder'),false);
+});
+
+test('empty folders can be deleted and a concurrent change preserves the folder with an error',async()=>{
+ const folder={id:'f1',owner_id:'coach1',name:'Vide'};
+ const {ui,calls,backend}=fixture({api:{getLibraryFolders:async()=>[folder]}});await ui.open();source('f1');document.querySelector('[data-action=delete-folder]').click();await tick();assert.match(document.getElementById('confirmText').textContent,/dossier vide/);
+ confirm(true);await tick();assert.equal(calls.find(c=>c[0]==='deleteFolder')[2].length,0);assert.equal(document.querySelector('[name=library_folder]').value,'all');
+ await ui.open();source('f1');backend.deleteLibraryFolder=async()=>{throw new Error('Le contenu du dossier a changé.');};document.querySelector('[data-action=delete-folder]').click();await tick();confirm(true);await tick();assert.match(document.querySelector('[role=alert]').textContent,/contenu du dossier a changé/);assert.equal(document.querySelector('[name=library_folder]').value,'f1');
 });

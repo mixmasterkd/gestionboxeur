@@ -1,5 +1,4 @@
 import { SPORTS, summarizeBlocks, formatDuration, makeBlock } from './domain.js';
-import { getStarterTemplates } from './starter-templates.js';
 import { renderWorkout } from './editor.js';
 import { renderTrainingDocument } from './workout-rich-text.js';
 import { parseTrainingText } from './workout-document.js';
@@ -8,9 +7,8 @@ import { $, el, button, heading, errorBox, showError, confirmAction, toast, fiel
 
 const freshBlocks = blocks => (blocks || []).map(block => ({ ...structuredClone(block), id: makeBlock().id, children: freshBlocks(block.children) }));
 const copyTemplate = template => ({ ...structuredClone(template), blocks: freshBlocks(template.blocks) });
-const baseFolder = template => `base:${template.sport === 'running' ? 'running' : ['boxing','sparring'].includes(template.sport) ? 'boxing' : 'other'}`;
+const discipline=template=>template.sport==='sparring'?'boxing':template.sport;
 const normalize = text => String(text || '').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLocaleLowerCase('fr');
-const baseFolders = [['base:running','Jog - Base'],['base:boxing','Boxe - Base']];
 
 export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTemplate, onEditTemplate, api }) {
   let ticket = 0, workflow = 0;
@@ -27,20 +25,18 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     const authorized = () => Boolean(ownerId && getState().user?.id === ownerId);
     const active = () => current === ticket && dialog.open && wrap.contains(body) && authorized();
     if (!authorized()) { body.append(el('p', {}, 'Connecte-toi pour ouvrir ta bibliothèque.')); return; }
-    let folder = restore?.folder || 'all', filter = kind || restore?.filter || 'all', templates = [], folders = [], loading = true;
-    const starter = getStarterTemplates();
+    let folder = restore?.folder || 'all', filter = restore?.filter || 'all', templates = [], folders = [], loading = true;
     const own = template => template.coach_id === ownerId;
-    const isBase = template => template.source === 'starter';
     const notice = el('p', {class:'library-notice muted',role:'status'});
     const search = el('input', { type: 'search', value:restore?.query || '', 'aria-label': 'Rechercher dans la bibliothèque' });
     const searchIcon=el('span',{class:'library-search-icon','aria-hidden':'true'});
     searchIcon.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>';
     const searchField=field('Rechercher',el('span',{class:'library-search'},searchIcon,search));
     const folderSelect = select('library_folder', [], '', {'aria-label':'Dossier'});
-    const typeSelect=select('library_type',[{value:'all',label:'Tous'},{value:'session',label:'Séances'},{value:'block',label:'Blocs réutilisables'}],filter,{'aria-label':'Type'});
+    const typeSelect=select('library_discipline',[{value:'all',label:'Toutes'},...SPORTS.filter(s=>!s.legacy).map(s=>({value:s.id,label:s.label}))],filter,{'aria-label':'Discipline'});
     const grid = el('div', { class: 'template-grid' });
     const edit = (template = null) => {
-      if (!active() || loading || template && !isBase(template) && !own(template)) return;
+      if (!active() || loading || template && !own(template)) return;
       const callback=template?onEditTemplate:onCreateTemplate;if(!callback)return;
       const version=workflow, scroll=dialog.scrollTop;
       const view={folder,filter,query:search.value,scroll};
@@ -48,7 +44,7 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
         if(authorized()&&version===workflow)open({kind,onSelect,restore:view});
       }};
       dialog.close();
-      if(template)callback(isBase(template)?copyTemplate(template):structuredClone(template),options);else callback(options);
+      if(template)callback(structuredClone(template),options);else callback(options);
     };
     const create=onCreateTemplate&&kind!=='block'&&!onSelect?button('＋ Créer un entraînement',()=>edit(), 'button primary',{disabled:true,dataset:{action:'create-template'}}):null;
     let editingFolder = null;
@@ -66,8 +62,22 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     folderForm.append(field('Nom du dossier',folderName),el('div',{class:'library-folder-actions'},folderSave,button('Annuler',()=>{folderForm.hidden=true;})));
     const addFolder=button('＋ Dossier',()=>{editingFolder=null;folderName.value='';folderForm.hidden=false;folderName.focus();},'button secondary',{disabled:true});
     const rename=button('Renommer',()=>{const selected=folders.find(f=>f.id===folder);if(!selected)return;editingFolder=selected.id;folderName.value=selected.name;folderForm.hidden=false;folderName.focus();},'button secondary',{dataset:{action:'rename-folder'},hidden:true});
-    const actions=el('div',{class:'library-main-actions'},create,addFolder,rename);
-    const toolbar=el('div',{class:'library-toolbar'},searchField,field('Dossier',folderSelect),kind?null:field('Type',typeSelect));
+    const removeFolder=button('Supprimer le dossier',async()=>{
+      const selected=folders.find(f=>f.id===folder),key=`folder:${ownerId}:${folder}`;
+      if(!active()||loading||!selected||pending.has(key))return;
+      pending.add(key);removeFolder.disabled=true;errors.hidden=true;
+      try{
+        const backend=await getApi();if(!active())return;
+        const latest=(await backend.getTemplates()).filter(own);if(!active())return;
+        const contents=latest.filter(t=>t.folder_id===selected.id),count=contents.length;
+        const message=count?`« ${selected.name} » contient ${count} élément${count>1?'s':''} de bibliothèque, tous filtres confondus. Le dossier et TOUS les entraînements et blocs qu’il contient seront définitivement supprimés. Les séances déjà planifiées resteront intactes.`:`Le dossier vide « ${selected.name} » sera supprimé.`;
+        if(!await confirmAction('Supprimer ce dossier ?',message,count?'Supprimer le dossier et son contenu':'Supprimer le dossier')||!active())return;
+        await backend.deleteLibraryFolder(selected,contents);
+        if(active()){templates=latest.filter(t=>t.folder_id!==selected.id);folders=folders.filter(f=>f.id!==selected.id);folder='all';folderForm.hidden=true;redraw();toast(count?'Dossier et contenu supprimés.':'Dossier supprimé.');}
+      }catch(error){if(active())showError(errors,error);}finally{pending.delete(key);removeFolder.disabled=false;}
+    },'button secondary',{dataset:{action:'delete-folder'},hidden:true});
+    const actions=el('div',{class:'library-main-actions'},create,addFolder,rename,removeFolder);
+    const toolbar=el('div',{class:'library-toolbar'},searchField,field('Dossier',folderSelect),field('Discipline',typeSelect));
     body.append(errors,actions,toolbar,folderForm,notice,grid);
     folderSelect.addEventListener('change',()=>{folder=folderSelect.value;redraw();});
     typeSelect.addEventListener('change',()=>{filter=typeSelect.value;redraw();});
@@ -76,20 +86,20 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
       if(!active())return;
       if(create)create.disabled=loading;addFolder.disabled=loading;
       grid.replaceChildren();
-      const choices=[['all','Toute la bibliothèque'],['unfiled','Mes entraînements (sans dossier)'],...folders.map(f=>[f.id,f.name]),...baseFolders];
+      const choices=[['all','Toute la bibliothèque'],['unfiled','Mes entraînements (sans dossier)'],...folders.map(f=>[f.id,f.name])];
       folderSelect.replaceChildren(...choices.map(([value,label])=>el('option',{value},label)));folderSelect.value=folder;
-      rename.hidden=!folders.some(f=>f.id===folder);
+      rename.hidden=!folders.some(f=>f.id===folder);removeFolder.hidden=rename.hidden;removeFolder.disabled=pending.has(`folder:${ownerId}:${folder}`);
       const query=normalize(search.value.trim());
-      const list=[...templates.filter(own),...starter].filter(t=>
-        (folder==='all'||(isBase(t)?baseFolder(t)===folder:folder==='unfiled'?!t.folder_id:t.folder_id===folder))&&
-        (filter==='all'||t.kind===filter)&&normalize(`${t.title} ${t.description||''} ${t.notes||''} ${t.workout_document?.text||''} ${JSON.stringify(t.blocks||[])}`).includes(query));
+      const list=templates.filter(own).sort((a,b)=>a.title.localeCompare(b.title,'fr',{numeric:true,sensitivity:'base'})).filter(t=>
+        (folder==='all'||(folder==='unfiled'?!t.folder_id:t.folder_id===folder))&&
+        (!kind||t.kind===kind)&&(filter==='all'||discipline(t)===filter)&&normalize(`${t.title} ${t.description||''} ${t.notes||''} ${t.workout_document?.text||''} ${JSON.stringify(t.blocks||[])}`).includes(query));
       notice.textContent=loading?'Chargement de tes entraînements…':`${list.length} résultat${list.length>1?'s':''}`;
       if(!list.length){grid.append(el('p',{class:'empty-message'},query?'Aucun entraînement correspondant.':'Aucun entraînement dans cette sélection.'));return;}
       for(const template of list){
-        const starterTemplate=isBase(template),summary=summarizeBlocks(template.blocks||[]);
+        const summary=summarizeBlocks(template.blocks||[]);
         const sport=SPORTS.find(s=>s.id===template.sport)||SPORTS.at(-1);
-        const location=starterTemplate?baseFolders.find(([id])=>id===baseFolder(template))?.[1]:folders.find(f=>f.id===template.folder_id)?.name||'Mes entraînements (sans dossier)';
-        const card=el('article',{class:'template-card',dataset:{source:starterTemplate?'starter':'personal',templateId:template.id}},
+        const location=folders.find(f=>f.id===template.folder_id)?.name||'Mes entraînements (sans dossier)';
+        const card=el('article',{class:'template-card',dataset:{source:'personal',templateId:template.id}},
           el('p',{class:'eyebrow template-source'},`${template.kind==='block'?'BLOC RÉUTILISABLE':'SÉANCE'} · ${sport.label.toUpperCase()}`),
           el('h3',{},template.title),el('p',{class:'template-location'},location),
           el('p',{},[summary.hasTime?formatDuration(summary.duration_seconds):'',summary.hasDistance?`${summary.distance_m/1000} km`:''].filter(Boolean).join(' · ')));
@@ -110,8 +120,8 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
         if(!onSelect&&!canAdd())use.title='Sélectionne un athlète avec la permission de planifier.';
         const itemActions=el('div',{class:'template-actions'},use);
         // Selection inside a workout never replaces its editor with another editor.
-        if(onEditTemplate&&!onSelect)itemActions.append(button(starterTemplate?'Personnaliser':'Modifier',()=>edit(template),'button secondary',{disabled:loading,dataset:{action:'edit-template'}}));
-        if(!starterTemplate&&own(template)){
+        if(onEditTemplate&&!onSelect)itemActions.append(button('Modifier',()=>edit(template),'button secondary',{disabled:loading,dataset:{action:'edit-template'}}));
+        if(own(template)){
           const remove=button('Supprimer',async()=>{
             const key=`${ownerId}:${template.id}`;if(!active()||pending.has(key))return;
             pending.add(key);remove.disabled=true;
@@ -129,11 +139,12 @@ export function createLibraryUI({ getState, canAdd, onUseTemplate, onCreateTempl
     redraw();
     try{
       const backend=await getApi();if(!active())return;
+      await backend.initializeLibrary();if(!active())return;
       const [loaded,loadedFolders]=await Promise.all([backend.getTemplates(),backend.getLibraryFolders()]);
       if(!active())return;
       templates=loaded;folders=loadedFolders.filter(f=>f.owner_id===ownerId);
-      if(!['all','unfiled',...baseFolders.map(([id])=>id),...folders.map(f=>f.id)].includes(folder))folder='all';
-    }catch(error){if(active())showError(errors,new Error(`Tes entraînements personnels n’ont pas pu être chargés. Les dossiers de base restent disponibles. ${error?.message||''}`.trim()));}
+      if(!['all','unfiled',...folders.map(f=>f.id)].includes(folder))folder='all';
+    }catch(error){if(active())showError(errors,new Error(`La bibliothèque n’a pas pu être chargée. Ferme-la puis réessaie. ${error?.message||''}`.trim()));}
     finally{loading=false;if(active()){redraw();if(restore)dialog.scrollTop=restore.scroll||0;}}
   }
   return {open,invalidate:()=>{ticket++;workflow++;}};

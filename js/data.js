@@ -1,3 +1,4 @@
+import { getStarterTemplates } from './starter-templates.js';
 import { client as connectedClient } from './config.js';
 // Explicit preview only on the local development server; production uses real auth.
 const preview = import.meta.env?.DEV && typeof location !== 'undefined' && ['coach','athlete'].includes(new URL(location.href).searchParams.get('demo'))
@@ -78,7 +79,11 @@ export async function saveEvent(payload,existing) {
   return result(client.from('personal_events').insert(payload).select().single());
 }
 export const deleteEvent=e=>preview?preview.deleteEvent(e):result(client.from('personal_events').delete().eq('id',e.id).eq('updated_at',e.updated_at).select('id').single());
-export const getTemplates=()=>preview?preview.getTemplates():result(client.from('session_templates').select('*').order('updated_at',{ascending:false}));
+export const initializeLibrary=()=>preview?preview.initializeLibrary():rpc('initialize_training_library',{p_templates:getStarterTemplates().map(({title,sport,description,notes,blocks,workout_document})=>({title,sport,description,notes,blocks,workout_document}))});
+async function libraryRows(table,order) {
+ const rows=[];for(let offset=0;;offset+=500){const page=await result(client.from(table).select('*').order(order).order('id').range(offset,offset+499));rows.push(...page);if(page.length<500)return rows;}
+}
+export const getTemplates=()=>preview?preview.getTemplates():libraryRows('session_templates','created_at');
 export const saveTemplate=t=>preview?preview.saveTemplate(t):result(client.from('session_templates').insert(t).select().single());
 export async function updateTemplate(payload,existing,db=client) {
   if(!existing?.id||!existing.updated_at||!existing.coach_id)throw new Error('Rouvre cet entraînement depuis la bibliothèque avant de le modifier.');
@@ -92,9 +97,9 @@ export async function updateTemplate(payload,existing,db=client) {
 export const deleteTemplate=id=>preview?preview.deleteTemplate(id):result(client.from('session_templates').delete().eq('id',id).select('id').single());
 export { client };
 
-export const getLibraryFolders=()=>preview?preview.getLibraryFolders():result(client.from('library_folders').select('*').order('name'));
+export const getLibraryFolders=()=>preview?preview.getLibraryFolders():libraryRows('library_folders','name');
 export const saveLibraryFolder=(name,id)=>preview?preview.saveLibraryFolder(name,id):result(id?client.from('library_folders').update({name}).eq('id',id).select().single():client.from('library_folders').insert({name}).select().single());
-export const deleteLibraryFolder=id=>preview?preview.deleteLibraryFolder(id):result(client.from('library_folders').delete().eq('id',id).select('id').single());
+export const deleteLibraryFolder=(folder,contents)=>preview?preview.deleteLibraryFolder(folder,contents):rpc('delete_training_library_folder',{p_folder_id:folder.id,p_expected_name:folder.name,p_contents:contents.map(({id,updated_at})=>({id,updated_at}))});
 export const moveTemplate=(template,folderId)=>preview?preview.moveTemplate(template,folderId):result(client.from('session_templates').update({folder_id:folderId}).eq('id',template.id).eq('updated_at',template.updated_at).select().single());
 async function allJournalRows(query) {
  const rows=[];

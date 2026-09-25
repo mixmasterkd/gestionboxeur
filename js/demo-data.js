@@ -1,3 +1,4 @@
+import { getStarterTemplates } from './starter-templates.js';
 /** Development-only calendar preview. All data stays in memory, with no account or network writes. */
 import { todayLocal, weekStart, addDays, makeBlock } from './domain.js';
 
@@ -82,7 +83,22 @@ function mountPreviewBanner(){
 let folders=[],journalEntries=[],journalUpdates=[];
 export async function getLibraryFolders(){return clone(folders);}
 export async function saveLibraryFolder(name,id){if(id){const folder=folders.find(f=>f.id===id);if(!folder)throw new Error('Dossier introuvable.');folder.name=name;return clone(folder);}const folder={id:crypto.randomUUID(),owner_id:user.id,name};folders.push(folder);return clone(folder);}
-export async function deleteLibraryFolder(id){folders=folders.filter(f=>f.id!==id);templates.forEach(t=>{if(t.folder_id===id)t.folder_id=null;});}
+let libraryInitialized=false;
+export async function initializeLibrary(){
+ if(libraryInitialized)return false;
+ for(const base of getStarterTemplates()){
+  const name=base.sport==='running'?'Jog - Base':'Boxe - Base';
+  let folder=folders.find(f=>f.name===name);if(!folder){folder={id:crypto.randomUUID(),owner_id:user.id,name};folders.push(folder);}
+  const {title,sport,description,notes,blocks,workout_document}=base;
+  await saveTemplate({title,sport,description,notes,blocks,workout_document,kind:'session',folder_id:folder.id,coach_id:user.id});
+ }
+ libraryInitialized=true;return true;
+}
+export async function deleteLibraryFolder(folder,contents){
+ const found=folders.find(f=>f.id===folder.id),items=templates.filter(t=>t.folder_id===folder.id);
+ if(!found||found.name!==folder.name||items.length!==contents.length||items.some(t=>!contents.some(e=>e.id===t.id&&e.updated_at===t.updated_at)))throw new Error('Le contenu du dossier a changé. Rouvre-le et vérifie son contenu avant de réessayer.');
+ templates=templates.filter(t=>t.folder_id!==folder.id);folders=folders.filter(f=>f.id!==folder.id);return items.length;
+}
 export async function moveTemplate(template,folderId){return save(templates,{folder_id:folderId},template);}
 export async function loadJournal(athleteId){const entries=journalEntries.filter(e=>e.athlete_id===athleteId);return clone({entries,updates:journalUpdates.filter(u=>entries.some(e=>e.id===u.entry_id))});}
 function journalUpdate(entryId,kind,content=''){const item={id:crypto.randomUUID(),entry_id:entryId,kind,content,created_by:user.id,author_name:role==='coach'?'Camille · Coach':'Alex Morin',created_at:new Date().toISOString()};journalUpdates.push(item);return clone(item);}
