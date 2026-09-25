@@ -124,19 +124,20 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     catch (error) { if (isCurrent()) { dialog.close(); toast(`${message} L’actualisation a échoué : ${error.message || 'réessaie depuis le calendrier'}`); } }
   }
   async function saveBlockTemplate(block, sport) {
-    if (!libraryAvailable()) throw new Error('Connecte-toi pour enregistrer un modèle.');
+    if (!libraryAvailable()) throw new Error('Connecte-toi pour enregistrer un entraînement.');
     blocksError([block]);
     const title = (block.title?.trim() || (block.kind === 'repeat' ? 'Répétition' : BLOCK_TYPES.find(type => type.id === block.type)?.label) || 'Bloc réutilisable').slice(0, 200);
     await (await getApi()).saveTemplate({ title, sport, description: '', notes: '', blocks: [block], kind: 'block', coach_id: getState().user.id });
-    toast('Bloc enregistré dans tes modèles.');
+    toast('Bloc enregistré dans ta bibliothèque.');
   }
 
-  function editSession(session = null, date = todayLocal(), duplicate = false, { templateOnly = false } = {}) {
+  function editSession(session = null, date = todayLocal(), duplicate = false, { templateOnly = false, folders = [], folderId = null, onClose = null } = {}) {
     if (templateOnly ? !libraryAvailable() : session && !duplicate ? !canEdit(session) : !canAdd()) { toast('Tu n’as pas la permission de planifier cette séance.'); return; }
     const state = getState(), athlete = templateOnly ? { id: null, first_name: 'Bibliothèque privée' } : state.selectedAthlete, editorUserId = state.user?.id;
     if (!athlete) { toast('Choisis d’abord un athlète.'); return; }
     if (session?.athlete_id && session.athlete_id !== athlete.id) { toast('Ouvre le calendrier de cet athlète avant de modifier la séance.'); return; }
     const existing = duplicate ? null : session;
+    if(templateOnly&&existing&&existing.coach_id!==editorUserId){toast('Cet entraînement ne fait pas partie de ta bibliothèque.');return;}
     const dialog = $('sessionDialog'), container = $('sessionDialogContent');
     if (activeEditor) { activeEditor.destroy(); activeEditor = null; }
     const title = input('title', duplicate && !session?.kind ? `${session?.title || 'Séance'} (copie)`.slice(0, 200) : session?.title || '', 'text', { required: true, maxLength: 200 });
@@ -148,17 +149,22 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const lock = lockControl(existing);
     const editorMount = el('div'), error = errorBox();
     const basics = el('fieldset', {class:'session-basics'},el('legend',{},'Séance'),field('Titre de la séance',title),el('div',{class:'session-basics-grid'},field('Discipline',sport),templateOnly ? null : field('Date',day),templateOnly ? null : lock.field));
+    const templateFolder=templateOnly?select('template_folder',[{value:'',label:'Mes entraînements (sans dossier)'},...folders.filter(f=>f.owner_id===editorUserId).map(f=>({value:f.id,label:f.name}))],existing?.folder_id||folderId||''):null;
+    if(templateOnly)basics.querySelector('.session-basics-grid').append(field('Dossier',templateFolder));
     const body = el('div', { class: 'dialog-body' }, basics, editorMount, error);
     const submit = el('button', { type: 'submit', class: 'button primary' }, templateOnly ? 'Enregistrer dans ma bibliothèque' : existing ? 'Enregistrer les modifications' : 'Planifier la séance');
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
-    container.replaceChildren(heading(templateOnly ? 'Créer un entraînement' : existing ? 'Modifier la séance' : duplicate ? 'Dupliquer la séance' : 'Planifier une séance', displayName(athlete), dialog, 'sessionDialogTitle'), form);
-    let revision = 0, keep = null, modelSaving = false;
-    const changed = () => { revision++; if (keep && !modelSaving) { keep.disabled = false; keep.textContent = 'Garder comme modèle'; } };
+    container.replaceChildren(heading(templateOnly ? existing?'Modifier l’entraînement':session?'Personnaliser l’entraînement':'Créer un entraînement' : existing ? 'Modifier la séance' : duplicate ? 'Dupliquer la séance' : 'Planifier une séance', displayName(athlete), dialog, 'sessionDialogTitle'), form);
+    let revision = 0, keep = null, modelSaving = false, saving = false;
+    const preventClosing=event=>{if(templateOnly&&saving){event.preventDefault();event.stopImmediatePropagation();}};
+    dialog.addEventListener('cancel',preventClosing);
+    for(const close of container.querySelectorAll('.close-button,.dialog-actions button[type=button]'))close.addEventListener('click',preventClosing,true);
+    const changed = () => { revision++; if (keep && !modelSaving) { keep.disabled = false; keep.textContent = 'Enregistrer en bibliothèque'; } };
     const editor = new ProgramEditor(editorMount, { blocks: session?.blocks || [], notes: [session?.description, session?.notes].filter(Boolean).join('\n\n'), document: session?.workout_document || null, sport: sport.value, onChange: changed, onLibrary: openLibrary && libraryAvailable() ? chooseTemplate : null, onSaveBlock: libraryAvailable() ? block => { if (!isCurrent()) throw new Error('Le compte actif a changé.'); return saveBlockTemplate(block, sport.value); } : null });
     const isCurrent = () => dialog.open && activeEditor === editor && getState().user?.id === editorUserId && (templateOnly || getState().selectedAthlete?.id === athlete.id);
     sport.addEventListener('change', () => { editor.setSport(sport.value); changed(); });
     activeEditor = editor;
-    dialog.addEventListener('close', () => { editor.destroy(); if (activeEditor === editor) activeEditor = null; }, { once: true });
+    dialog.addEventListener('close', () => { const returning=activeEditor===editor&&getState().user?.id===editorUserId;dialog.removeEventListener('cancel',preventClosing);editor.destroy();if(activeEditor===editor)activeEditor=null;if(returning)onClose?.(); }, { once: true });
     function chooseTemplate() {
       if (!isCurrent()) return;
       openLibrary({ onSelect: async template => {
@@ -170,7 +176,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
             return;
           }
           if (editor.hasDraft() || editor.getValue().length || title.value.trim() || editor.getNotes().trim() || editor.getDocument()?.text.trim()) {
-            if (!await confirmAction('Remplacer l’entraînement ?', 'Le modèle remplacera le texte et les étapes actuellement saisis. La date et le verrouillage resteront inchangés.', 'Utiliser le modèle')) return;
+            if (!await confirmAction('Remplacer l’entraînement ?', 'Cet entraînement remplacera le texte et les étapes actuellement saisis. La date et le verrouillage resteront inchangés.', 'Utiliser l’entraînement')) return;
           }
           if (!isCurrent()) return;
           blocksError(template.blocks || []); editor.setValue(template.blocks || [], [template.description, template.notes].filter(Boolean).join('\n\n'), template.workout_document || null);
@@ -182,17 +188,17 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       } });
     }
     if (libraryAvailable() && !templateOnly) {
-      keep = button('Garder comme modèle', async () => {
+      keep = button('Enregistrer en bibliothèque', async () => {
         if (modelSaving) return;
         error.hidden = true;
         try {
           if (!libraryAvailable() || !isCurrent()) throw new Error('Le compte actif a changé. Rouvre la séance.');
-          if (!title.value.trim()) throw new Error('Donne un titre à ton modèle.');
+          if (!title.value.trim()) throw new Error('Donne un titre à ton entraînement.');
           const blocks = editor.getValue(); blocksError(blocks);
           const savedRevision = revision; modelSaving = true;
           await busy(keep, () => api.saveTemplate({ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: editor.getDocument(), kind: 'session', coach_id: editorUserId }));
           if (!isCurrent()) return;
-          keep.disabled = savedRevision === revision; keep.textContent = savedRevision === revision ? 'Modèle enregistré' : 'Garder comme modèle'; toast('Séance gardée dans ta bibliothèque. Aucune date n’a été planifiée.');
+          keep.disabled = savedRevision === revision; keep.textContent = savedRevision === revision ? 'Entraînement enregistré' : 'Enregistrer en bibliothèque'; toast('Séance gardée dans ta bibliothèque. Aucune date n’a été planifiée.');
         } catch (failure) { if (isCurrent()) showError(error, failure); }
         finally { modelSaving = false; }
       }, 'button secondary');
@@ -200,7 +206,6 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       form.addEventListener('input', changed);
       form.addEventListener('change', changed);
     }
-    let saving = false;
     form.addEventListener('submit', async event => {
       event.preventDefault(); if (saving || !form.reportValidity()) return;
       error.hidden = true;
@@ -213,7 +218,8 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           await busy(submit, async () => {
             const data = await getApi();
             if (!isCurrent() || !libraryAvailable()) return;
-            await data.saveTemplate({ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: editor.getDocument(), kind: 'session', coach_id: editorUserId });
+            const payload={ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: editor.getDocument(), kind: existing?.kind||session?.kind||'session', folder_id:templateFolder.value||null };
+            if(existing)await data.updateTemplate(payload,existing);else await data.saveTemplate({...payload,coach_id:editorUserId});
             if (isCurrent()) { dialog.close(); toast('Entraînement enregistré dans ta bibliothèque.'); }
           });
           return;
@@ -332,8 +338,8 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       if (canEdit(session)) actions.append(button('Modifier / déplacer', () => { dialog.close(); editSession(session); }));
       if (canAdd()) actions.append(button('Dupliquer', () => { dialog.close(); editSession(session, session.date, true); }));
     if (libraryAvailable()) {
-      const save = button('Enregistrer comme modèle', async () => {
-        try { await busy(save, async () => { blocksError(session.blocks || []); await (await getApi()).saveTemplate({ title: session.title, sport: session.sport, description: session.description || '', notes: session.notes || '', blocks: session.blocks || [], workout_document: session.workout_document || null, kind: 'session', coach_id: getState().user.id }); toast('Séance enregistrée dans tes modèles.'); }); } catch (err) { showError(error, err); }
+      const save = button('Enregistrer en bibliothèque', async () => {
+        try { await busy(save, async () => { blocksError(session.blocks || []); await (await getApi()).saveTemplate({ title: session.title, sport: session.sport, description: session.description || '', notes: session.notes || '', blocks: session.blocks || [], workout_document: session.workout_document || null, kind: 'session', coach_id: getState().user.id }); toast('Séance enregistrée dans ta bibliothèque.'); }); } catch (err) { showError(error, err); }
       }); actions.append(save);
     }
     actions.append(button('Fermer', () => dialog.close()));
@@ -408,5 +414,5 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     if (body.querySelector('.note-box')) applyEventColor(body.querySelector('.note-box'), event.color);
     container.replaceChildren(heading(event.title, 'NOTE', dialog, 'detailTitle'), body, actions); show(dialog);
   }
-  return { editSession, editTemplate: () => editSession(null, todayLocal(), false, { templateOnly: true }), showSession, editEvent, showEvent, setCompleted };
+  return { editSession, editTemplate: (template=null,options={}) => editSession(template, todayLocal(), template?.source==='starter', { ...options, templateOnly: true }), showSession, editEvent, showEvent, setCompleted };
 }

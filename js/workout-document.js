@@ -8,7 +8,7 @@ const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, ''
 const names = new Map(BLOCK_TYPES.flatMap(type => [[normalize(type.label), { type: type.id, title: type.label }], [normalize(type.id), { type: type.id, title: type.label }]]));
 for (const [name, type, title] of [
   ['boxe', 'other', 'Boxe'], ['course à pied', 'run', 'Course'], ['corde', 'jump_rope', 'Corde à danser'], ['corde à sauter', 'jump_rope', 'Corde à danser'],
-  ['abdos', 'strength', 'Abdos'], ['musculation', 'strength', 'Renforcement'], ['sparing', 'sparring', 'Sparring'], ['shadow boxing', 'shadow', 'Shadow'],
+  ['abdos', 'strength', 'Abdos'], ['musculation', 'strength', 'Renforcement'], ['sparing', 'sparring', 'Sparring'], ['shadow boxing', 'shadow', 'Shadow'], ['shadowboxing', 'shadow', 'Shadow'],
   ['marche', 'walk', 'Marche'], ['marcher', 'walk', 'Marche'], ['repos', 'recovery', 'Repos'], ['repos actif', 'active_recovery', 'Repos actif'],
 ]) names.set(normalize(name), { type, title });
 const activityWordLimit = Math.max(...[...names.keys()].map(name => name.split(' ').length));

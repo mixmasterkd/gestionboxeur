@@ -42,10 +42,15 @@ test('journal history and library folders enforce direct sharing and ownership i
  await assert.rejects(()=>db.query("insert into public.journal_updates(entry_id,content) values($1,'Après révocation')",[entry]));
  const folder=await scalar("insert into public.library_folders(name) values('Mes séances') returning id");
  const template=await scalar("insert into public.session_templates(coach_id,title,sport,blocks,kind,folder_id) values($1,'Jog','running','[]','session',$2) returning id",[coach,folder]);
- await login(other);assert.equal(await scalar('select count(*) from public.library_folders'),0);
+
+ const version=await scalar('select updated_at::text from public.session_templates where id=$1',[template]);
+ const edited=(await db.query("update public.session_templates set title='Jog corrigé',workout_document=$1,blocks='[]',notes='',description='' where id=$2 and updated_at=$3 returning id",[JSON.stringify({version:1,text:'Texte libre',marks:[]}),template,version])).rows;
+ assert.equal(edited.length,1);assert.equal(await scalar('select workout_document->>$$text$$ from public.session_templates where id=$1',[template]),'Texte libre');
+ assert.equal((await db.query("update public.session_templates set title='Ancienne version' where id=$1 and updated_at=$2 returning id",[template,version])).rows.length,0);
+ await login(other);assert.equal(await scalar('select count(*) from public.library_folders'),0);assert.equal((await db.query("update public.session_templates set title='Intrusion' where id=$1 returning id",[template])).rows.length,0);
  await assert.rejects(()=>db.query("insert into public.session_templates(coach_id,title,sport,blocks,kind,folder_id) values($1,'Intrusion','running','[]','session',$2)",[other,folder]),/foreign key/);
  await assert.rejects(()=>db.query("insert into public.library_folders(owner_id,name) values($1,'Usurpation')",[coach]),/permission denied/);
- await login(coach);await db.query('delete from public.library_folders where id=$1',[folder]);assert.equal(await scalar('select folder_id from public.session_templates where id=$1',[template]),null);assert.equal(await scalar('select title from public.session_templates where id=$1',[template]),'Jog');
+ await login(coach);await db.query('delete from public.library_folders where id=$1',[folder]);assert.equal(await scalar('select folder_id from public.session_templates where id=$1',[template]),null);assert.equal(await scalar('select title from public.session_templates where id=$1',[template]),'Jog corrigé');
  await admin();await db.exec('set role anon');await assert.rejects(()=>db.query('select * from public.journal_entries'),/permission denied/);await assert.rejects(()=>db.query('select * from public.library_folders'),/permission denied/);
  }finally{await db.close();}
 });

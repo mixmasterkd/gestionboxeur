@@ -53,6 +53,7 @@ export async function deleteSession(item){sessions=sessions.filter(s=>s.id!==ite
 export async function deleteEvent(item){const event=events.find(e=>e.id===item.id);if(event?.is_private&&event.created_by!==user.id)throw new Error('Cette note n’est plus accessible.');events=events.filter(e=>e.id!==item.id);}
 export async function getTemplates(){return clone(templates);}
 export async function saveTemplate(item){return save(templates,item);}
+export async function updateTemplate(item,existing){return save(templates,item,existing);}
 export async function deleteTemplate(id){templates=templates.filter(t=>t.id!==id);}
 export async function rpc(name,args){
   if(name==='my_coaching_invitations')return [];

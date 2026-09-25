@@ -80,6 +80,15 @@ export async function saveEvent(payload,existing) {
 export const deleteEvent=e=>preview?preview.deleteEvent(e):result(client.from('personal_events').delete().eq('id',e.id).eq('updated_at',e.updated_at).select('id').single());
 export const getTemplates=()=>preview?preview.getTemplates():result(client.from('session_templates').select('*').order('updated_at',{ascending:false}));
 export const saveTemplate=t=>preview?preview.saveTemplate(t):result(client.from('session_templates').insert(t).select().single());
+export async function updateTemplate(payload,existing,db=client) {
+  if(!existing?.id||!existing.updated_at||!existing.coach_id)throw new Error('Rouvre cet entraînement depuis la bibliothèque avant de le modifier.');
+  const allowed=['title','sport','description','notes','blocks','workout_document','kind','folder_id'];
+  const changes=Object.fromEntries(allowed.filter(key=>key in payload).map(key=>[key,payload[key]]));
+  if(preview&&db===client)return preview.updateTemplate(changes,existing);
+  const {data,error}=await db.from('session_templates').update(changes).eq('id',existing.id).eq('coach_id',existing.coach_id).eq('updated_at',existing.updated_at).select().single();
+  if(error?.code==='PGRST116')throw new Error('Cet entraînement a été modifié ou supprimé ailleurs. Ton texte est conservé ici; rouvre l’entraînement depuis la bibliothèque pour charger sa dernière version.');
+  return result(Promise.resolve({data,error}));
+}
 export const deleteTemplate=id=>preview?preview.deleteTemplate(id):result(client.from('session_templates').delete().eq('id',id).select('id').single());
 export { client };
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadAccount, ATHLETE_FIELDS } from '../js/data.js';
+import { loadAccount, ATHLETE_FIELDS, updateTemplate } from '../js/data.js';
 
 const user={id:'coach-user'};
 const coachProfile={id:user.id,full_name:'Camille',phone:'555-0100',is_admin:false,account_type:'coach'};
@@ -165,4 +165,18 @@ test('an older planning schema without locks or completion is unavailable instea
     const account=await loadAccount(user,db);
     assert.equal(account.planningAvailable,false);assert.deepEqual(account.gym,gym);
   }
+});
+
+
+test('library updates whitelist fields and match the owner, identity and loaded version',async()=>{
+ const calls=[],payloads=[];const db={from(table){calls.push(['table',table]);const chain={update(p){payloads.push(p);return chain;},eq(k,v){calls.push([k,v]);return chain;},select(){return chain;},single(){return Promise.resolve({data:{id:'t1'},error:null});}};return chain;}};
+ const original={id:'t1',coach_id:'owner',updated_at:'v1'};
+ assert.deepEqual(await updateTemplate({title:'Titre',folder_id:'f1',coach_id:'attacker',id:'bad',updated_at:'bad',athlete_id:'bad'},original,db),{id:'t1'});
+ assert.deepEqual(payloads,[{title:'Titre',folder_id:'f1'}]);assert.deepEqual(calls,[['table','session_templates'],['id','t1'],['coach_id','owner'],['updated_at','v1']]);
+ await assert.rejects(()=>updateTemplate({}, {id:'t1'},db),/Rouvre/);
+});
+
+test('a concurrent library edit reports a recoverable conflict instead of inserting another workout',async()=>{
+ const chain={update(){return this;},eq(){return this;},select(){return this;},single(){return Promise.resolve({data:null,error:{code:'PGRST116'}});}};
+ await assert.rejects(()=>updateTemplate({title:'Draft'},{id:'t1',coach_id:'owner',updated_at:'v1'},{from:()=>chain}),/Ton texte est conservé/);
 });

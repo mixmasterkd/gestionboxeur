@@ -21,7 +21,7 @@ const canView=()=>state.planningAvailable && !!state.selectedAthlete?.user_id &&
 const canAdd=()=>canView() && (ownsCalendar() || !!state.relation?.can_add_sessions);
 const canEdit=session=>canView() && session.athlete_id===state.selectedAthlete.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (!session.is_private || session.created_by===state.user?.id) && (session.created_by===state.user?.id || session.is_locked===false);
 const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi});
-const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:()=>sessionUI.editTemplate(),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
+const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:options=>sessionUI.editTemplate(null,options),onEditTemplate:(template,options)=>sessionUI.editTemplate(template,options),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
 const connectionsUI=createConnectionsUI({getState:()=>state,refreshAccount,refreshCalendar});
 const journalUI=createJournalUI({getState:()=>state,api:dataApi});
 const calendarViews=new Set(['today','week','month']);

@@ -268,11 +268,11 @@ test('coach can save a model without scheduling and program actions reenable the
   const {ui}=fixture({api:{saveTemplate:async p=>{model=p;},saveSession:async()=>{scheduled++;}}});
   ui.editSession();document.querySelector('[name="title"]').value='Mon modèle';
   writeTraining('Shadow\n3 rounds\n- Shadow 1m @ RPE 6 - Faire du 8/16\n- Repos 1m');
-  const keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Garder comme modèle');
+  const keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Enregistrer en bibliothèque');
   keep.click();await tick();assert.equal(scheduled,0);assert.equal(model.kind,'session');assert.equal(model.coach_id,'coach1');assert.equal(model.blocks[0].repeat_count,3);
   assert.equal(keep.disabled,true);assert.equal(document.getElementById('sessionDialog').open,true);
   writeTraining(model.workout_document.text+'\n\nConsigne supplémentaire');
-  assert.equal(keep.disabled,false);assert.equal(keep.textContent,'Garder comme modèle');
+  assert.equal(keep.disabled,false);assert.equal(keep.textContent,'Enregistrer en bibliothèque');
 });
 
 test('late destination lookup cannot save an obsolete draft or close a replacement editor',async()=>{
@@ -289,9 +289,9 @@ test('late model save cannot disable or label another editor and ignores duplica
   const waiting=new Promise(resolve=>{release=resolve;});
   const {ui}=fixture({api:{saveTemplate:async()=>{calls++;await waiting;}}});
   ui.editSession();document.querySelector('[name="title"]').value='Ancien';
-  let keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Garder comme modèle');keep.click();keep.click();await tick();assert.equal(calls,1);
+  let keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Enregistrer en bibliothèque');keep.click();keep.click();await tick();assert.equal(calls,1);
   document.getElementById('sessionDialog').close();ui.editSession();document.querySelector('[name="title"]').value='Nouveau';release();await tick();
-  keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Garder comme modèle');assert.ok(keep);assert.equal(keep.disabled,false);assert.equal(document.querySelector('[name="title"]').value,'Nouveau');
+  keep=[...document.querySelectorAll('button')].find(b=>b.textContent==='Enregistrer en bibliothèque');assert.ok(keep);assert.equal(keep.disabled,false);assert.equal(document.querySelector('[name="title"]').value,'Nouveau');
 });
 
 test('one library inserts blocks or replaces a session while keeping date and header lock',async()=>{
@@ -368,7 +368,7 @@ test('formatted source survives duplication, scheduling, detail display and savi
  assert.ok(view.querySelector('[data-bold="true"][data-color="mint"]'));assert.ok(view.querySelector('[data-underline="true"]'));
  assert.doesNotMatch(globalThis.document.querySelector('#detailDialog').textContent,/Ancien contenu remplacé|Ancienne note remplacée/);
  assert.ok(globalThis.document.querySelector('#detailDialog .session-chart'));
- [...globalThis.document.querySelectorAll('#detailDialog button')].find(button=>button.textContent==='Enregistrer comme modèle').click();await tick();
+ [...globalThis.document.querySelectorAll('#detailDialog button')].find(button=>button.textContent==='Enregistrer en bibliothèque').click();await tick();
  assert.deepEqual(model.workout_document,document);assert.equal(model.coach_id,'coach1');
 });
 
@@ -451,4 +451,32 @@ test('an event draft cannot be saved under a replacement account', async () => {
   const {ui,state}=fixture({api:{saveEvent:async()=>{writes++;}}});
   ui.editEvent();document.querySelector('#eventDialog [name=title]').value='Mon brouillon';
   state.user={id:'other-account'};submit('eventDialog');await tick();assert.equal(writes,0);
+});
+
+
+test('editing a library workout updates its identity, folder and text without touching the calendar',async()=>{
+ let update,inserts=0,calendar=0,returns=0;
+ const {ui}=fixture({api:{updateTemplate:async(p,t)=>{update={p,t};},saveTemplate:async()=>inserts++,saveSession:async()=>calendar++}});
+ const original={id:'t1',coach_id:'coach1',updated_at:'v1',title:'Ancien',sport:'boxing',kind:'session',folder_id:'f1',blocks:[],workout_document:{version:1,text:'Texte original',marks:[]}};
+ ui.editTemplate(original,{folders:[{id:'f1',owner_id:'coach1',name:'Technique'},{id:'f2',owner_id:'coach1',name:'Combat'}],onClose:()=>returns++});
+ assert.equal(document.getElementById('sessionDialogTitle').textContent,'Modifier l’entraînement');assert.equal(document.querySelector('[name=template_folder]').value,'f1');
+ document.querySelector('[name=title]').value='Nouveau';document.querySelector('[name=template_folder]').value='f2';writeTraining('- Sac 3 MIN @ Z3');submit('sessionDialog');await tick();
+ assert.equal(update.t.id,'t1');assert.equal(update.p.folder_id,'f2');assert.equal(update.p.title,'Nouveau');assert.equal(update.p.coach_id,undefined);assert.equal(update.p.workout_document.text,'- Sac 3 MIN @ Z3');assert.equal(inserts,0);assert.equal(calendar,0);assert.equal(returns,1);
+ assert.equal(original.title,'Ancien');
+});
+
+test('personalizing saves a new private workout in the chosen folder and cancellation never writes',async()=>{
+ let writes=[],returns=0;const {ui}=fixture({api:{saveTemplate:async p=>writes.push(p)}});
+ const {getStarterTemplates}=await import('../js/starter-templates.js');const base=getStarterTemplates()[0];
+ const options={folders:[{id:'f1',owner_id:'coach1',name:'Technique'}],folderId:'f1',onClose:()=>returns++};
+ ui.editTemplate(base,options);assert.equal(document.querySelector('[name=template_folder]').value,'f1');document.querySelector('[aria-label=Fermer]').click();await tick();assert.equal(writes.length,0);assert.equal(returns,1);
+ ui.editTemplate(base,options);submit('sessionDialog');await tick();assert.equal(writes.length,1);assert.equal(writes[0].folder_id,'f1');assert.equal(writes[0].id,undefined);assert.equal(writes[0].coach_id,'coach1');assert.equal(returns,2);
+});
+
+test('failed library updates preserve drafts and account changes prevent writes or returning to the old library',async()=>{
+ let writes=0,returns=0;const {ui,state}=fixture({api:{updateTemplate:async()=>{writes++;throw new Error('Entraînement modifié ailleurs');}}});
+ const template={id:'t1',coach_id:'coach1',updated_at:'v1',title:'Test',sport:'boxing',kind:'block',blocks:[]};
+ ui.editTemplate(template,{onClose:()=>returns++});writeTraining('Mon texte');submit('sessionDialog');await tick();
+ assert.equal(document.getElementById('sessionDialog').open,true);assert.equal(document.querySelector('.pe-text-input').textContent,'Mon texte');assert.match(document.querySelector('.form-error').textContent,/modifié ailleurs/);assert.equal(returns,0);
+ state.user.id='other';submit('sessionDialog');await tick();assert.equal(writes,1);document.getElementById('sessionDialog').close();await tick();assert.equal(returns,0);
 });
