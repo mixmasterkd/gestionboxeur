@@ -122,6 +122,17 @@ function parseStep(source, sport, inheritedActivity = null) {
   return { ...makeBlock(identity.type), ...identity, ...measures, description, effort: targetEffort, zone: targetEffort?.kind === 'zone' && targetEffort.min === targetEffort.max ? targetEffort.min : null };
 }
 
+/** The form edits only a name actually written on this line, never an inherited one. */
+export function trainingStepName(source) {
+  let [content] = separateInstruction(source.replace(/^\s*-\s*/, '').trim());
+  content = content.split('@')[0].trim();
+  const normalized = content.replace(/[’‘′]/g, "'").replace(/[“”″]/g, '"');
+  const dose = quantityStart.exec(normalized);
+  if (!dose) return content;
+  if (dose.index) return content.slice(0, dose.index).trim();
+  return measuredActivity(normalized.slice(dose.index)).activity?.title || '';
+}
+
 function textLines(text) {
   const lines = []; let start = 0, number = 1;
   for (const match of text.matchAll(/\r\n|\r|\n/g)) { lines.push({ line: number++, start, end: match.index, raw: text.slice(start, match.index) }); start = match.index + match[0].length; }
@@ -198,14 +209,14 @@ function durationText(value) {
   return `${hours ? `${hours}h` : ''}${minutes ? `${minutes}min` : ''}${seconds ? `${seconds}s` : ''}`;
 }
 const oneLine = value => String(value || '').replace(/[\r\n]+/g, ' / ').trim();
-function stepText(block) {
-  const name = oneLine(block.type === 'other' || !BLOCK_TYPES.some(type => type.id === block.type) ? block.title || ({ walk: 'Marche', active_recovery: 'Repos actif' }[block.type]) || block.type : BLOCK_TYPES.find(type => type.id === block.type)?.label);
+export function formatTrainingStep(block, { name: suppliedName } = {}) {
+  const name = suppliedName == null ? oneLine(block.type === 'other' || !BLOCK_TYPES.some(type => type.id === block.type) ? block.title || ({ walk: 'Marche', active_recovery: 'Repos actif' }[block.type]) || block.type : BLOCK_TYPES.find(type => type.id === block.type)?.label) : oneLine(suppliedName);
   const measures = [];
   if (block.duration_seconds != null && block.duration_seconds !== '') measures.push(durationText(block.duration_seconds));
   if (block.distance_m != null && block.distance_m !== '') measures.push(`${numericText(block.distance_m)}mtr`);
   const effort = formatEffort(block.effort || (block.zone ? { kind: 'zone', min: block.zone, max: block.zone } : null));
   const description = oneLine(block.description);
-  return `- ${name}${measures.length ? ` ${measures.join(' + ')}` : ''}${effort ? ` @ ${effort}` : ''}${description ? ` - ${description}` : ''}`;
+  return `- ${[name, measures.join(' + '), effort ? `@ ${effort}` : '', description ? `- ${description}` : ''].filter(Boolean).join(' ')}`;
 }
 
 function plainBlocks(blocks) {
@@ -253,7 +264,7 @@ function plainBlocks(blocks) {
 export function serializeTrainingDocument(blocks) {
   const normalized = plainBlocks(blocks), rows = [];
   const addText = text => { for (const raw of String(text || '').split(/\r\n|\r|\n/)) if (raw) rows.push({ raw, kind: 'text' }); };
-  const addStep = block => { rows.push({ raw: stepText(block), kind: 'step', blockId: block.id }); if (block.notes) addText(block.notes); };
+  const addStep = block => { rows.push({ raw: formatTrainingStep(block), kind: 'step', blockId: block.id }); if (block.notes) addText(block.notes); };
   for (const block of normalized) {
     if (block.kind === 'repeat') {
       if (rows.length && rows.at(-1).raw !== '') rows.push({ raw: '', kind: 'blank' });
@@ -305,10 +316,10 @@ export function reconcileTrainingBlocks(result, previousBlocks = [], previousTex
     const block = current.get(line.blockId); if (!block) continue;
     // Source slices stay in a non-persisted index; only the caller stores the document.
     const source = sources.get(result) ?? result.sourceText ?? result.text;
-    const key = `${line.kind}:${typeof source === 'string' ? source.slice(line.start, line.end).trim() : stepText(block)}`;
+    const key = `${line.kind}:${typeof source === 'string' ? source.slice(line.start, line.end).trim() : formatTrainingStep(block)}`;
     let match = candidates.get(key)?.shift();
     if (!match) {
-      const previous = ordered.find(value => !used.has(value.id) && value.kind === block.kind && (block.kind === 'repeat' ? value.repeat_count === block.repeat_count && value.repeat_unit === block.repeat_unit : stepText(value) === stepText(block)));
+      const previous = ordered.find(value => !used.has(value.id) && value.kind === block.kind && (block.kind === 'repeat' ? value.repeat_count === block.repeat_count && value.repeat_unit === block.repeat_unit : formatTrainingStep(value) === formatTrainingStep(block)));
       if (previous) match = { block: previous };
     }
     const previous = match?.block;

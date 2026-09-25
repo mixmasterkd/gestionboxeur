@@ -12,7 +12,15 @@
 .program-editor .pe-mini{background:var(--paper);border-color:var(--line);color:var(--ink)}
 .program-editor .pe-mini input,.program-editor .pe-mini select,.program-editor .pe-mini textarea{color:var(--ink);background:var(--white);border:1px solid var(--line);min-height:44px}
 .program-editor .pe-mini label>span,.program-editor .pe-hint{color:var(--muted)}
+.program-editor .pe-repeat-settings{grid-template-columns:minmax(0,1fr);gap:0}
+.program-editor .pe-count-control{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;width:100%;max-width:14rem;align-items:center}
+.program-editor .pe-count-control .pe-button{width:44px;height:44px;min-height:44px;padding:0;font-size:20px}
+.program-editor .pe-count-control input{height:44px;text-align:center;font-variant-numeric:tabular-nums;appearance:textfield}
+.program-editor .pe-count-control input::-webkit-inner-spin-button,.program-editor .pe-count-control input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .program-editor .pe-sequence-fields,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked){grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.program-editor .pe-sequence-fields>.form-field:last-child{grid-column:auto}
+.program-editor .pe-sequence-fields>.pe-step-name,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked)>.form-field:last-child{grid-column:1/-1}
+.program-editor .pe-sequence-actions .pe-button{width:44px;min-width:44px;height:44px;min-height:44px;padding:0}
 .program-editor .pe-effort-control{padding:12px 0 4px;margin:4px 0;border-top:1px solid var(--line)}
 .program-editor .pe-effort-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .program-editor .pe-help{color:var(--ink);background:var(--paper);border-color:var(--line)}
@@ -26,6 +34,13 @@
 .program-editor .pe-summary,.program-editor .pe-text-status,.program-editor .pe-text-status p,.program-editor .pe-text-status ul{color:var(--muted)}
 .program-editor .pe-mini-actions{position:sticky;bottom:0;background:var(--paper);padding:10px 0 0}
 .program-editor .pe-mini .pe-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+@media(max-width:400px){
+ #sessionDialog .dialog-body{padding-inline:10px}
+ .program-editor .pe-mini{padding:8px}
+ .program-editor .pe-sequence-row{padding:8px}
+ .program-editor .pe-sequence-fields,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked){column-gap:8px}
+ .program-editor .pe-mini select{padding-inline:6px}
+}
 @media(max-width:620px){
  .program-editor .pe-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
  .program-editor .pe-tool{flex-direction:row;min-height:58px;font-size:12px}

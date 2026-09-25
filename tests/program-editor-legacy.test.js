@@ -102,8 +102,20 @@ test('library insertion preserves metadata and gives repeated insertions indepen
  for(const block of blocks){assert.equal(block.notes,'Gants');assert.equal(block.repetitions,8);assert.deepEqual(block.future,{keep:true});}
 });
 
-test('new rounds offer boxing and Other types only',()=>{
+test('new rounds use optional free names without reintroducing legacy type selectors',()=>{
  const {editor,mount}=fixture({sport:'boxing'});editor.openMini('add-rounds');
- const values=Array.from(mount.querySelector('[name=repeat_type]').options).map(option=>option.value);
- assert.ok(values.includes('bag'));assert.ok(values.includes('other'));for(const value of ['run','walk','recovery','active_recovery'])assert.ok(!values.includes(value),value);
+ assert.equal(mount.querySelector('[name=repeat_type],[name=block_type]'),null);
+ assert.equal(mount.querySelectorAll('[name=block_title]').length,2);assert.ok(Array.from(mount.querySelectorAll('[name=block_title]')).every(input=>input.value===''));
+});
+
+test('editing an unnamed inherited step preserves metadata and undo while later title changes update its activity',()=>{
+ const text='Shadow\n3 rounds\n- 3min\n- 1min @ Repos',blocks=parseTrainingText(text,{sport:'boxing'}).blocks;
+ Object.assign(blocks[0].children[0],{notes:'Conseil conservé',repetitions:8,intensity:'hard',future:{keep:42},arbitraryExtra:{preserved:true}});
+ const {editor,mount}=fixture({blocks,document:{text,marks:[]},sport:'boxing'}),original=editor.getValue(),first=original[0].children[0];
+ editor.editStep(first.id);assert.equal(mount.querySelector('[name=block_title]').value,'');change(mount.querySelector('[name=block_duration]'),'2min');mount.querySelector('[data-action=apply-mini]').click();
+ assert.equal(editor.mini,null);assert.equal(editor.getDocument().text,'Shadow\n3 rounds\n- 2min\n- 1min @ Repos');assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
+ let edited=editor.getValue()[0].children[0];assert.equal(edited.id,first.id);assert.equal(edited.type,'shadow');assert.equal(edited.notes,first.notes);assert.equal(edited.repetitions,8);assert.equal(edited.intensity,'hard');assert.deepEqual(edited.future,first.future);assert.deepEqual(edited.arbitraryExtra,first.arbitraryExtra);
+ editor.textInput.undo();assert.deepEqual(editor.getValue(),original);assert.equal(editor.getDocument().text,text);editor.textInput.undo(true);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,540);
+ editor.textInput.replace(0,'Shadow'.length,'Sac');edited=editor.getValue()[0].children[0];assert.equal(edited.id,first.id);assert.equal(edited.type,'bag');assert.deepEqual(edited.future,first.future);assert.ok(editor.getValue()[0].children.every(block=>block.type==='bag'));
+ const saved={blocks:editor.getValue(),document:editor.getDocument(),sport:'boxing'};assert.deepEqual(fixture(saved).editor.getValue(),saved.blocks);
 });
