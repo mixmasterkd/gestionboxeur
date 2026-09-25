@@ -39,8 +39,13 @@ export function sessionChartData(session, { summary = summarizeBlocks(session.bl
   const running = session.sport === 'running';
   const limit = Math.max(1, Math.min(SESSION_CHART_LIMIT, Math.floor(Number(maxBars)) || SESSION_CHART_LIMIT));
   const all = summary.segments || [];
-  const axis = all.length && all.every(segment => segment.distance_m > 0 && !segment.duration_seconds) ? 'distance' : 'duration';
-  const source = all.filter(segment => axis === 'distance' ? segment.distance_m > 0 : segment.duration_seconds > 0);
+  const measured=all.filter(segment=>segment.duration_seconds>0||segment.distance_m>0);
+  const hasSeries=all.some(segment=>segment.repetitions>0&&!segment.duration_seconds&&!segment.distance_m);
+  const axis = !measured.length&&hasSeries?'series':measured.length&&measured.every(segment=>segment.distance_m>0&&!segment.duration_seconds)?'distance':'duration';
+  const source = all.filter(segment => (axis === 'distance' ? segment.distance_m > 0 : segment.duration_seconds > 0)||(segment.repetitions>0&&!segment.duration_seconds&&!segment.distance_m));
+  const doses=measured.map(segment=>axis==='distance'?segment.distance_m:segment.duration_seconds).filter(Boolean).sort((a,b)=>a-b);
+  // A series gets a modest visual slot, never an estimated duration or distance.
+  const seriesWidth=axis==='series'?1:Math.max(axis==='distance'?25:15,Math.min(axis==='distance'?200:60,(doses[Math.floor(doses.length/2)]||60)/2));
   const omitted = all.length - source.length;
   let bars = source.map(segment => {
     const appearance = effortAppearance(segment);
@@ -48,8 +53,9 @@ export function sessionChartData(session, { summary = summarizeBlocks(session.bl
     const activity = segment.phase === 'rest' ? 'Repos' : blockName(segment);
     const customTitle = segment.title && segment.title !== activity ? segment.title : '';
     return {
-      ...appearance, seconds: segment.duration_seconds || 0, distance: segment.distance_m || 0,
-      value: axis === 'distance' ? segment.distance_m : segment.duration_seconds,
+      ...appearance, seconds: segment.duration_seconds || 0, distance: segment.distance_m || 0, repetitions:segment.repetitions||0,
+      indicative:!(axis==='distance'?segment.distance_m:segment.duration_seconds),
+      value: (axis === 'distance' ? segment.distance_m : segment.duration_seconds)||seriesWidth,
       zone: segment.zone || (segment.effort?.kind === 'zone' && segment.effort.min === segment.effort.max ? segment.effort.min : 0),
       type, blockId: segment.id, key: appearance.effort ? JSON.stringify(appearance.effort) : 'unspecified',
       label: `${activity}${customTitle ? ` · ${customTitle}` : ''}${segment.round ? ` · round ${segment.round}` : ''}`,
@@ -62,7 +68,8 @@ export function sessionChartData(session, { summary = summarizeBlocks(session.bl
     for (const bar of bars) {
       if (groups.has(bar.key)) {
         const existing = groups.get(bar.key);
-        for (const measure of ['value', 'seconds', 'distance']) existing[measure] += bar[measure];
+        for (const measure of ['value', 'seconds', 'distance','repetitions']) existing[measure] += bar[measure];
+        existing.indicative ||= bar.indicative;
       } else groups.set(bar.key, { ...bar, label: bar.name, blockId: null, instruction: '' });
     }
     bars = [...groups.values()];
@@ -73,13 +80,13 @@ export function sessionChartData(session, { summary = summarizeBlocks(session.bl
         value: tail.reduce((total, bar) => total + bar.value, 0),
         seconds: tail.reduce((total, bar) => total + bar.seconds, 0),
         distance: tail.reduce((total, bar) => total + bar.distance, 0),
-        blockId: null, label: 'Autres efforts', name: 'Autres efforts', instruction: '',
+        repetitions:tail.reduce((total,bar)=>total+bar.repetitions,0),indicative:tail.some(bar=>bar.indicative),blockId: null, label: 'Autres efforts', name: 'Autres efforts', instruction: '',
       }];
     }
   }
   return {
-    running, bars, axis, omitted, partial: Boolean(partial || summary.errors?.length || omitted), aggregated,
-    total: source.reduce((total, segment) => total + (axis === 'distance' ? segment.distance_m : segment.duration_seconds), 0),
+    running, bars, axis, omitted, hasSeries,layoutTotal:bars.reduce((total,bar)=>total+bar.value,0), partial: Boolean(partial || summary.errors?.length || omitted), aggregated,
+    total: source.reduce((total, segment) => total + (axis==='series'?1:axis === 'distance' ? segment.distance_m : segment.duration_seconds), 0),
     unavailable: Boolean(summary.errors?.length), segments: source.length,
   };
 }
@@ -107,8 +114,8 @@ export function renderSessionChart(session, { compact = true, summary, maxBars, 
     return figure;
   }
   const width = 288, bottom = 60, height = 50;
-  const measure = data.axis === 'distance' ? distanceLabel : formatDuration;
-  const explanation = `Largeur : ${data.axis === 'distance' ? 'distance' : 'durée'}. Hauteur et couleur : effort demandé ou zone cible, selon sa propre échelle. Effort non précisé : repère neutre.`;
+  const measure = data.axis === 'series' ? count=>`${count} série${count>1?'s':''}` : data.axis === 'distance' ? distanceLabel : formatDuration;
+  const explanation = `Largeur : ${data.axis === 'series' ? 'indicative, une barre par série' : data.axis === 'distance' ? 'distance' : 'durée'}${data.hasSeries&&data.axis!=='series'?' avec des emplacements indicatifs pour les séries, sans durée ni distance estimée':''}. Hauteur et couleur : effort demandé ou zone cible, selon sa propre échelle. Effort non précisé : repère neutre.`;
   const categories = [...new Set(data.bars.map(bar => bar.name))].join(', ');
   const label = `${heading} · ${measure(data.total)}${data.partial ? ' connues. Profil partiel.' : '.'} ${explanation} ${categories}.${data.aggregated ? ' Les étapes sont regroupées par effort, sans ordre chronologique.' : ''}`;
   const interactive = !compact || Boolean(onSelect);
@@ -119,8 +126,8 @@ export function renderSessionChart(session, { compact = true, summary, maxBars, 
   if (selection) selection.setAttribute('aria-live', 'polite');
   let elapsed = 0;
   for (const bar of data.bars) {
-    const x = width * elapsed / data.total, barWidth = width * bar.value / data.total;
-    const barLabel = `${bar.label} · ${measure(bar.value)} · ${bar.name}${bar.instruction ? ` · ${bar.instruction}` : ''}`;
+    const x = width * elapsed / data.layoutTotal, barWidth = width * bar.value / data.layoutTotal;
+    const barLabel = `${bar.label} · ${bar.indicative ? `${bar.repetitions} mouvements · largeur indicative` : `${measure(data.axis==='distance'?bar.distance:bar.seconds)}${bar.repetitions?` · ${bar.repetitions} mouvements`:''}`} · ${bar.name}${bar.instruction ? ` · ${bar.instruction}` : ''}`;
     const group = svgNode('g', { class: 'session-chart-segment', 'data-block-id': bar.blockId || '', ...(interactive ? { role: 'button', tabindex: '0', 'aria-label': `${barLabel}${onSelect && bar.blockId ? ' · Modifier cette étape' : ''}` } : {}) });
     group.append(svgNode('title', {}, barLabel));
     if (bar.range) {
@@ -129,7 +136,7 @@ export function renderSessionChart(session, { compact = true, summary, maxBars, 
     group.append(svgNode('rect', {
       x, y: bottom - height * bar.lowHeight, width: barWidth, height: height * bar.lowHeight, fill: bar.color,
       'fill-opacity': bar.range ? '.95' : '1', 'data-seconds': bar.seconds, 'data-distance': bar.distance, 'data-kind': bar.key,
-      'data-bound': bar.range ? 'lower' : 'single', class: 'session-chart-lower',
+      'data-repetitions':bar.repetitions,'data-indicative':String(bar.indicative),'data-bound': bar.range ? 'lower' : 'single', class: 'session-chart-lower',
     }));
     if (interactive) {
       // The whole column responds to touch, including above short recovery bars.
@@ -149,9 +156,9 @@ export function renderSessionChart(session, { compact = true, summary, maxBars, 
   figure.append(svg);
   const axisLabels = html('div', 'session-chart-axis-labels');
   axisLabels.setAttribute('aria-hidden', 'true');
-  axisLabels.append(html('span', '', '0'), html('span', '', measure(data.total)));
+  axisLabels.append(html('span', '', '0'), html('span', '', `${measure(data.total)}${data.hasSeries&&data.axis!=='series'?' + séries':''}`));
   figure.append(axisLabels);
-  const notes = [data.partial ? `Profil partiel · ${data.axis === 'distance' ? 'distances' : 'durées'} connues uniquement.` : `Effort demandé · ${data.axis === 'distance' ? 'distance' : 'durée'}`];
+  const notes = [data.hasSeries ? (data.axis==='series'?'Séries · largeurs indicatives, aucun temps estimé.':'Séries sans durée ni distance : largeurs indicatives, exclues du total de durée ou de distance.') : data.partial ? `Profil partiel · ${data.axis === 'distance' ? 'distances' : 'durées'} connues uniquement.` : `Effort demandé · ${data.axis === 'distance' ? 'distance' : 'durée'}`];
   if (data.aggregated) notes.push('Étapes regroupées par effort, sans ordre chronologique.');
   if (!compact && data.bars.some(bar => bar.absolute)) notes.push('BPM et allures : valeurs affichées sans estimation de leur difficulté.');
   if (!compact && data.bars.some(bar => bar.conventional)) notes.push('Repos et marche : hauteurs indicatives.');

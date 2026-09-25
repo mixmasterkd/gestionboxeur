@@ -149,3 +149,12 @@ test('text-only sessions keep an empty plan and parser warnings mark known steps
     assert.equal(distance.axis,'distance');assert.equal(distance.total,1200);assert.equal(distance.partial,false);assert.ok(distance.bars.every(bar=>bar.seconds===0));
   }finally{if(previous===undefined)delete globalThis.document;else globalThis.document=previous;await window.happyDOM.abort();}
 });
+
+test('series use effort colours and one indicative slot without invented time or count expansion',async()=>{
+ const session={blocks:[step('strength',{title:'Abdos',repetitions:10,effort:{kind:'rpe',min:2,max:3}}),step('burpees',{repetitions:100,zone:5})]};
+ const chart=sessionChartData(session);assert.equal(chart.axis,'series');assert.equal(chart.bars.length,2);assert.equal(chart.total,2);assert.equal(chart.bars[0].value,chart.bars[1].value);assert.equal(chart.bars[0].seconds,0);assert.notEqual(chart.bars[0].color,chart.bars[1].color);assert.ok(chart.bars[1].lowHeight>chart.bars[0].lowHeight);
+ const mixed=sessionChartData({blocks:[step('run',{distance_m:400}),...session.blocks]});assert.equal(mixed.axis,'distance');assert.equal(mixed.total,400);assert.equal(mixed.bars.length,3);
+ const window=new Window(),previous=globalThis.document;globalThis.document=window.document;
+ try {const node=renderSessionChart(session,{compact:false});assert.match(node.textContent,/largeurs indicatives/);assert.match(node.querySelector('svg').getAttribute('aria-label'),/2 séries/);assert.match(node.querySelector('[role=button]').getAttribute('aria-label'),/10 mouvements/);assert.equal(node.querySelectorAll('.session-chart-segment').length,2);}
+ finally{globalThis.document=previous;await window.happyDOM.abort();}
+});

@@ -115,12 +115,44 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
       el('a', { href: 'roster.html' }, 'Mes athlètes'),
       ' pour la relier au profil inscrit et conserver son calendrier.');
   }
-  function renderCoach(state, body) {
+  function accountSearch(state,version,forCoach=false) {
+    const card=el('section',{class:'connection-card connection-search'}),query=input('connection_search','','text',{required:true,minLength:2,maxLength:320,autocomplete:'off'});
+    const error=errorBox(),results=el('div',{'aria-live':'polite'}),search=el('button',{type:'submit',class:'button primary'},'Rechercher');
+    const form=el('form',{},field('Nom ou courriel du compte',query),search,error);
+    card.append(el('h3',{},forCoach?'Rechercher un coach':'Inviter un athlète'),el('p',{class:'muted'},forCoach?'Choisis ton coach et autorise la demande de suivi. Il devra l’accepter avant d’accéder à ton calendrier.':'Recherche par nom ou courriel complet. L’athlète devra accepter ton invitation.'),form,results);
+    let ticket=0,searching=false;
+    query.addEventListener('input',()=>{ticket++;results.replaceChildren();});
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(pending||searching||!form.reportValidity())return;
+      const request=++ticket;searching=true;search.disabled=true;error.hidden=true;results.replaceChildren();
+      try{
+        const matches=await rpc(forCoach?'search_coaches':'search_athletes',{p_query:query.value.trim()});
+        if(!isCurrent(version,state.user.id)||request!==ticket)return;
+        if(!matches?.length){results.append(el('p',{},'Aucun compte trouvé. Vérifie le nom ou le courriel complet.'));return;}
+        if(matches.length===20)results.append(el('p',{class:'muted'},'20 résultats · précise le nom pour affiner.'));
+        for(const match of matches){
+          const row=el('article',{class:'connection-search-result'},el('strong',{},match.display_name));results.append(row);
+          if(['accepted','pending','invited'].includes(match.connection_status)){
+            row.append(el('p',{},match.connection_status==='accepted'?'Déjà connecté.':match.connection_status==='invited'?'Ce coach t’a déjà invité. Réponds dans les invitations ci-dessus.':forCoach?'Demande déjà envoyée · en attente du coach.':'Invitation déjà envoyée · en attente de l’athlète.'));continue;
+          }
+          row.append(button(forCoach?'Autoriser et demander':'Envoyer l’invitation',()=>{
+            if(request!==ticket||!isCurrent(version,state.user.id))return;
+            perform(error,()=>rpc(forCoach?'request_coach_account':'invite_athlete',forCoach?{p_coach_id:match.coach_id}:{p_athlete_id:match.athlete_id}),forCoach?'Demande autorisée et envoyée. Le suivi sera actif après acceptation du coach.':'Invitation envoyée. Le suivi sera actif après acceptation de l’athlète.');
+          },'button primary',{'aria-label':`${forCoach?'Autoriser et demander le suivi à':'Inviter'} ${match.display_name}`}));
+        }
+      }catch(failure){if(isCurrent(version,state.user.id)&&request===ticket)showError(error,failure);}
+      finally{searching=false;search.disabled=pending;}
+    });
+    if(forCoach)card.append(el('p',{class:'permission-help'},'Le suivi autorise le calendrier, les bilans et la planification. Tu peux ensuite ajuster les accès dans Mes coachs.'));
+    return card;
+  }
+  function renderCoach(state, body, version) {
     body.append(el('h3', {}, 'Ton code coach'),
       el('p', {}, 'Un athlète qui possède déjà un compte peut saisir ce code dans « Mes coachs ». Sa demande apparaîtra ci-dessous : tu pourras l’accepter ou la refuser.'));
     if (state.coach?.join_code) body.append(codeBox(state.coach.join_code));
     else body.append(el('p', { class: 'muted' }, 'Le code coach est indisponible. Actualise ton compte pour le récupérer.'));
 
+    body.append(accountSearch(state,version));
     const pendingRelations = state.relations.filter(relation => relation.status === 'pending');
     body.append(el('h3', {}, `Demandes à valider (${pendingRelations.length})`));
     if (!pendingRelations.length) body.append(el('p', { class: 'muted' }, 'Aucune demande en attente.'));
@@ -156,11 +188,11 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
       body.append(el('p', { class: 'empty-message' }, 'Ton profil athlète n’est pas encore disponible. Actualise ton compte avant de connecter un coach.'));
       return;
     }
-    body.append(el('p', {}, 'Ajoute tes coachs avec leur code, puis règle leurs accès au calendrier.'));
+    body.append(el('p', {}, 'Trouve ton coach par nom ou courriel, ou utilise son code. Tu règles ensuite ses accès au calendrier.'));
     const form = el('form', { class: 'connection-card' });
     const code = input('coach_code', '', 'text', { required: true, maxlength: 100, autocomplete: 'off', autocapitalize: 'none', spellcheck: false });
     const joinError = errorBox();
-    form.append(el('h3', {}, 'Ajouter un coach'), field('Code fourni par ton coach', code),
+    form.append(el('h3', {}, 'Avec un code'), field('Code fourni par ton coach', code),
       el('button', { type: 'submit', class: 'button primary' }, 'Envoyer la demande'), joinError);
     form.addEventListener('submit', event => {
       event.preventDefault();
@@ -168,14 +200,14 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
       const p_code = code.value.trim().toLowerCase();
       perform(joinError, () => rpc('request_coach', { p_code }), 'Demande enregistrée. La liaison sera active après acceptation du coach.');
     });
-    body.append(form, el('h3', {}, 'Mes coachs'));
+    body.append(el('div',{class:'connection-methods'},accountSearch(state,version,true),form), el('h3', {}, 'Mes coachs'));
     const list = el('div', { 'aria-live': 'polite' }, el('p', { class: 'muted' }, 'Chargement des coachs…'));
     body.append(list);
     const coaches = await rpc('athlete_coaches', { p_athlete_id: athlete.id });
     if (!isCurrent(version, state.user?.id)) return;
     list.replaceChildren();
     const activeCoaches = (coaches || []).filter(coach => ['accepted', 'pending'].includes(coach.status));
-    if (!activeCoaches.length) list.append(el('p', { class: 'muted' }, 'Aucun coach connecté. Demande son code à ton coach pour l’ajouter.'));
+    if (!activeCoaches.length) list.append(el('p', { class: 'muted' }, 'Aucun coach connecté. Recherche son nom ou utilise son code pour l’ajouter.'));
     for (const coach of activeCoaches) {
       const accepted = coach.status === 'accepted';
       const name = coach.display_name || 'Coach';
@@ -225,6 +257,12 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
     const invitations=await rpc('my_coaching_invitations');
     if(!isCurrent(version,state.user.id))return;
     const incoming=(invitations||[]).filter(item=>item.direction==='incoming');
+    const outgoing=(invitations||[]).filter(item=>item.direction==='outgoing');
+    if(state.profile?.account_type==='coach'&&!personalView&&outgoing.length){
+      const sent=el('section',{},el('h3',{},'Invitations envoyées'));
+      for(const item of outgoing){const error=errorBox();sent.append(el('article',{class:'connection-card'},el('strong',{},item.athlete_name),button('Annuler l’invitation',()=>perform(error,()=>rpc('cancel_coaching_invitation',{p_invitation_id:item.id}),'Invitation annulée.'),'button secondary'),error));}
+      body.append(sent);
+    }
     if(!incoming.length)return;
     const list=el('section',{class:'incoming-coaching-invitations'},el('h3',{},'Invitations de coachs'));
     for(const item of incoming) {
@@ -253,7 +291,7 @@ export function createConnectionsUI({ getState, refreshAccount, refreshCalendar 
     const body = shell(isCoach && !personalView ? 'Athlètes et invitations' : 'Mes coachs');
     if (isCoach) body.append(el('div', { class: 'template-tabs', role: 'group', 'aria-label': 'Connexions' }, ...[['Mes athlètes', false], ['Mes coachs', true]].map(([label, personal]) => button(label, () => { if (pending) return; personalView = personal; render(); }, 'button secondary', { 'aria-pressed': String(personalView === personal) }))));
     try {
-      if (isCoach && !personalView) renderCoach(state, body);
+      if (isCoach && !personalView) renderCoach(state, body, version);
       else await renderAthlete(state, body, version);
       await renderInvitations(body,state,version);
     } catch (error) {

@@ -14,16 +14,16 @@ const meaning=blocks=>blocks.map(block=>block.kind==='repeat'?{kind:'repeat',cou
   effort:formatEffort(block.effort||(block.zone?{kind:'zone',min:block.zone,max:block.zone}:null)),
   ...(block.rounds&&block.work_seconds>0?{rounds:block.rounds,work:block.work_seconds,rest:block.rest_seconds||0}:{}),
 });
-const sameMeaning=(left,right)=>JSON.stringify(meaning(left))===JSON.stringify(meaning(right));
+const sameMeaning=(left,right)=>JSON.stringify(meaning(left))===JSON.stringify(meaning(right))&&right.every((block,i)=>block.kind==='repeat'?sameMeaning(left[i].children,block.children):block.repetitions==null||left[i].repetitions===block.repetitions);
 function knownAliasBaseline(blocks,parsed){
   const candidate=clone(blocks);let changed=false;
   const visit=(old,next)=>old.length===next.length&&old.every((block,index)=>{
     const source=next[index];if(block.kind!==source.kind)return false;
     if(block.kind==='repeat')return visit(block.children,source.children);
-    if(block.type==='other'&&source.type!=='other'){
+    if(block.type==='other'&&(source.type!=='other'||block.title!==source.title)){
       const probe=parseTrainingText(`- ${inline(block.title)} 1s`),alias=probe.blocks[0];
-      if(probe.errors.length||probe.blocks.length!==1||alias.kind!=='step'||alias.type!==source.type||alias.duration_seconds!==1||alias.distance_m||alias.description||alias.effort)return false;
-      block.type=source.type;block.title=source.title;changed=true;
+      if(probe.errors.length||probe.blocks.length!==1||alias.kind!=='step'||alias.type!==source.type||alias.title!==source.title||alias.duration_seconds!==1||alias.distance_m||alias.description||alias.effort)return false;
+      block.type=source.type;block.title=source.title;if(alias.repetitions===source.repetitions)block.repetitions=source.repetitions;changed=true;
     }
     return true;
   });
@@ -33,7 +33,7 @@ function keepSourceMeaning(blocks,source){
   blocks.forEach((block,index)=>{const parsed=source[index];if(block.kind==='repeat'){
     block.repeat_count=parsed.repeat_count;if(parsed.repeat_unit)block.repeat_unit=parsed.repeat_unit;else delete block.repeat_unit;keepSourceMeaning(block.children,parsed.children);
   }else if(!sameMeaning([block],[parsed])){
-    for(const key of ['type','title','description','duration_seconds','distance_m','rounds','work_seconds','rest_seconds','zone','effort'])block[key]=clone(parsed[key]);
+    for(const key of ['type','title','description','repetitions','duration_seconds','distance_m','rounds','work_seconds','rest_seconds','zone','effort'])block[key]=clone(parsed[key]);
   }});
 }
 const choose=(name,options,value)=>select(name,options.map(([value,label])=>({value,label})),value);
@@ -165,10 +165,11 @@ export class ProgramEditor {
     return el('details',{class:'pe-help'},el('summary',{},'ⓘ Aide · écrire un entraînement'),
       el('p',{},'Écris librement. Les boutons insèrent des étapes dans le texte. Une ligne non reconnue reste enregistrable; le graphique indique les parties reconnues.'),
       section('Durées et distances',table([["3m · 3 min · 3 minutes · 3'",'Minutes. Le m signifie toujours minutes, avec ou sans espace.'],['30s · 30 sc · 30 sec · 30 secondes · 30"','Secondes.'],["1m30s · 1 min 30 sec · 1'30\"",'Durée combinée.'],['400mtr · 400 mtr · 400 mètres','Mètres. Écris MTR pour éviter toute confusion avec les minutes.'],['2km · 2 km','Kilomètres.']]),el('p',{},'Majuscules, minuscules, singulier, pluriel, mots sans accents et guillemets de téléphone sont acceptés. Dans le champ Durée des boutons d’ajout, un nombre sans unité représente des minutes. Dans le texte libre, indique toujours l’unité. Une distance n’est jamais convertie en durée sans données.')),
-      section('Étapes, titres et consignes',el('p',{},'Le bouton Étape propose un titre et un nom d’étape facultatifs, saisis librement. La durée est vide au départ; choisis la mesure puis indique sa valeur. Devant une étape seule, le titre ne définit pas son activité. Commence une étape par un tiret, puis indique sa durée ou sa distance et, si tu le souhaites, son activité. Pour une activité connue, les deux ordres fonctionnent : Shadow 30s ou 30s Shadow; Repos 30 secondes ou 30 secondes Repos. Le nom d’une activité Autre personnalisée reste avant la mesure. @ introduit l’effort facultatif. Un tiret après l’effort introduit la consigne; le retour à la ligne termine l’étape.'),el('pre',{},'- Sac 3\' @ RPE 6 - Jab et retour en garde\n- 30 secondes Burpees - Garder le dos droit\n- Course 400mtr @ Z2-Z4'),el('p',{},'Le tiret entre deux valeurs appartient à une fourchette. Écris toujours une consigne après un tiret; un texte inconnu après la mesure ne devient pas une activité. Une puce sans mesure reste visible, mais n’a pas de largeur dans le graphique sans durée ou distance.')),
+      section('Étapes, titres et consignes',el('p',{},'Le bouton Étape propose un titre et un nom d’étape facultatifs, saisis librement. La durée est vide au départ; choisis la mesure puis indique sa valeur. Devant une étape seule, le titre ne définit pas son activité. Commence une étape par un tiret, puis indique sa durée ou sa distance et, si tu le souhaites, son activité. Pour une activité connue, les deux ordres fonctionnent : Shadow 30s ou 30s Shadow; Repos 30 secondes ou 30 secondes Repos. Le nom d’une activité Autre personnalisée reste avant la mesure. @ introduit l’effort facultatif. Un tiret après l’effort introduit la consigne; le retour à la ligne termine l’étape.'),el('pre',{},'- Sac 3\' @ RPE 6 - Jab et retour en garde\n- 30 secondes Burpees - Garder le dos droit\n- Course 400mtr @ Z2-Z4'),el('p',{},'Le tiret entre deux valeurs appartient à une fourchette. Écris toujours une consigne après un tiret; un texte inconnu après la mesure ne devient pas une activité. Une puce sans mesure reste visible, mais n’a pas de largeur dans le graphique sans durée, distance ou nombre de répétitions.')),
+      section('Séries de mouvements',el('p',{},'Après un tiret, 10x Abdos ou Abdos 10x représente une seule étape de dix mouvements. Le x peut être séparé du nombre. Dans les boutons d’ajout, choisis Répétitions dans Mesure, puis indique le nombre. Le nom de l’étape reste libre et facultatif; le générateur place le nombre suivi de x après ce nom. Une série peut faire partie de rounds ou de répétitions : elle revient une fois par passage, sans créer dix barres.'),el('pre',{},'3 rounds\n- 1min\n- 10x Sauts @ Z3\n- Burpees 10x @ RPE 6'),el('p',{},'Sans durée, une série a une largeur indicative dans le graphique, indépendante de son nombre de mouvements. Aucun temps n’est ajouté au total. Les couleurs et hauteurs suivent son effort. Sans tiret, 3x démarre toujours une boucle.')),
       section('Efforts et fourchettes',table([['@ Z3 · @ Z2-Z4','Zones 1 à 7. Tu peux préciser FC ou Allure après la zone.'],['@ RPE 6 · @ RPE 6/10 · @ RPE 4-6','Effort demandé de 1 à 10, indépendant du bilan après séance.'],['@ Vert · @ Vert-Jaune · @ Rouge','Trois niveaux d’effort croissants.'],['@ Repos · @ Marche · @ Repos actif','Récupération ou marche.'],['@ 120-150 bpm','Fréquence cardiaque demandée.'],['@ 5:30/km · @ 5:30-6:30/km','Allure ou fourchette en minutes par kilomètre.']]),el('p',{},'@Z3 et @ Z3 sont équivalents. Un terme personnalisé reste visible sans intensité inventée. Une fourchette utilise la même échelle aux deux bornes.')),
       section('Répétitions et rounds',el('p',{},'3x, 3 x, 3rounds et 3 rounds répètent les étapes qui suivent. Une vraie ligne vide termine le groupe. Le retour automatique à la ligne sur téléphone ne termine rien. Un seul niveau de répétition est proposé. Toutes les étapes sont répétées, y compris le dernier repos.'),el('p',{},'Écris une activité connue sur la ligne juste avant le nombre de rounds ou de répétitions, sans ligne vide entre les deux. Les lignes sans activité utilisent alors ce choix. Les boutons Round et Répétition proposent deux étapes au départ, un titre facultatif et un nom libre facultatif par étape. Round propose 3 MIN puis 1 MIN avec l’effort Repos; ces valeurs sont modifiables. Répétition laisse les durées vides. Le bouton Ajouter une étape permet de compléter le groupe. Une activité écrite dans une étape remplace le choix du groupe pour cette étape seulement; répéter Shadow sur une ligne reste permis.'),el('pre',{},'Shadow\n3 rounds\n- 3min @ RPE 4-6\n- Repos 1min\n\nJog\n3x\n- 2min @ Z2\n- 1min @ Z1\n\n- Marche 30"'),el('p',{},'Shadow Boxing 3 rounds, 3 rounds de Shadow, Jog 3x et 3x de Jog restent possibles. Un titre libre différent de l’activité ne définit pas le type du groupe; les étapes précisent alors leur activité. Un titre ou une consigne dans le groupe ne change pas son activité. Une ligne vide termine le groupe et son activité implicite.')),
-      section('Lire le graphique et mettre en forme',el('p',{},'La largeur suit la durée connue, ou la distance lorsque toute la séance est en distance. Une fourchette superpose ses deux bornes, sans bandes intermédiaires : Z2 devant Z4, par exemple. Les zones et le RPE ont leurs propres échelles. Les BPM et allures sans repères personnels restent indiqués sans conversion inventée.'),el('p',{},'Touche une portion du graphique pour revoir l’étape. Gras, souligné et couleurs du texte servent uniquement à la mise en forme; colorier une phrase ne change pas l’effort. Les anciennes séances conservent leur déroulement.')));
+      section('Lire le graphique et mettre en forme',el('p',{},'La largeur suit la durée connue, ou la distance pour les étapes mesurées uniquement en distance. Les séries sans durée ni distance occupent un emplacement indicatif, sans ajouter de temps au total. Une fourchette superpose ses deux bornes, sans bandes intermédiaires : Z2 devant Z4, par exemple. Les zones et le RPE ont leurs propres échelles. Les BPM et allures sans repères personnels restent indiqués sans conversion inventée.'),el('p',{},'Touche une portion du graphique pour revoir l’étape. Gras, souligné et couleurs du texte servent uniquement à la mise en forme; colorier une phrase ne change pas l’effort. Les anciennes séances conservent leur déroulement.')));
   }
   updatePreview(){
     if(!this.graph)return;
@@ -236,8 +237,9 @@ export class ProgramEditor {
         const updated=blockIndex(contextual.blocks).get(line?.blockId);
         if(!updated)throw new Error('Cette étape ne peut pas être ajoutée au texte.');
         const block={...clone(draft.source),...updated,id:draft.source.id,notes:draft.source.notes};
+        if(updated.repetitions==null&&draft.source.repetitions&&!parseTrainingText(this.document.text.slice(draft.range.start,draft.range.end)).blocks[0]?.repetitions)block.repetitions=draft.source.repetitions;
         // Preserve fields absent from the text, including legacy metadata.
-        for(const key of ['repetitions','intensity'])if(key in draft.source)block[key]=clone(draft.source[key]);
+        for(const key of ['intensity'])if(key in draft.source)block[key]=clone(draft.source[key]);
         model={text:fragment,blocks:[block],lines:[{kind:'step',start:offset,end:fragment.length,blockId:block.id}]};
       }
       cancel();
@@ -251,21 +253,24 @@ export class ProgramEditor {
     const node=el('article',{class:'pe-sequence-row'}),range=this.mini?.range;
     const writtenName=range?trainingStepName(this.document.text.slice(range.start,range.end)):'';
     const name=input('block_title',writtenName,'text',{maxLength:500,'data-field':'title'}),nameField=field('Nom de l’étape (facultatif)',name);nameField.classList.add('pe-step-name');
-    const initialFormat=source.distance_m!=null?source.duration_seconds!=null?'mixed':'distance':source.duration_seconds!=null?'time':'free';
-    const format=choose('block_format',[['time','Durée'],['distance','Distance'],['mixed','Durée et distance'],['free','Sans mesure']],this.mini?.action==='edit'?initialFormat:'time');format.dataset.field='format';
+    const initialFormat=source.distance_m!=null?source.duration_seconds!=null?'mixed':'distance':source.duration_seconds!=null?'time':source.repetitions?'reps':'free';
+    const format=choose('block_format',[['time','Durée'],['distance','Distance'],['mixed','Durée et distance'],['reps','Répétitions'],['free','Sans mesure']],this.mini?.action==='edit'?initialFormat:'time');format.dataset.field='format';
     const initialTime=this.mini?.action==='add-rounds'&&source.duration_seconds!=null?`${source.duration_seconds/60} MIN`:timeText(source.duration_seconds);
     const time=input('block_duration',initialTime,'text',{'data-field':'duration'}),meters=input('block_distance',source.distance_m??'','text',{inputMode:'decimal','data-field':'distance'});
     const timeField=field('Durée',time,'Sans unité : minutes.'),distanceField=field('Distance · mètres',meters);
+    const movements=input('block_repetitions',source.repetitions??'','number',{min:1,max:10000,step:1,inputMode:'numeric','data-field':'repetitions'}),movementsField=field('Nombre',movements);
     const instruction=textarea('block_description',source.description||'',{rows:2,maxLength:10000,'data-field':'description'});
     const effort=effortControl(source,source.id);
-    const updateFormat=()=>{timeField.hidden=!['time','mixed'].includes(format.value);distanceField.hidden=!['distance','mixed'].includes(format.value);};format.addEventListener('change',updateFormat);updateFormat();
-    node.append(el('div',{class:'pe-sequence-fields'},nameField,field('Mesure',format),timeField,distanceField),effort.node,field('Consigne',instruction));
+    const updateFormat=()=>{timeField.hidden=!['time','mixed'].includes(format.value);distanceField.hidden=!['distance','mixed'].includes(format.value);movementsField.hidden=format.value!=='reps';};format.addEventListener('change',updateFormat);updateFormat();
+    node.append(el('div',{class:'pe-sequence-fields'},nameField,field('Mesure',format),timeField,distanceField,movementsField),effort.node,field('Consigne',instruction));
     return {node,read:()=>{
       const next={...makeBlock(),description:instruction.value,duration_seconds:null,distance_m:null,effort:effort.read()};
       if(['time','mixed'].includes(format.value))next.duration_seconds=readQuantity(time.value,'time');if(['distance','mixed'].includes(format.value))next.distance_m=readQuantity(meters.value,'distance');
+      if(format.value==='reps'){next.repetitions=Number(movements.value);if(!Number.isInteger(next.repetitions)||next.repetitions<1||next.repetitions>10000)throw new Error('Indique un nombre entier de répétitions de 1 à 10 000.');}
+      else if(source.repetitions&&(source.duration_seconds||source.distance_m)&&range&&parseTrainingText(this.document.text.slice(range.start,range.end)).blocks[0]?.repetitions)next.repetitions=source.repetitions;
       const text=formatTrainingStep(next,{name:name.value.trim()}),parsed=parseTrainingText(text,{sport:this.sport}),block=parsed.blocks[0];
-      if(!name.value.trim()&&next.duration_seconds==null&&next.distance_m==null&&!next.effort)throw new Error('Précise au moins un nom, une mesure ou un effort pour cette étape.');
-      if(parsed.errors.length||parsed.blocks.length!==1||block?.kind!=='step'||block.duration_seconds!==next.duration_seconds||block.distance_m!==next.distance_m||block.description!==inline(next.description)||next.effort&&formatEffort(block.effort)!==formatEffort(next.effort)||trainingStepName(text)!==name.value.trim())throw new Error('Le nom ou la consigne ressemble à une notation d’entraînement. Garde les mesures et l’effort dans leurs champs.');
+      if(!name.value.trim()&&next.duration_seconds==null&&next.distance_m==null&&!next.repetitions&&!next.effort)throw new Error('Précise au moins un nom, une mesure ou un effort pour cette étape.');
+      if(parsed.errors.length||parsed.blocks.length!==1||block?.kind!=='step'||block.duration_seconds!==next.duration_seconds||block.distance_m!==next.distance_m||block.repetitions!==next.repetitions||block.description!==inline(next.description)||next.effort&&formatEffort(block.effort)!==formatEffort(next.effort)||trainingStepName(text)!==name.value.trim())throw new Error('Le nom ou la consigne ressemble à une notation d’entraînement. Garde les mesures et l’effort dans leurs champs.');
       return text;
     }};
   }

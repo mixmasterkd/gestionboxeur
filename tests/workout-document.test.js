@@ -295,3 +295,17 @@ test('editing an adjacent activity title updates inherited steps while keeping I
   assert.deepEqual(ordinaryTitle.blocks[0].children.map(block => block.type), ['other', 'recovery', 'other']);
   assert.equal(ordinaryTitle.blocks[0].children[0].title, 'Boxe');
 });
+
+test('movement series are single steps inside rounds, accept counts before or after names and preserve doses',()=>{
+ const text='3 rounds\n-1m\n-1m\n- 10x saut @ Z3\n- Burpees 10 X @ RPE 6';
+ const result=parse(text,{sport:'boxing'}),group=result.blocks[0],summary=summarizeBlocks(result.blocks);
+ assert.equal(group.children.length,4);assert.deepEqual(group.children.map(b=>b.repetitions),[null,null,10,10]);
+ assert.equal(group.children[2].title,'saut');assert.equal(group.children[3].type,'burpees');
+ assert.equal(summary.segments.length,12);assert.equal(summary.duration_seconds,360);
+ const chart=sessionChartData({sport:'boxing',blocks:result.blocks});assert.equal(chart.bars.length,12);assert.equal(chart.total,360);assert.equal(chart.hasSeries,true);assert.ok(chart.bars[2].value>0);assert.equal(chart.bars[2].seconds,0);
+ const restored=parse(serializeTrainingBlocks(result.blocks));assert.deepEqual(restored.blocks[0].children.map(b=>b.repetitions),[null,null,10,10]);
+ const abdos=parse('- Abdos 10x @ RPE2-3').blocks[0];assert.equal(abdos.type,'strength');assert.equal(abdos.repetitions,10);assert.equal(abdos.effort.max,3);
+ const unnamed=parse('Shadow\n3 rounds\n- 10x').blocks[0].children[0];assert.equal(unnamed.type,'shadow');assert.equal(unnamed.repetitions,10);
+ for(const bad of ['- 0x Saut','- 2.5x Saut','- -10x Saut','- 10001x Saut','- 10x Saut 20x'])assert.ok(parseTrainingText(bad).errors.length,bad);
+ assert.equal(parse('10x\n- Sac 1min').blocks[0].kind,'repeat');
+});

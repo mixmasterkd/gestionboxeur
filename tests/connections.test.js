@@ -244,3 +244,20 @@ test('incoming coach invitation is visible and acceptance targets only that invi
   assert.equal(ui.content.querySelector('.incoming-coaching-invitations'),null);
  }finally{await ui.close();}
 });
+
+test('both connection directions offer search and code, and only the selected result is invited',async()=>{
+ for(const forCoach of [false,true]){
+  const state=forCoach?initialAthlete():initialCoach();const ui=await setup(state,async name=>name===(forCoach?'search_coaches':'search_athletes')?[{coach_id:'found-coach',athlete_id:'found-athlete',display_name:'Compte choisi',connection_status:'available'}]:name==='athlete_coaches'?[]:null);
+  try{await ui.api.open();const query=ui.content.querySelector('[name=connection_search]');assert.ok(query);assert.ok(forCoach?ui.content.querySelector('[name=coach_code]'):ui.button('Copier le code'));query.value='Compte';await ui.submit(query.closest('form'));
+   assert.equal(ui.calls.filter(c=>c.name==='invite_athlete'||c.name==='request_coach_account').length,0);
+   await ui.click(forCoach?'Autoriser et demander':'Envoyer l’invitation');const mutation=ui.calls.find(c=>c.name===(forCoach?'request_coach_account':'invite_athlete'));assert.deepEqual(JSON.parse(JSON.stringify(mutation.args)),forCoach?{p_coach_id:'found-coach'}:{p_athlete_id:'found-athlete'});assert.deepEqual(ui.refreshed,['account','calendar']);
+  }finally{await ui.close();}
+ }
+});
+
+test('stale account searches never expose results after changed input or a closed dialog',async()=>{
+ let resolve;const ui=await setup(initialCoach(),name=>name==='search_athletes'?new Promise(done=>{resolve=done;}):null);
+ try{await ui.api.open();const query=ui.content.querySelector('[name=connection_search]');query.value='ancien';query.closest('form').dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));query.value='nouveau';query.dispatchEvent(new ui.window.Event('input',{bubbles:true}));resolve([{athlete_id:'wrong',display_name:'Ancien résultat',connection_status:'available'}]);await settle();assert.doesNotMatch(ui.content.textContent,/Ancien résultat/);
+ query.closest('form').dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));ui.window.document.querySelector('dialog').close();resolve([{athlete_id:'wrong',display_name:'Ancien résultat',connection_status:'available'}]);await settle();assert.equal(ui.content.textContent,'');
+ }finally{await ui.close();}
+});

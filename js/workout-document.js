@@ -95,6 +95,16 @@ function separateInstruction(content) {
   return [content, ''];
 }
 
+function movementCount(content) {
+  const matches=[...content.matchAll(/(?:^|\s)([+-]?\d+(?:[.,]\d+)?)\s*[x×](?=\s|$)/gi)];
+  if(!matches.length)return {content,repetitions:null};
+  if(matches.length!==1)throw new Error('Indique un seul nombre de mouvements par étape.');
+  const match=matches[0],repetitions=number(match[1]);
+  if(!Number.isInteger(repetitions)||repetitions<1||repetitions>10000)throw new Error('Le nombre de mouvements doit être un entier de 1 à 10 000.');
+  const before=content.slice(0,match.index).trim().replace(/\s*\+$/,''),after=content.slice(match.index+match[0].length).trim().replace(/^\+\s*/, '');
+  return {content:[before,after].filter(Boolean).join(' '),repetitions};
+}
+
 function parseStep(source, sport, inheritedActivity = null) {
   let [content, description] = separateInstruction(source.replace(/^\s*-\s*/, '').trim());
   const target = content.indexOf('@');
@@ -103,6 +113,7 @@ function parseStep(source, sport, inheritedActivity = null) {
     if (!content.slice(target + 1).trim()) throw new Error('Ajoute une cible après @, ou retire @.');
     content = content.slice(0, target).trim();
   }
+  const counted=movementCount(content);content=counted.content;
   const normalized = content.replace(/[’‘′]/g, "'").replace(/[“”″]/g, '"');
   const dose = quantityStart.exec(normalized);
   let activity = content, trailingActivity = null, measures = { duration_seconds: null, distance_m: null };
@@ -112,20 +123,20 @@ function parseStep(source, sport, inheritedActivity = null) {
     if (activity) measures = measurements(normalized.slice(dose.index));
     else { const measured = measuredActivity(normalized.slice(dose.index)); measures = measured.measures; trailingActivity = measured.activity; }
   } else if (/\d/.test(content) && /(?:\b(?:min|sec|km|mtr|bpm)\b|\d\s*[:@])/.test(content)) throw new Error('Mesure non reconnue : utilise min, s, h, mtr ou km.');
-  if (!activity && !dose && target < 0 && !description) return null;
+  if (!activity && !dose && !counted.repetitions && target < 0 && !description) return null;
   const fallback = defaults[sport] || ['other', 'Autre'];
   const identity = activity ? names.get(normalize(activity)) || { type: 'other', title: activity } : trailingActivity || inheritedActivity || { type: fallback[0], title: fallback[1] };
   if (identity.title.length > 500) throw new Error('Le nom de l’étape ne peut pas dépasser 500 caractères.');
   if (description.length > 10000) throw new Error('La consigne ne peut pas dépasser 10 000 caractères.');
   const recovery = { walk: 'Marche', recovery: 'Repos', active_recovery: 'Repos actif' }[identity.type];
   const targetEffort = effort || (recovery ? { kind: 'recovery', label: recovery } : null);
-  return { ...makeBlock(identity.type), ...identity, ...measures, description, effort: targetEffort, zone: targetEffort?.kind === 'zone' && targetEffort.min === targetEffort.max ? targetEffort.min : null };
+  return { ...makeBlock(identity.type), ...identity, ...measures, repetitions: counted.repetitions, description, effort: targetEffort, zone: targetEffort?.kind === 'zone' && targetEffort.min === targetEffort.max ? targetEffort.min : null };
 }
 
 /** The form edits only a name actually written on this line, never an inherited one. */
 export function trainingStepName(source) {
   let [content] = separateInstruction(source.replace(/^\s*-\s*/, '').trim());
-  content = content.split('@')[0].trim();
+  content = movementCount(content.split('@')[0].trim()).content;
   const normalized = content.replace(/[’‘′]/g, "'").replace(/[“”″]/g, '"');
   const dose = quantityStart.exec(normalized);
   if (!dose) return content;
@@ -214,6 +225,7 @@ export function formatTrainingStep(block, { name: suppliedName } = {}) {
   const measures = [];
   if (block.duration_seconds != null && block.duration_seconds !== '') measures.push(durationText(block.duration_seconds));
   if (block.distance_m != null && block.distance_m !== '') measures.push(`${numericText(block.distance_m)}mtr`);
+  if (block.repetitions) measures.push(`${block.repetitions}x`);
   const effort = formatEffort(block.effort || (block.zone ? { kind: 'zone', min: block.zone, max: block.zone } : null));
   const description = oneLine(block.description);
   return `- ${[name, measures.join(' + '), effort ? `@ ${effort}` : '', description ? `- ${description}` : ''].filter(Boolean).join(' ')}`;
@@ -282,7 +294,7 @@ export function serializeTrainingDocument(blocks) {
     kind: block.kind,
     ...(block.kind === 'repeat' ? { count: block.repeat_count, unit: block.repeat_unit || 'repetitions', children: signature(block.children) } : {
       type: block.type, duration: block.duration_seconds === '' ? null : block.duration_seconds ?? null,
-      distance: block.distance_m === '' ? null : block.distance_m ?? null, description: oneLine(block.description),
+      repetitions: block.repetitions ?? null, distance: block.distance_m === '' ? null : block.distance_m ?? null, description: oneLine(block.description),
     }),
   }));
   if (restored.errors.length || JSON.stringify(signature(restored.blocks)) !== JSON.stringify(signature(normalized))) {

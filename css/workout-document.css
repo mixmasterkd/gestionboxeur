@@ -19,7 +19,7 @@
 .program-editor .pe-count-control input::-webkit-inner-spin-button,.program-editor .pe-count-control input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .program-editor .pe-sequence-fields,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked){grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
 .program-editor .pe-sequence-fields>.form-field:last-child{grid-column:auto}
-.program-editor .pe-sequence-fields>.pe-step-name,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked)>.form-field:last-child{grid-column:1/-1}
+.program-editor .pe-sequence-fields>.pe-step-name,.program-editor .pe-sequence-fields:has(select[data-field="format"] option[value="mixed"]:checked)>.form-field:has([data-field="distance"]){grid-column:1/-1}
 .program-editor .pe-sequence-actions .pe-button{width:44px;min-width:44px;height:44px;min-height:44px;padding:0}
 .program-editor .pe-effort-control{padding:12px 0 4px;margin:4px 0;border-top:1px solid var(--line)}
 .program-editor .pe-effort-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

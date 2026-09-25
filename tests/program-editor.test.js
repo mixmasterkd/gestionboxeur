@@ -308,3 +308,36 @@ test('ambiguous names and entirely unspecified steps are rejected without writin
   click(mount,'add-step');fill(mount,'title','Shadow Boxing');fill(mount,'duration','1min');click(mount,'apply-mini');assert.equal(editor.mini,null);assert.equal(editor.getValue()[0].type,'shadow');
   editor.editStep(editor.getValue()[0].id);assert.equal(mount.querySelector('[data-field=title]').value,'Shadow Boxing');cancel(mount);
 });
+
+test('series forms insert movement counts, edit the count via the graph and survive a saved document',()=>{
+ const {editor,mount}=fixture({sport:'boxing'});click(mount,'add-step');fill(mount,'title','Abdos');fill(mount,'format','reps');fill(mount,'repetitions',10);effort(rows(mount)[0],'rpe',2,3);click(mount,'apply-mini');
+ assert.equal(editor.getDocument().text,'- Abdos 10x @ RPE 2-3/10');assert.equal(editor.getValue()[0].repetitions,10);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,0);
+ const first=editor.getValue()[0];editor.editStep(first.id);assert.equal(mount.querySelector('[data-field=format]').value,'reps');fill(mount,'repetitions',15);click(mount,'apply-mini');
+ assert.equal(editor.getValue()[0].repetitions,15);assert.equal(editor.getValue()[0].id,first.id);
+ const saved=fixture({blocks:editor.getValue(),document:editor.getDocument(),sport:'boxing'}).editor;assert.deepEqual(saved.getValue(),editor.getValue());
+ editor.editStep(first.id);fill(mount,'format','time');fill(mount,'duration','2min');click(mount,'apply-mini');assert.equal(editor.getValue()[0].repetitions,null);assert.equal(editor.getValue()[0].duration_seconds,120);
+});
+
+test('a previously unrecognized counted activity upgrades from its source text without losing metadata',()=>{
+ const original={...makeBlock('other'),title:'Abdos 10x',effort:{kind:'rpe',min:2,max:3,basis:'10'},future:{keep:1}};
+ const {editor}=fixture({blocks:[original],document:{text:'- Abdos 10x @ RPE2-3',marks:[]},sport:'boxing'});
+ assert.equal(editor.lockedReason,'');assert.equal(editor.getValue()[0].repetitions,10);assert.equal(editor.getValue()[0].type,'strength');assert.deepEqual(editor.getValue()[0].future,{keep:1});
+});
+
+
+test('older free-named movement series gain their count without locking their saved source',()=>{
+ const original={...makeBlock('other'),title:'10x Sauts',future:{keep:true}};
+ const {editor}=fixture({blocks:[original],document:{text:'- 10x Sauts',marks:[]},sport:'boxing'});
+ assert.equal(editor.lockedReason,'');assert.equal(editor.getValue()[0].title,'Sauts');assert.equal(editor.getValue()[0].repetitions,10);assert.deepEqual(editor.getValue()[0].future,{keep:true});
+});
+
+
+test('the repetitions measure accepts an arbitrary optional name and emits the count after it',()=>{
+ for(const name of ['Déplacements latéraux','']){
+  const {editor,mount}=fixture({sport:'boxing'});click(mount,'add-step');
+  assert.equal(mount.querySelector('[data-field=format] option[value=reps]').textContent,'Répétitions');
+  fill(mount,'title',name);fill(mount,'format','reps');fill(mount,'repetitions',10);click(mount,'apply-mini');
+  assert.equal(editor.getDocument().text,name?`- ${name} 10x`:'- 10x');
+  assert.equal(editor.getValue()[0].repetitions,10);
+ }
+});

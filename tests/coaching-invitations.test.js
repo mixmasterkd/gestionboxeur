@@ -73,7 +73,29 @@ test('coach invitations require athlete consent and preserve existing calendars 
   for(let i=0;i<22;i++)await db.query('insert into auth.users(id,email,raw_user_meta_data)values(gen_random_uuid(),$1,$2)',[`search${i}@example.test`,JSON.stringify({full_name:'Recherche '+i,birth_date:'2000-01-01',gym_id:null})]);
   await login(coach);const limited=(await db.query("select * from public.search_athletes('Recherche')")).rows;assert.equal(limited.length,20);assert.deepEqual(Object.keys(limited[0]).sort(),['athlete_id','connection_status','display_name']);
   await login(athlete);await assert.rejects(()=>db.query("select * from public.search_athletes('Alex')"),/coach requis/);
+  // Searching for a coach never returns codes, email addresses or calendar data.
+  const target='11000000-0000-4000-8000-000000000050';
+  await admin();await db.query('insert into auth.users(id,email,raw_user_meta_data)values($1,$2,$3)',[target,'target@example.test',JSON.stringify({account_type:'coach',full_name:'Coach Cible',birth_date:'2000-01-01'})]);
+  await login(athlete);
+  const found=(await db.query("select * from public.search_coaches('cible')")).rows;
+  assert.deepEqual(found,[{coach_id:target,display_name:'Coach Cible',connection_status:'available'}]);
+  assert.equal((await db.query("select * from public.search_coaches('target@exam')")).rows.length,0);
+  assert.equal((await db.query("select * from public.search_coaches(' TARGET@EXAMPLE.TEST ')")).rows.length,1);
+  assert.equal((await db.query("select * from public.search_coaches('%%')")).rows.length,0);
+  await assert.rejects(()=>db.query('select public.request_coach_account($1)',[athlete]),/toi-même/);
+  await assert.rejects(()=>db.query("select * from public.search_coaches('C')"),/deux caractères/);
+  assert.equal(await scalar('select public.request_coach_account($1)',[target]),target);
+  assert.equal(await scalar('select public.request_coach_account($1)',[target]),target);
+  assert.equal((await db.query("select * from public.search_coaches('cible')")).rows[0].connection_status,'pending');
+  await login(target);assert.equal((await db.query('select * from public.training_sessions where id=$1',[sessionId])).rows.length,0);
+  await db.query('select public.respond_coach_request($1,true)',[athleteId]);
+  assert.equal(await scalar('select title from public.training_sessions where id=$1',[sessionId]),'Histoire conservée');
+  await login(athlete);await db.query('select public.set_coach_permissions($1,$2,true,true,true,false)',[athleteId,target]);
+  await db.query('select public.request_coach_account($1)',[target]);
+  assert.equal((await db.query("select * from public.search_coaches('cible')")).rows[0].connection_status,'accepted');
+  await login(target);assert.equal(await scalar('select can_view_feedback from public.coach_athletes where coach_id=$1 and athlete_id=$2',[target,athleteId]),false);
   await admin();await db.exec('set role anon');await assert.rejects(()=>db.query("select * from public.search_athletes('Alex')"),/permission denied/);await assert.rejects(()=>db.query('select public.invite_athlete($1)',[athleteId]),/permission denied/);
 await assert.rejects(()=>db.query('select * from public.my_coaching_invitations()'),/permission denied/);
+await assert.rejects(()=>db.query("select * from public.search_coaches('Cible')"),/permission denied/);await assert.rejects(()=>db.query('select public.request_coach_account($1)',[target]),/permission denied/);
  }finally{await db.close();}
 });

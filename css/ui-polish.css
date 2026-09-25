@@ -252,3 +252,12 @@
 .event-visibility{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
 .detail-meta .access-status{padding:0;background:none}
 .access-badge{display:inline-grid;place-items:center;min-width:28px;min-height:28px;color:var(--muted)}
+
+.connection-methods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.connection-methods>.connection-card{margin:12px 0;min-width:0}
+.connection-search form>.button,.connection-methods .button{min-height:44px}
+.connection-search form{margin:12px 0;display:grid;gap:10px}
+.connection-search input{width:100%;min-width:0;box-sizing:border-box}
+.connection-search-result{display:grid;gap:8px;padding:14px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.connection-search-result .button{margin-top:10px;min-height:44px;white-space:normal}
+@media(max-width:620px){.connection-methods{grid-template-columns:minmax(0,1fr);gap:0}.connection-search .button{width:100%}}
