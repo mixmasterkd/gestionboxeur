@@ -31,7 +31,7 @@ async function surface({role='coach',sessions=[],events=[],feedback=[],url='http
   const methods={editSession:(...args)=>calls.push(['edit',...args]),showSession:s=>calls.push(['show',s]),editEvent:(...args)=>calls.push(['event',...args]),showEvent:e=>calls.push(['showEvent',e]),setCompleted:async(s,completed)=>{calls.push(['complete',s.id,completed]);source.sessions.find(item=>item.id===s.id).completed_at=completed?'2026-09-22T12:00:00Z':null;await window.__app.refreshCalendar();}};
   window.__bridge={createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
     Sortable:class {constructor(node,options){this.node=node;this.options=options;instances.push(this);}destroy(){}},
-    createSessionUI:()=>methods,createConnectionsUI:()=>({open:()=>{},inviteAthlete:()=>{}}),createLibraryUI:options=>({open:()=>{},options})};
+    createSessionUI:()=>methods,createConnectionsUI:()=>({open:options=>calls.push(['connections',options]),inviteAthlete:()=>{}}),createLibraryUI:options=>({open:()=>{},options})};
   const code=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
   window.eval(`const mountNavigation=()=>{};const {createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor,accessIcon}=window.__bridge;
     const dataApi=window.__bridge.api;
@@ -61,6 +61,16 @@ test('coach calendar renders seven days, own handles, known totals and personal 
     assert.equal(page.app.canEdit(b),false);assert.equal(page.app.canEdit(a),true);
     page.$('calendar').querySelector('.session-title').click();assert.equal(page.calls.at(-1)[0],'show');
   }finally{await page.close();}
+});
+
+test('external personal-connections requests never inherit another athlete’s calendar context',async()=>{
+ const page=await surface({role:'coach'});
+ try {
+  assert.equal(page.app.state.selectedAthlete.user_id,'athlete-user');
+  page.$('connectionsButton').dispatchEvent(new page.window.CustomEvent('open-personal-connections'));
+  assert.deepEqual(structuredClone(page.calls.at(-1)),['connections',{personal:true}]);
+  page.$('connectionsButton').click();assert.deepEqual(structuredClone(page.calls.at(-1)),['connections',{personal:false}]);
+ }finally{await page.close();}
 });
 
 test('athlete starts with today, can add workouts and context but cannot drag locked coach sessions',async()=>{

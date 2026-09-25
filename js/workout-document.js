@@ -14,7 +14,7 @@ for (const [name, type, title] of [
 const activityWordLimit = Math.max(...[...names.keys()].map(name => name.split(' ').length));
 const defaults = { running: ['run', 'Course'], boxing: ['other', 'Boxe'], sparring: ['sparring', 'Sparring'], strength: ['strength', 'Renforcement'], mobility: ['mobility', 'Mobilité'] };
 const decimal = '(?:\\d+(?:[.,]\\d+)?|[.,]\\d+)';
-const units = 'kilomètres?|kilometres?|km|mètres?|metres?|mtrs?|heures?|h|minutes?|min|m|secondes?|sec|s|\'|"';
+const units = 'kilomètres?|kilometres?|km|mètres?|metres?|mtrs?|heures?|h|minutes?|min|m|secondes?|sec|sc|s|\'|"';
 const quantityStart = new RegExp(`${decimal}\\s*(?:${units})`, 'i');
 const quantity = new RegExp(`(${decimal})\\s*(${units})`, 'iy');
 const number = value => Number(value.replace(',', '.'));

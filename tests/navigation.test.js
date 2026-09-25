@@ -109,6 +109,7 @@ test('the coaches deep link opens once and preserves the preview and selected at
     button.id = 'connectionsButton';
     let opened = 0;
     button.addEventListener('click', () => { opened++; });
+    button.addEventListener('open-personal-connections', () => { opened++; });
     ui.window.document.body.append(button);
     ui.mount({ role: 'athlete' });
     ui.mount({ role: 'athlete' });
@@ -124,6 +125,30 @@ test('the coaches deep link opens once and preserves the preview and selected at
     assert.equal(opened, 2, 'the user can still open coaches explicitly');
     assert.equal(ui.window.location.hash, '');
   } finally { ui.window.happyDOM.abort(); }
+});
+
+test('authenticated profile, roster and administration headers link to personal connections without selected-athlete parameters',()=>{
+ for(const [path,actionsClass] of [['profile.html?athlete=other','top-actions'],['roster.html?athlete=other','topbar-actions'],['admin/?athlete=other','top-actions']]) {
+  const ui=navigation(`https://example.test/boxing/${path}`);
+  try {
+   const doc=ui.window.document;
+   doc.body.innerHTML=`<header class="topbar"><a class="brand">Mon gym</a><nav class="${actionsClass}"><button class="appearance-toggle" id="appearanceToggle"></button><button id="logoutButton">Déconnexion</button></nav></header>`;
+   ui.mount({role:'coach',isAdmin:true});ui.mount({role:'coach',isAdmin:true});
+   const link=doc.getElementById('connectionsButton');assert.equal(link.tagName,'A');
+   assert.equal(link.href,'https://example.test/boxing/planning.html#coachs');
+   assert.equal(link.previousElementSibling.id,'appearanceToggle');assert.equal(link.nextElementSibling.id,'logoutButton');
+   assert.equal(link.getAttribute('aria-label'),'Coachs et invitations');assert.equal(link.querySelector('.connections-label').textContent,'Coachs et invitations');
+   assert.ok(link.querySelector('svg[aria-hidden=true]'));assert.equal(doc.querySelectorAll('#connectionsButton').length,1);
+  }finally{ui.window.happyDOM.abort();}
+ }
+});
+
+test('the public login page never receives a private connections shortcut',()=>{
+ const ui=navigation('https://example.test/boxing/login.html');
+ try {
+  ui.window.document.body.innerHTML='<header class="topbar"><nav class="top-actions"></nav></header>';
+  ui.mount({role:'athlete'});assert.equal(ui.window.document.getElementById('connectionsButton'),null);
+ }finally{ui.window.happyDOM.abort();}
 });
 
 test('coach library opens once through its deep link without Explorer', () => {

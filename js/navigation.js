@@ -80,8 +80,20 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
-  const connections=document.getElementById('connectionsButton');
-  if(connections) connections.innerHTML=icon('athletes')+'<span class="connections-label">Coachs et invitations</span>';
+  let connections=document.getElementById('connectionsButton');
+  if(!connections&&(onProfile||path.endsWith('/roster.html')||inAdmin)) {
+    const actions=document.querySelector('.topbar .top-actions, .topbar .topbar-actions');
+    if(actions) {
+      connections=document.createElement('a');connections.id='connectionsButton';connections.className='icon-button header-connections';
+      connections.href=route('planning.html#coachs');
+      const logout=document.getElementById('logoutButton');
+      if(logout?.parentElement===actions)logout.before(connections);else actions.append(connections);
+    }
+  }
+  if(connections) {
+    connections.innerHTML=icon('athletes')+'<span class="connections-label">Coachs et invitations</span>';
+    connections.setAttribute('aria-label','Coachs et invitations');connections.title='Coachs et invitations';
+  }
   const logout=document.getElementById('logoutButton');
   if(logout){logout.classList.add('header-logout');logout.innerHTML=icon('logout')+'<span>Déconnexion</span>';logout.setAttribute('aria-label','Déconnexion');logout.title='Déconnexion';}
   const brand=document.querySelector('.app-header .gym-identity, .topbar .brand');
@@ -102,7 +114,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
     history.replaceState(history.state, '', clean.href);
     requestAnimationFrame(() => {
       const connections = document.getElementById('connectionsButton');
-      if (connections && !connections.hidden) connections.click();
+      if (connections && !connections.hidden) connections.dispatchEvent(new CustomEvent('open-personal-connections'));
     });
   }
 }

@@ -189,6 +189,24 @@ test('distance forms use metres and do not invent a duration, including within r
   assert.match(editor.getDocument().text,/400mtr/);assert.match(mount.querySelector('.session-chart svg').getAttribute('aria-label'),/Largeur : distance/);
 });
 
+test('step duration fields accept minute variants, plain minutes and combined seconds',()=>{
+  for(const sport of ['boxing','running'])for(const [value,seconds] of [['10M',600],['10 M',600],['10 MIN',600],['10',600],['2,5',150],['2M 30SC',150],["2'30\"",150]]){
+    const {editor,mount}=fixture({sport});click(mount,'add-step');
+    change(mount.querySelector('[name=optional_heading]'),'Échauffement');fill(mount,'duration',value);click(mount,'apply-mini');
+    assert.equal(editor.mini,null,`${sport}: ${value}`);assert.equal(editor.getValue()[0].duration_seconds,seconds);
+    assert.match(editor.getDocument().text,/^Échauffement\n/);assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,seconds);
+  }
+});
+
+test('a rejected duration can be corrected and applied without reopening the step',()=>{
+  const {editor,mount}=fixture({sport:'boxing'});click(mount,'add-step');
+  for(const value of ['0','-10','10xyz','400mtr']){
+    fill(mount,'duration',value);click(mount,'apply-mini');
+    assert.ok(editor.mini);assert.equal(mount.querySelector('.pe-mini .form-error').hidden,false);
+  }
+  fill(mount,'duration','10 M');click(mount,'apply-mini');assert.equal(editor.mini,null);assert.equal(editor.getValue()[0].duration_seconds,600);
+});
+
 test('mini validation and cancelling preserve source without partial writes',()=>{
   const {editor,mount,changes}=fixture({sport:'running'});write(editor,'Préparation libre');const original=editor.getDocument();
   click(mount,'add-repeat');fill(mount,'repeat_count','2.5');fill(mount,'duration','1min');click(mount,'apply-mini');

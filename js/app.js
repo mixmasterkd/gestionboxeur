@@ -338,6 +338,7 @@ $('addSessionButton').addEventListener('click',()=>sessionUI.editSession(null,st
 $('addEventButton').addEventListener('click',()=>sessionUI.editEvent(null,state.anchor));
 $('inviteButton').addEventListener('click',()=>connectionsUI.inviteAthlete());
 $('connectionsButton').addEventListener('click',()=>connectionsUI.open({personal:ownsCalendar()}));
+$('connectionsButton').addEventListener('open-personal-connections',()=>connectionsUI.open({personal:true}));
 $('manageConnectionsButton').addEventListener('click',()=>{$('athletePickerDialog').close();connectionsUI.open();});
 $('libraryButton').addEventListener('click',()=>libraryUI.open());
 $('logoutButton').addEventListener('click',async()=>{try{const {error}=await client.auth.signOut();if(error)throw error;}catch(error){toast(error.message);}});

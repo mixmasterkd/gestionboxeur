@@ -43,6 +43,14 @@ test('one-level repeat groups end only at a blank line and include their final r
   assert.ok(parseTrainingText('2x\nUne note').errors.length);
 });
 
+test('SC is an explicit seconds alias while unitless free text keeps its meaning', () => {
+  for(const value of ['2M 30SC','2 min 30 sc',"2'30\"",'2′30″'])assert.equal(parse(`- Shadow ${value}`).blocks[0].duration_seconds,150);
+  assert.equal(parse('- Sac 30SC').blocks[0].duration_seconds,30);
+  assert.equal(parse('- 10').blocks[0].duration_seconds,null);
+  assert.equal(parse('- 10').blocks[0].title,'10');
+  assert.ok(parseTrainingText('- Sac 30SCxyz').errors.length);
+});
+
 test('round headers accept an activity before or after the count, including the Shadow Boxing alias', () => {
   for (const heading of ['Shadow Boxing 3 rounds', '3 rounds de Shadow', '3rounds de SHADOW BOXING', 'shadow  boxing 3ROUNDS']) {
     const text = `${heading}\r\n- 2min - Jab et déplacements\r\n- 1min @ repos\r\n\r\nFin de séance`;
