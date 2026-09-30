@@ -1,4 +1,5 @@
-import { $, el, button, field, input, textarea, select, heading, errorBox, showError, busy, toast, confirmAction, displayName } from './ui.js';
+import { createRecipientPicker, planningAthletes } from './group-selection.js';
+import { $, el, button, field, input, textarea, select, heading, errorBox, showError, busy, toast, confirmAction, displayName, openDialog } from './ui.js';
 import { SPORTS, BLOCK_TYPES, todayLocal, validateBlocks, summarizeBlocks } from './domain.js';
 import { renderWorkout } from './editor.js';
 import { renderTrainingDocument } from './workout-rich-text.js';
@@ -27,17 +28,17 @@ function blocksError(blocks) {
   if (!errors.length) errors.push(...summarizeBlocks(blocks).errors);
   if (errors.length) throw new Error(errors.join('\n'));
 }
-function show(dialog) { if (!dialog.open) dialog.showModal(); }
+function show(dialog, preferredFocus) { openDialog(dialog, preferredFocus); }
 
 /** Shared session/event dialogs with explicit persistence dependency. */
 export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAdd, api }) {
   if (!api) throw new Error('Le service de sauvegarde des séances est requis.');
   const getApi = () => Promise.resolve(api);
-  let activeEditor = null, detailGeneration = 0;
+  let activeEditor = null, detailGeneration = 0, editRequest = 0;
   const completing = new Set();
   const libraryAvailable = () => Boolean(getState().user?.id);
   const ownsAthlete = () => {
-    const state = getState(); return !!state.user?.id && state.selectedAthlete?.user_id === state.user.id;
+    const state = getState(); return !state.selectedGroup && !!state.user?.id && state.selectedAthlete?.user_id === state.user.id;
   };
   const canDelete = item => canEdit(item) && item.created_by === getState().user?.id;
   const ownsSession = session => ownsAthlete() && session.athlete_id === getState().selectedAthlete.id;
@@ -101,7 +102,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const drawing = el('span', { class: 'access-drawing', 'aria-hidden': 'true' });
     const wrapper = el('label', { class: `access-control ${name === 'is_locked' ? 'lock-control' : 'privacy-control'}` }, control, drawing);
     const update = () => {
-      drawing.replaceChildren(accessIcon(control.checked ? activeIcon : inactiveIcon));
+      drawing.replaceChildren(name==='is_locked'&&!control.checked ? el('span',{class:'lock-action-label'},'Verrouiller') : accessIcon(control.checked ? activeIcon : inactiveIcon));
       wrapper.dataset.active = String(control.checked); wrapper.dataset.disabled = String(control.disabled);
       wrapper.title = describe(control.checked);
     };
@@ -114,7 +115,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   function accessStatus(locked, privateNote = false) {
     const status = el('span', { class: 'access-status' });
     const badge = (icon, label) => el('span', { class: 'access-badge', role: 'img', 'aria-label': label, title: label }, accessIcon(icon));
-    status.append(badge(locked ? 'locked' : 'unlocked', locked ? 'Verrouillé · seul l’auteur peut modifier.' : 'Déverrouillé · modifiable ensemble.'));
+    if(locked)status.append(badge('locked', 'Verrouillé · seul l’auteur peut modifier.'));
     if (privateNote) status.append(badge('private', 'Privé · visible seulement par toi.'));
     return status;
   }
@@ -122,6 +123,33 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     if (!isCurrent()) return;
     try { await refresh(); if (isCurrent()) { dialog.close(); toast(message); } }
     catch (error) { if (isCurrent()) { dialog.close(); toast(`${message} L’actualisation a échoué : ${error.message || 'réessaie depuis le calendrier'}`); } }
+  }
+  function deleteButton(item, kind, dialog, error, version) {
+    const note=kind==='event', common=Boolean(note?item.shared_event_id:item.shared_session_id);
+    const label=note?'note':'séance', userId=getState().user?.id;
+    const current=()=>dialog.open&&version===detailGeneration&&getState().user?.id===userId;
+    const remove=button(common?`Supprimer la ${label} commune`:'Supprimer',async()=>{
+      if(remove.disabled||!current())return;
+      try {
+        await busy(remove,async()=>{
+          if(!canDelete(item))throw new Error('Tes permissions ont changé.');
+          const data=await getApi();
+          const target=common && !(note?item.is_group_event:item.is_group_session)
+            ? await (note?data.getSharedEvent(item.shared_event_id):data.getSharedSession(item.shared_session_id)) : item;
+          if(!current())return;
+          if(!canDelete(item)||!canDelete(target))throw new Error('Tes permissions ont changé.');
+          const message=common
+            ? `« ${target.title} » sera retirée des calendriers des destinataires pour les dates à venir. ${note?'Les notes déjà commencées seront conservées.':'Les séances passées, réalisées et les bilans seront conservés.'}`
+            : note?`« ${target.title} » sera retirée de ton calendrier.`:`« ${target.title} » sera supprimée avec son feedback.`;
+          if(!await confirmAction(`Supprimer cette ${label}${common?' commune':''} ?`,message,'Supprimer'))return;
+          if(!current())return;
+          if(!canDelete(item)||!canDelete(target))throw new Error('Tes permissions ont changé.');
+          await (note?data.deleteEvent(target):data.deleteSession(target));
+          await finish(dialog,note?'Note supprimée.':'Séance supprimée.',current);
+        });
+      }catch(failure){if(current())showError(error,failure);}
+    },'button secondary left-action');
+    return remove;
   }
   async function saveBlockTemplate(block, sport) {
     if (!libraryAvailable()) throw new Error('Connecte-toi pour enregistrer un entraînement.');
@@ -132,10 +160,21 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   }
 
   function editSession(session = null, date = todayLocal(), duplicate = false, { templateOnly = false, folders = [], folderId = null, onClose = null } = {}) {
+    const request=++editRequest;
+    if (!templateOnly && !duplicate && session?.shared_session_id && !session.is_group_session) {
+      if (!canEdit(session)) { toast('Seul l’auteur peut modifier la séance commune.'); return; }
+      const userId=getState().user?.id, athleteId=getState().selectedAthlete?.id, details=detailGeneration;
+      return api.getSharedSession(session.shared_session_id).then(shared=>{
+        if(request!==editRequest||details!==detailGeneration||getState().user?.id!==userId||getState().selectedAthlete?.id!==athleteId)return;
+        editSession(shared,date,false);
+      }).catch(error=>{if(request===editRequest&&details===detailGeneration&&getState().user?.id===userId)toast(error.message||'Impossible de charger la séance commune.');});
+    }
     if (templateOnly ? !libraryAvailable() : session && !duplicate ? !canEdit(session) : !canAdd()) { toast('Tu n’as pas la permission de planifier cette séance.'); return; }
-    const state = getState(), athlete = templateOnly ? { id: null, first_name: 'Bibliothèque privée' } : state.selectedAthlete, editorUserId = state.user?.id;
+    const state = getState(), athlete = templateOnly ? { id: null, first_name: 'Bibliothèque privée' } : state.selectedGroup ? {id:null,first_name:state.selectedGroup.name} : state.selectedAthlete, editorUserId = state.user?.id;
+    const contextId=state.selectedGroup?.id||state.selectedAthlete?.id, groupContext=!!state.selectedGroup;
+    const sameContext=()=>!!getState().selectedGroup===groupContext&&(getState().selectedGroup?.id||getState().selectedAthlete?.id)===contextId;
     if (!athlete) { toast('Choisis d’abord un athlète.'); return; }
-    if (session?.athlete_id && session.athlete_id !== athlete.id) { toast('Ouvre le calendrier de cet athlète avant de modifier la séance.'); return; }
+    if (!duplicate && !session?.is_group_session && session?.athlete_id && session.athlete_id !== athlete.id) { toast('Ouvre le calendrier de cet athlète avant de modifier la séance.'); return; }
     const existing = duplicate ? null : session;
     if(templateOnly&&existing&&existing.coach_id!==editorUserId){toast('Cet entraînement ne fait pas partie de ta bibliothèque.');return;}
     const dialog = $('sessionDialog'), container = $('sessionDialogContent');
@@ -148,10 +187,29 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const day = input('date', duplicate ? date : session?.date || date, 'date', { required: true });
     const lock = lockControl(existing);
     const editorMount = el('div'), error = errorBox();
+    let bannerBaseline=session?.workout_document?.banner_color||'sand';
+    let bannerExplicit=Object.hasOwn(session?.workout_document||{},'banner_color');
+    const bannerColors = el('fieldset', { class: 'event-colors session-banner-colors' }, el('legend', {}, 'Couleur du bandeau'));
+    for (const choice of EVENT_COLORS) {
+      const control = input('session_banner_color', choice.id, 'radio', { checked: choice.id === (session?.workout_document?.banner_color || 'sand'), 'aria-label': choice.label });
+      const swatch = el('span', { 'aria-hidden': 'true' }); applyEventColor(swatch, choice.id);
+      bannerColors.append(el('label', {}, control, swatch));
+    }
+    const selectedBannerColor = () => bannerColors.querySelector('input:checked').value;
+    const workoutDocument = () => {
+      const document=editor.getDocument(), color=selectedBannerColor();
+      return bannerExplicit||color!==bannerBaseline?{...document,banner_color:color}:document;
+    };
     const basics = el('fieldset', {class:'session-basics'},el('legend',{},'Séance'),field('Titre de la séance',title),el('div',{class:'session-basics-grid'},field('Discipline',sport),templateOnly ? null : field('Date',day),templateOnly ? null : lock.field));
     const templateFolder=templateOnly?select('template_folder',[{value:'',label:'Mes entraînements (sans dossier)'},...folders.filter(f=>f.owner_id===editorUserId).map(f=>({value:f.id,label:f.name}))],existing?.folder_id||folderId||''):null;
     if(templateOnly)basics.querySelector('.session-basics-grid').append(field('Dossier',templateFolder));
-    const body = el('div', { class: 'dialog-body' }, basics, editorMount, error);
+    const recipients = !templateOnly && state.profile?.account_type==='coach' && state.groupsAvailable && (!existing||existing.is_group_session)
+      ? createRecipientPicker({athletes:planningAthletes(state),groups:state.groups||[],
+          athleteIds:existing?.is_group_session?existing.athlete_ids||[]:state.selectedGroup?[]:athlete.id?[athlete.id]:[],
+          groupIds:existing?.is_group_session?existing.group_ids||[]:state.selectedGroup?[state.selectedGroup.id]:[],
+          onChange:selected=>{lock.field.hidden=!!existing?.is_group_session||selected.group_ids.length>0||selected.athlete_ids.length>1;}}) : null;
+    const sharedNotice=existing?.is_group_session?el('p',{class:'session-shared-note'},'Séance commune : les modifications seront appliquées à tous les destinataires. Les bilans restent individuels.'):null;
+    const body = el('div', { class: 'dialog-body' }, basics, recipients?.root, sharedNotice, editorMount, bannerColors, error);
     const submit = el('button', { type: 'submit', class: 'button primary' }, templateOnly ? 'Enregistrer dans ma bibliothèque' : existing ? 'Enregistrer les modifications' : 'Planifier la séance');
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
     container.replaceChildren(heading(templateOnly ? existing?'Modifier l’entraînement':session?'Personnaliser l’entraînement':'Créer un entraînement' : existing ? 'Modifier la séance' : duplicate ? 'Dupliquer la séance' : 'Planifier une séance', displayName(athlete), dialog, 'sessionDialogTitle'), form);
@@ -161,7 +219,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     for(const close of container.querySelectorAll('.close-button,.dialog-actions button[type=button]'))close.addEventListener('click',preventClosing,true);
     const changed = () => { revision++; if (keep && !modelSaving) { keep.disabled = false; keep.textContent = 'Enregistrer en bibliothèque'; } };
     const editor = new ProgramEditor(editorMount, { blocks: session?.blocks || [], notes: [session?.description, session?.notes].filter(Boolean).join('\n\n'), document: session?.workout_document || null, sport: sport.value, onChange: changed, onLibrary: openLibrary && libraryAvailable() ? chooseTemplate : null, onSaveBlock: libraryAvailable() ? block => { if (!isCurrent()) throw new Error('Le compte actif a changé.'); return saveBlockTemplate(block, sport.value); } : null });
-    const isCurrent = () => dialog.open && activeEditor === editor && getState().user?.id === editorUserId && (templateOnly || getState().selectedAthlete?.id === athlete.id);
+    const isCurrent = () => dialog.open && activeEditor === editor && getState().user?.id === editorUserId && (templateOnly || sameContext());
     sport.addEventListener('change', () => { editor.setSport(sport.value); changed(); });
     activeEditor = editor;
     dialog.addEventListener('close', () => { const returning=activeEditor===editor&&getState().user?.id===editorUserId;dialog.removeEventListener('cancel',preventClosing);editor.destroy();if(activeEditor===editor)activeEditor=null;if(returning)onClose?.(); }, { once: true });
@@ -180,6 +238,9 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           }
           if (!isCurrent()) return;
           blocksError(template.blocks || []); editor.setValue(template.blocks || [], [template.description, template.notes].filter(Boolean).join('\n\n'), template.workout_document || null);
+          const templateColor=template.workout_document?.banner_color||'sand', colorControl=bannerColors.querySelector(`input[value="${templateColor}"]`);
+          bannerBaseline=templateColor;bannerExplicit=Object.hasOwn(template.workout_document||{},'banner_color');
+          if(colorControl)colorControl.checked=true;
           title.value = template.title || '';
           const templateSport = template.sport === 'sparring' ? 'boxing' : template.sport || 'other';
           if (![...sport.options].some(option => option.value === templateSport)) sport.append(el('option', { value: templateSport }, sportName(templateSport)));
@@ -196,7 +257,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           if (!title.value.trim()) throw new Error('Donne un titre à ton entraînement.');
           const blocks = editor.getValue(); blocksError(blocks);
           const savedRevision = revision; modelSaving = true;
-          await busy(keep, () => api.saveTemplate({ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: editor.getDocument(), kind: 'session', coach_id: editorUserId }));
+          await busy(keep, () => api.saveTemplate({ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: workoutDocument(), kind: 'session', coach_id: editorUserId }));
           if (!isCurrent()) return;
           keep.disabled = savedRevision === revision; keep.textContent = savedRevision === revision ? 'Entraînement enregistré' : 'Enregistrer en bibliothèque'; toast('Séance gardée dans ta bibliothèque. Aucune date n’a été planifiée.');
         } catch (failure) { if (isCurrent()) showError(error, failure); }
@@ -218,7 +279,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
           await busy(submit, async () => {
             const data = await getApi();
             if (!isCurrent() || !libraryAvailable()) return;
-            const payload={ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: editor.getDocument(), kind: existing?.kind||session?.kind||'session', folder_id:templateFolder.value||null };
+            const payload={ title: title.value.trim(), sport: sport.value, description: '', notes: editor.getNotes().trim(), blocks, workout_document: workoutDocument(), kind: existing?.kind||session?.kind||'session', folder_id:templateFolder.value||null };
             if(existing)await data.updateTemplate(payload,existing);else await data.saveTemplate({...payload,coach_id:editorUserId});
             if (isCurrent()) { dialog.close(); toast('Entraînement enregistré dans ta bibliothèque.'); }
           });
@@ -227,17 +288,23 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
         if (!isCurrent() || (existing ? !canEdit(existing) : !canAdd())) throw new Error('Tes permissions ont changé. Actualise le calendrier.');
         const blocks = editor.getValue(); blocksError(blocks);
         const current = getState();
-        if (current.selectedAthlete?.id !== athlete.id) throw new Error('Le calendrier actif a changé. Rouvre la séance.');
+        if (!sameContext()) throw new Error('Le calendrier actif a changé. Rouvre la séance.');
         const payload = { title: title.value.trim(), sport: sport.value, date: day.value,
           sort_order: existing && existing.date === day.value ? existing.sort_order : nextOrder(current.sessions, day.value, existing?.id),
-          description: '', notes: editor.getNotes().trim(), blocks, workout_document: editor.getDocument() };
+          description: '', notes: editor.getNotes().trim(), blocks, workout_document: workoutDocument() };
         if (!existing) Object.assign(payload, { athlete_id: athlete.id, created_by: current.user.id });
-        if (!existing || existing.created_by === current.user.id && lock.control.checked !== (existing.is_locked !== false)) payload.is_locked = lock.control.checked;
+        if(recipients) {
+          const selected=recipients.value();
+          if(!selected.athlete_ids.length&&!selected.group_ids.length)throw new Error('Choisis au moins une personne ou un groupe.');
+          Object.assign(payload,selected);
+        }
+        if(groupContext&&!recipients&&!existing)throw new Error('Les groupes sont indisponibles. Actualise le calendrier.');
+        if (!existing || existing.created_by === current.user.id && lock.control.checked !== (existing.is_locked !== false)) payload.is_locked = lock.field.hidden ? true : lock.control.checked;
         saving = true;
         await busy(submit, async () => {
           const data = await getApi();
           if (!existing || existing.date !== payload.date) {
-            const targetDay = await data.loadCalendar(athlete.id, payload.date, payload.date);
+            const targetDay = groupContext ? await data.loadGroupCalendar(contextId, payload.date, payload.date) : await data.loadCalendar(athlete.id, payload.date, payload.date);
             payload.sort_order = nextOrder(targetDay.sessions, payload.date, existing?.id);
           }
           if (!isCurrent()) return;
@@ -247,7 +314,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       } catch (err) { if (isCurrent()) showError(error, err); }
       finally { saving = false; }
     });
-    show(dialog); title.focus();
+    show(dialog, title);
   }
 
   function feedbackSection(session, version, completion) {
@@ -314,7 +381,8 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const version = ++detailGeneration;
     const dialog = $('detailDialog'), content = $('detailContent');
     const error = errorBox(), body = el('div', { class: 'dialog-body' });
-    body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), accessStatus(session.is_locked !== false)));
+    body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), accessStatus(!!session.shared_session_id || session.is_locked !== false)));
+    if(session.shared_session_id&&!session.is_group_session)body.append(el('p',{class:'session-shared-note'},'Séance commune : son auteur gère le contenu pour tous les destinataires. Ta réalisation et ton bilan restent individuels.'));
     const workout = el('div');
     if (session.workout_document) {
       renderTrainingDocument(workout, session.workout_document);
@@ -326,16 +394,10 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       if (['boxing', 'sparring'].includes(session.sport)) workout.prepend(renderSessionChart(session, { compact: false }));
       if (session.notes) body.append(el('p', { class: 'note-box' }, session.notes));
     }
-    body.append(error, completionSection(session, dialog, version));
+    body.append(error, session.is_group_session ? el('p',{class:'session-shared-note'},'Séance commune du groupe. Chaque athlète indique sa réalisation et son bilan dans son propre calendrier.') : completionSection(session, dialog, version));
     const actions = el('footer', { class: 'dialog-actions' });
-      if (canDelete(session)) {
-        const remove = button('Supprimer', async () => {
-          if (!await confirmAction('Supprimer cette séance ?', `« ${session.title} » sera supprimée avec son feedback.`, 'Supprimer')) return;
-          try { await busy(remove, async () => { if (!canDelete(session)) throw new Error('Tes permissions ont changé.'); await (await getApi()).deleteSession(session); await finish(dialog, 'Séance supprimée.'); }); } catch (err) { showError(error, err); }
-        }, 'button secondary left-action');
-        actions.append(remove);
-      }
-      if (canEdit(session)) actions.append(button('Modifier / déplacer', () => { dialog.close(); editSession(session); }));
+    if (canDelete(session)) actions.append(deleteButton(session,'session',dialog,error,version));
+      if (canEdit(session)) actions.append(button(session.shared_session_id?'Modifier la séance commune':'Modifier / déplacer', () => { dialog.close(); editSession(session); }));
       if (canAdd()) actions.append(button('Dupliquer', () => { dialog.close(); editSession(session, session.date, true); }));
     if (libraryAvailable()) {
       const save = button('Enregistrer en bibliothèque', async () => {
@@ -348,8 +410,20 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
 
   function editEvent(event = null, date = todayLocal()) {
     if (event ? !eventVisible(event) || !canEdit(event) : !canAdd()) { toast('Tu n’as pas la permission de modifier cette note.'); return; }
-    const state = getState(), athleteId = state.selectedAthlete.id, editorUserId = state.user.id;
-    const isCurrent = () => getState().user?.id === editorUserId && getState().selectedAthlete?.id === athleteId && dialog.open;
+    const request=++editRequest;
+    if(event?.shared_event_id&&!event.is_group_event) {
+      const userId=getState().user?.id, athleteId=getState().selectedAthlete?.id, details=detailGeneration;
+      return api.getSharedEvent(event.shared_event_id).then(shared=>{
+        if(request!==editRequest||details!==detailGeneration||getState().user?.id!==userId||getState().selectedAthlete?.id!==athleteId)return;
+        editEvent(shared,date);
+      }).catch(error=>{if(request===editRequest&&details===detailGeneration&&getState().user?.id===userId)toast(error.message||'Impossible de charger la note commune.');});
+    }
+    const state = getState(), athleteId = state.selectedAthlete?.id||null, editorUserId = state.user.id;
+    const contextId=state.selectedGroup?.id||athleteId, groupContext=!!state.selectedGroup;
+    const sameContext=()=>!!getState().selectedGroup===groupContext&&(getState().selectedGroup?.id||getState().selectedAthlete?.id)===contextId;
+    const isCurrent = () => request===editRequest && getState().user?.id === editorUserId && sameContext() && dialog.open;
+    if(!contextId){toast('Choisis un calendrier.');return;}
+    if(event&&!event.is_group_event&&event.athlete_id!==athleteId){toast('Ouvre le calendrier de cette note avant de la modifier.');return;}
     const dialog = $('eventDialog'), container = $('eventDialogContent');
     const title = input('title', event?.title || '', 'text', { required: true, maxLength: 200 });
     const options = [...EVENT_CATEGORIES];
@@ -369,11 +443,18 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const creator = !event || event.created_by === state.user.id;
     const privacy = accessControl('is_private', 'Privé · visible seulement par moi', !!event?.is_private, !creator, 'private', 'shared', value => !creator ? 'Seul l’auteur peut changer la visibilité.' : value ? 'Privé · visible seulement par toi.' : 'Partagé · visible par l’athlète et ses coachs autorisés.');
     const visibility = el('p', { class: 'event-visibility', role: 'status' });
-    const updateVisibility = () => { visibility.textContent = privacy.control.checked ? 'Privé · visible seulement par toi.' : 'Partagé avec l’athlète et ses coachs autorisés.'; };
+    let common=!!event?.is_group_event;
+    const updateVisibility = () => { visibility.textContent = common ? 'Note commune · visible par les destinataires, modifiable seulement par son auteur.' : privacy.control.checked ? 'Privé · visible seulement par toi.' : 'Partagé avec l’athlète et ses coachs autorisés.'; };
+    const recipients=state.profile?.account_type==='coach'&&state.groupsAvailable&&(!event||event.is_group_event)
+      ? createRecipientPicker({athletes:planningAthletes(state),groups:state.groups||[],
+          athleteIds:event?.is_group_event?event.athlete_ids||[]:groupContext?[]:[athleteId],
+          groupIds:event?.is_group_event?event.group_ids||[]:groupContext?[state.selectedGroup.id]:[],
+          onChange:selected=>{common=!!event?.is_group_event||selected.group_ids.length>0||selected.athlete_ids.length>1;lock.field.hidden=common;privacy.field.hidden=common;updateVisibility();}}):null;
+    if(common){lock.field.hidden=true;privacy.field.hidden=true;}
     privacy.control.addEventListener('change', updateVisibility); updateVisibility();
     const error = errorBox(), submit = el('button', { type: 'submit', class: 'button primary' }, event ? 'Enregistrer les modifications' : 'Ajouter la note');
     const basics = el('fieldset', { class: 'session-basics event-basics' }, el('legend', {}, 'Note'), field('Titre', title), field('Catégorie', category), el('div', { class: 'form-grid' }, field('Date de début', dateInput), field('Date de fin', endDate, 'Facultative · pour plusieurs jours')), el('div', { class: 'event-access-row' }, visibility, el('div', { class: 'access-controls', role: 'group', 'aria-label': 'Verrouillage et visibilité' }, lock.field, privacy.field)));
-    const body = el('div', { class: 'dialog-body' }, basics, field('Notes', notes), colors, error);
+    const body = el('div', { class: 'dialog-body' }, basics, recipients?.root, field('Notes', notes), colors, error);
     const form = el('form', {}, body, el('footer', { class: 'dialog-actions' }, button('Annuler', () => dialog.close()), submit));
     container.replaceChildren(heading(event ? 'Modifier la note' : 'Ajouter une note', 'CALENDRIER', dialog, 'eventDialogTitle'), form);
     let saving = false;
@@ -383,33 +464,35 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
       try {
         if (!title.value.trim()) throw new Error('Donne un titre à ta note.');
         if (endDate.value && endDate.value < dateInput.value) throw new Error('La date de fin doit être égale ou postérieure au début.');
-        if (getState().selectedAthlete.id !== athleteId || getState().user?.id !== editorUserId || (event ? !eventVisible(event) || !canEdit(event) : !canAdd())) throw new Error('Tes permissions ont changé.');
+        if (!isCurrent() || (event ? !eventVisible(event) || !canEdit(event) : !canAdd())) throw new Error('Tes permissions ont changé.');
         const payload = { color: colors.querySelector('input:checked').value, title: title.value.trim(), category: category.value, date: dateInput.value, end_date: endDate.value || null, notes: notes.value.trim(), sort_order: event?.sort_order ?? nextOrder(getState().events, dateInput.value) };
         if (!event) Object.assign(payload, { athlete_id: athleteId, created_by: getState().user.id });
-        if (!event || event.created_by === getState().user.id && lock.control.checked !== (event.is_locked !== false)) payload.is_locked = lock.control.checked;
-        if (!event || event.created_by === getState().user.id && privacy.control.checked !== !!event.is_private) payload.is_private = privacy.control.checked;
+        if(recipients) {
+          const selected=recipients.value();
+          if(!selected.athlete_ids.length&&!selected.group_ids.length)throw new Error('Choisis au moins une personne ou un groupe.');
+          Object.assign(payload,selected);
+        }
+        if(groupContext&&!recipients&&!event)throw new Error('Les groupes sont indisponibles. Actualise le calendrier.');
+        if (!event || event.created_by === getState().user.id && lock.control.checked !== (event.is_locked !== false)) payload.is_locked = common ? true : lock.control.checked;
+        if (!event || event.created_by === getState().user.id && privacy.control.checked !== !!event.is_private) payload.is_private = common ? false : privacy.control.checked;
+        if(common){payload.is_locked=true;payload.is_private=false;}
         saving = true;
         await busy(submit, async () => { await (await getApi()).saveEvent(payload, event); await finish(dialog, event ? 'Note mise à jour.' : 'Note ajoutée.', isCurrent); });
       } catch (err) { if (isCurrent()) showError(error, err); } finally { saving = false; }
     });
-    show(dialog); title.focus();
+    show(dialog, title);
   }
 
   function showEvent(event) {
     if (!eventVisible(event)) { toast('Cette note est privée.'); return; }
-    detailGeneration++;
+    const version=++detailGeneration;
     const dialog = $('detailDialog'), container = $('detailContent'), error = errorBox();
     const period = dateLabel(event.date, { day: 'numeric', month: 'long', year: 'numeric' }) + (event.end_date && event.end_date !== event.date ? ` → ${dateLabel(event.end_date, { day: 'numeric', month: 'long', year: 'numeric' })}` : '');
-    const body = el('div', { class: 'dialog-body' }, el('div', { class: 'detail-meta' }, el('span', {}, EVENT_CATEGORIES.find(item => item.value === event.category)?.label || event.category), el('span', {}, period), accessStatus(event.is_locked !== false, event.is_private)), el('p', { class: 'muted' }, `Créée par ${event.author_name || (event.created_by === getState().selectedAthlete.user_id ? displayName(getState().selectedAthlete) : 'un coach')}.${event.is_private ? ' Privé · visible seulement par toi.' : ''}`), event.notes ? el('p', { class: 'note-box' }, event.notes) : null, error);
+    const body = el('div', { class: 'dialog-body' }, el('div', { class: 'detail-meta' }, el('span', {}, EVENT_CATEGORIES.find(item => item.value === event.category)?.label || event.category), el('span', {}, period), accessStatus(!!event.shared_event_id || event.is_locked !== false, event.is_private)), el('p', { class: 'muted' }, `Créée par ${event.author_name || (event.created_by === getState().selectedAthlete?.user_id ? displayName(getState().selectedAthlete) : 'un coach')}.${event.is_private ? ' Privé · visible seulement par toi.' : ''}`), event.notes ? el('p', { class: 'note-box' }, event.notes) : null, error);
+    if(event.shared_event_id)body.append(el('p',{class:'session-shared-note'},'Note commune : les modifications de son auteur s’appliquent à tous les destinataires.'));
     const actions = el('footer', { class: 'dialog-actions' });
-    if (canDelete(event)) {
-      const remove = button('Supprimer', async () => {
-        if (!await confirmAction('Supprimer cette note ?', `« ${event.title} » sera retirée de ton calendrier.`, 'Supprimer')) return;
-        try { await busy(remove, async () => { if (!canDelete(event)) throw new Error('Tes permissions ont changé.'); await (await getApi()).deleteEvent(event); await finish(dialog, 'Note supprimée.'); }); } catch (err) { showError(error, err); }
-      }, 'button secondary left-action');
-      actions.append(remove);
-    }
-    if (canEdit(event)) actions.append(button('Modifier / déplacer', () => { dialog.close(); editEvent(event); }));
+    if (canDelete(event)) actions.append(deleteButton(event,'event',dialog,error,version));
+    if (canEdit(event)) actions.append(button(event.shared_event_id?'Modifier la note commune':'Modifier / déplacer', () => { dialog.close(); editEvent(event); }));
     actions.append(button('Fermer', () => dialog.close()));
     if (body.querySelector('.note-box')) applyEventColor(body.querySelector('.note-box'), event.color);
     container.replaceChildren(heading(event.title, 'NOTE', dialog, 'detailTitle'), body, actions); show(dialog);

@@ -17,6 +17,22 @@ export function input(name,value='',type='text',attrs={}) { return el('input',{t
 export function textarea(name,value='',attrs={}) { return el('textarea',{name,value:value??'',rows:3,...attrs}); }
 export function select(name,options,value,attrs={}) { const s=el('select',{name,...attrs},options.map(o=>el('option',{value:o.value},o.label)));s.value=value;return s; }
 export function heading(title,eyebrow,dialog,id) { return el('header',{class:'dialog-heading'},el('div',{},el('p',{class:'eyebrow'},eyebrow),el('h2',{id},title)),button('×',()=>dialog.close(),'close-button',{'aria-label':'Fermer'})); }
+export function openDialog(dialog,preferredFocus=null) {
+  const view=dialog.ownerDocument.defaultView;
+  const deferKeyboard=view.matchMedia?.('(pointer: coarse), (max-width: 800px)').matches;
+  const target=deferKeyboard?dialog.querySelector('h1,h2,h3,.close-button')||dialog:preferredFocus;
+  if(target&&deferKeyboard&&!target.hasAttribute('tabindex'))target.setAttribute('tabindex','-1');
+  // Choose a neutral target before opening: focusing then blurring a field already
+  // displays the virtual keyboard in mobile browsers.
+  const autoFocused=deferKeyboard?[...dialog.querySelectorAll('[autofocus]')]:[];
+  autoFocused.forEach(node=>node.removeAttribute('autofocus'));
+  if(target&&deferKeyboard)target.setAttribute('autofocus','');
+  try { if(!dialog.open)dialog.showModal();target?.focus({preventScroll:true}); }
+  finally {
+    if(target&&deferKeyboard)target.removeAttribute('autofocus');
+    autoFocused.forEach(node=>node.setAttribute('autofocus',''));
+  }
+}
 export function errorBox(){return el('p',{class:'form-error',role:'alert',hidden:true});}
 export function showError(node,error){ node.textContent=error?.message||String(error);node.hidden=false; }
 let toastTimer;

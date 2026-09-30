@@ -12,6 +12,7 @@ import { mountNavigation } from './navigation.js';
     const sexShortLabels = { M: "H", F: "F" };
     let state = { athletes: [], coaches: [] };
     let currentUser;
+    let groupsUI;
     let profileData;
     let gymSettings;
     let shareType = "sparring";
@@ -136,6 +137,21 @@ import { mountNavigation } from './navigation.js';
       $('adminButton').classList.toggle('hidden', !profileData.is_admin);
       setLoaded(true);
       renderAll();
+      void refreshGroups(generation);
+    }
+    async function refreshGroups(generation) {
+      try {
+        if (!groupsUI && document.getElementById('groupDirectory')) {
+          const { createGroupsUI } = await import('./groups.js');
+          if (generation !== loadGeneration) return;
+          groupsUI = createGroupsUI({ getUser: () => currentUser, onToast: showToast });
+        }
+        await groupsUI?.refresh();
+      } catch (error) {
+        if (generation !== loadGeneration) return;
+        const message = $('groupError');
+        if (message) { message.textContent = 'Impossible de charger les groupes. Recharge la page pour réessayer.'; message.hidden = false; }
+      }
     }
     function saveState(message) {
       renderAll();
@@ -526,6 +542,7 @@ import { mountNavigation } from './navigation.js';
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
 
     function clearPrivateState() {
+      groupsUI?.invalidate();
       attachmentRequest++;
       attachmentUI.invalidate();
       loadGeneration++; rosterStore.reset();
@@ -545,8 +562,12 @@ import { mountNavigation } from './navigation.js';
         location.replace('login.html');
       } catch (error) { showToast(`Déconnexion impossible : ${error.message}`); $('logoutButton').disabled = false; }
     });
-    supabase.auth.onAuthStateChange(event => {
+    supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') { clearPrivateState(); location.replace('login.html'); }
+      else if (event === 'SIGNED_IN' && currentUser && session?.user && session.user.id !== currentUser.id) {
+        clearPrivateState();
+        queueMicrotask(() => loadState().catch(pageError));
+      }
     });
     document.querySelectorAll("[data-close]").forEach(button => button.addEventListener("click", () => $(button.dataset.close).close()));
     document.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("click", e => { if (e.target === dialog) dialog.close(); }));

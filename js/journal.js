@@ -1,5 +1,5 @@
 import Sortable from 'sortablejs';
-import { $, el, button, field, input, textarea, select, heading, errorBox, showError, busy } from './ui.js';
+import { $, el, button, field, input, textarea, select, heading, errorBox, showError, busy, openDialog } from './ui.js';
 export const JOURNAL_STATUSES=[['explore','À explorer'],['work','En travail'],['maintain','À entretenir']];
 const labels=Object.fromEntries(JOURNAL_STATUSES);
 const date=value=>new Intl.DateTimeFormat('fr-CA',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value));
@@ -92,7 +92,7 @@ export function createJournalUI({getState,api,makeSortable=(node,options)=>new S
   const title=input('journal_title',entry?.title||'','text',{required:true,maxLength:160});const body=textarea('journal_body',entry?.body||'',{maxLength:20000,rows:6});
   const status=select('journal_status',JOURNAL_STATUSES.map(([value,label])=>({value,label})),entry?.status||'explore');
   const submit=button('Enregistrer',async()=>{try{await busy(submit,async()=>{const name=title.value.trim();if(!name)throw new Error('Indique le sujet.');const saved=await save({...(!entry?{athlete_id:getState().selectedAthlete.id}:{}),title:name,body:body.value.trim(),status:status.value},entry,version);if(saved&&dialog.open&&wrap.contains(error))detail(saved);});}catch(failure){if(current(version)&&wrap.contains(error))showError(error,failure);}},'button primary');
-  wrap.replaceChildren(heading(entry?'Modifier le sujet':'Nouveau sujet','',dialog,'journalTitle'),el('div',{class:'dialog-body'},error,field('Sujet',title),field('Texte',body),field('Statut',status)),el('div',{class:'dialog-actions'},button('Annuler',()=>entry?detail(entry):dialog.close()),submit));if(!dialog.open)dialog.showModal();title.focus();
+  wrap.replaceChildren(heading(entry?'Modifier le sujet':'Nouveau sujet','',dialog,'journalTitle'),el('div',{class:'dialog-body'},error,field('Sujet',title),field('Texte',body),field('Statut',status)),el('div',{class:'dialog-actions'},button('Annuler',()=>entry?detail(entry):dialog.close()),submit));openDialog(dialog,title);
  }
  function detail(entry){
   if(!current(context))return;

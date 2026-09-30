@@ -8,6 +8,7 @@ export default defineConfig({
     login: resolve(import.meta.dirname, 'login.html'),
     profile: resolve(import.meta.dirname, 'profile.html'),
     roster: resolve(import.meta.dirname, 'roster.html'),
+    tools: resolve(import.meta.dirname, 'tools.html'),
     admin: resolve(import.meta.dirname, 'admin/index.html'),
   } } },
 });

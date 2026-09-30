@@ -1,5 +1,5 @@
 /** Limited rich text represented as plain text plus safe, positional marks. */
-export const TRAINING_COLORS = ['blue','mint','coral','lavender'];
+export const TRAINING_COLORS = ['blue','mint','coral','lavender','red','royal','green','yellow','orange','purple'];
 export function normalizeTrainingDocument(value) {
   const source = String(value?.text || ''),text=source.replace(/\r\n?/g,'\n');
   const normalizedOffset=source.includes('\r')?offset=>source.slice(0,offset).replace(/\r\n?/g,'\n').length:offset=>offset;
@@ -75,6 +75,12 @@ export class TrainingTextInput {
     this.history.push({document:structuredClone(this.document),selection:{...previousSelection}});if(this.history.length>100)this.history.shift();this.future=[];this.document=next;this.selection=selection;if(paint)this.paint(true);this.onChange(this.getValue());
   }
   getValue(){return structuredClone(this.document);}
+  selectionColor(){
+    const {start,end}=this.capture(),position=start===end?Math.max(0,start-1):start;
+    const selected=pieces(this.document).filter(piece=>start===end?piece.start<=position&&piece.end>position:piece.start<end&&piece.end>start);
+    const colors=new Set(selected.map(piece=>piece.style.color||'normal'));
+    return colors.size>1?'mixed':colors.values().next().value||'normal';
+  }
   setValue(doc){this.document=normalizeTrainingDocument(doc);this.selection={start:this.document.text.length,end:this.document.text.length};this.history=[];this.future=[];this.paint();}
   replace(start,end,text){
     text=String(text).replace(/\r\n?/g,'\n');

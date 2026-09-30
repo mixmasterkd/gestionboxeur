@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Window } from 'happy-dom';
-import { TrainingTextInput, normalizeTrainingDocument, renderTrainingDocument } from '../js/workout-rich-text.js';
+import { TrainingTextInput, normalizeTrainingDocument, renderTrainingDocument, TRAINING_COLORS } from '../js/workout-rich-text.js';
 
 const window=new Window({url:'http://localhost/'});
 const document=window.document;
@@ -93,6 +93,22 @@ test('source length limits reject a whole paste without silently truncating or s
  assert.deepEqual(editor.getValue(),original);assert.deepEqual(editor.capture(),{start:20000,end:20000});assert.equal(changes.length,0);
  const detached=editor.getValue();detached.marks[0].color='coral';assert.equal(editor.getValue().marks[0].color,'lavender');
  editor.select(19999,20000);editor.insert('🥊');assert.deepEqual(editor.getValue(),original);
+});
+
+test('pastel and base colors survive rendering, editing, saved reload and independent undo',()=>{
+ for(const color of TRAINING_COLORS){
+  const {editor,node}=fixture(source('Conseil'));editor.select(0,7);editor.format('color',color);
+  assert.equal(editor.selectionColor(),color);assert.equal(node.querySelector(`[data-color="${color}"]`).textContent,'Conseil');
+  const saved=editor.getValue();editor.setValue(saved);assert.deepEqual(editor.getValue(),saved);
+  editor.select(0,7);editor.format('underline');assert.equal(editor.getValue().marks[0].color,color);editor.undo();assert.deepEqual(editor.getValue(),saved);
+  editor.format('color',null);assert.equal(editor.selectionColor(),'normal');editor.undo();assert.deepEqual(editor.getValue(),saved);
+ }
+});
+
+test('color indicator distinguishes a mixed selection and follows the caret',()=>{
+ const {editor}=fixture(source('Abcd',[{start:0,end:2,color:'yellow'}]));
+ editor.select(0,4);assert.equal(editor.selectionColor(),'mixed');
+ editor.select(1);assert.equal(editor.selectionColor(),'yellow');editor.select(4);assert.equal(editor.selectionColor(),'normal');
 });
 
 test.after(async()=>{await window.happyDOM.abort();});

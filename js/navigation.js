@@ -8,6 +8,7 @@ const icons = {
   athletes: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/><circle cx="9" cy="7" r="4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18m-13 4h2m4 0h2m-8 3h2"/>',
   journal: '<path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5"/>',
+  tools: '<circle cx="12" cy="14" r="8"/><path d="M9 2h6m-3 0v4m6 1 2-2m-8 5v4l3 2"/>',
   library: '<path d="M4 4h6v16H4zM14 4h6v16h-6zM6 8h2m8 0h2"/>',
   gym: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM9 21v-8h6v8"/>',
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/>',
@@ -33,7 +34,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   const previewRole = import.meta.env?.DEV && ['coach', 'athlete'].includes(params.get('demo')) ? params.get('demo') : null;
   const route = href => {
     const url = new URL(base + href, location.href);
-    if (previewRole && url.pathname.endsWith('/planning.html')) url.searchParams.set('demo', previewRole);
+    if (previewRole && /\/(?:planning|tools)\.html$/.test(url.pathname)) url.searchParams.set('demo', previewRole);
     return url.href;
   };
   const nav = document.createElement('nav');
@@ -60,13 +61,14 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
       { icon: 'gym', text: 'Mon profil', href: 'profile.html', active: onProfile },
     ];
   items.splice(1,0,{icon:'journal',text:'Journal',href:'planning.html#journal',active:onJournal,journal:true});
+  items.splice(items.length-1,0,{icon:'tools',text:'Outils',href:'tools.html',active:path.endsWith('/tools.html')});
   if (isAdmin) items.push({ icon: 'admin', text: 'Administration', short: 'Admin', href: 'admin/', active: inAdmin });
   const links = document.createElement('div');
   links.className = 'nav-links';
   for (const item of items) {
     const link = document.createElement('a');
     link.href = route(item.href);
-    if (previewRole && !new URL(link.href).pathname.endsWith('/planning.html')) link.title = 'Quitter l’aperçu et ouvrir mon espace connecté';
+    if (previewRole && !/\/(?:planning|tools)\.html$/.test(new URL(link.href).pathname)) link.title = 'Quitter l’aperçu et ouvrir mon espace connecté';
     link.innerHTML = `${icon(item.icon)}<span class="nav-label">${item.text}</span>${item.short ? `<span class="nav-label-short">${item.short}</span>` : ''}`;
     if (item.active) link.setAttribute('aria-current', 'page');
     if ((item.journal||item.calendar)&&onPlanning) link.addEventListener('click',event=>{const target=document.getElementById(item.journal?'journalButton':'calendarButton');if(target){event.preventDefault();target.click();}});
@@ -81,7 +83,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
   let connections=document.getElementById('connectionsButton');
-  if(!connections&&(onProfile||path.endsWith('/roster.html')||inAdmin)) {
+  if(!connections&&(onProfile||path.endsWith('/roster.html')||path.endsWith('/tools.html')||inAdmin)) {
     const actions=document.querySelector('.topbar .top-actions, .topbar .topbar-actions');
     if(actions) {
       connections=document.createElement('a');connections.id='connectionsButton';connections.className='icon-button header-connections';

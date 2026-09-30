@@ -76,3 +76,11 @@ test('a saved drag keeps its new column if reloading the history fails',async()=
   assert.match(document.querySelector('.form-error').textContent,/Historique indisponible/);
  }finally{await f.close();}
 });
+
+test('creating a journal subject on mobile keeps the title field unfocused until touched',async()=>{
+ const f=await fixture();try {
+  f.window.matchMedia=()=>({matches:true});click('＋ Sujet');
+  assert.equal(document.activeElement,document.getElementById('journalTitle'));
+  const title=document.querySelector('[name=journal_title]');title.focus();assert.equal(document.activeElement,title);
+ }finally{await f.close();}
+});

@@ -281,6 +281,11 @@
 
   <main class="content">
     <p class="error hidden" id="pageError" role="alert"></p>
+    <div class="directory-tabs" role="group" aria-label="Athlètes et groupes"><button type="button" data-directory="athletes" aria-pressed="true">Athlètes</button><button type="button" data-directory="groups" aria-pressed="false">Groupes</button></div>
+    <section class="panel" id="groupDirectory" aria-labelledby="groupTitle" hidden>
+      <header class="panel-head"><h1 class="section-title" id="groupTitle">Mes groupes</h1><button class="button button-dark" id="addGroupButton" type="button" disabled>＋ Créer un groupe</button></header>
+      <p id="groupError" class="form-error group-error" role="alert" hidden></p><div class="group-list" id="groupList"></div>
+    </section>
     <section class="panel" id="athleteDirectory" data-roster-view="table" aria-labelledby="rosterTitle">
       <header class="panel-head">
         <h1 class="section-title" id="rosterTitle" tabindex="-1">Mes athlètes</h1>
@@ -326,7 +331,7 @@
       <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Effectif et contacts enregistrés</span></footer>
     </section>
 
-    <section class="panel" aria-labelledby="coachesTitle">
+    <section class="panel" id="coachesDirectory" aria-labelledby="coachesTitle">
       <header class="panel-head">
         <h2 class="section-title" id="coachesTitle">Contacts coachs</h2>
         <button class="button button-dark" id="addCoachButton" type="button">＋ Ajouter un coach</button>

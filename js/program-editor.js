@@ -1,7 +1,7 @@
 import { makeBlock, summarizeBlocks, formatDuration } from './domain.js';
 import { parseTrainingText, serializeTrainingDocument, reconcileTrainingBlocks, formatTrainingStep, trainingStepName } from './workout-document.js';
 import { parseEffort, formatEffort } from './workout-effort.js';
-import { TrainingTextInput, normalizeTrainingDocument } from './workout-rich-text.js';
+import { TrainingTextInput, normalizeTrainingDocument, TRAINING_COLORS } from './workout-rich-text.js';
 import { renderSessionChart } from './session-chart.js';
 import { el, button, field, input, textarea, select, errorBox, showError } from './ui.js';
 
@@ -140,8 +140,9 @@ export class ProgramEditor {
     try{this.textInput.replace(start,end,text);}finally{this.pendingModel=null;}
   }
   emit(){this.updatePreview();this.onChange(clone(this.blocks),summarizeBlocks(this.blocks));}
-  destroy(){this.destroyed=true;this.container.replaceChildren();}
+  destroy(){this.destroyed=true;this.colorMenu?.destroy();this.container.replaceChildren();}
   render(){
+    this.colorMenu?.destroy();
     this.container.classList.add('program-editor');this.container.replaceChildren(el('header',{class:'pe-heading'},el('h3',{},'Entraînement')));
     const tools=el('div',{class:'pe-tools',role:'group','aria-label':'Ajouter à l’entraînement'});
     for(const [action,title,name] of [['add-step','Étape','step'],['add-repeat','Répétition','repeat'],['add-rounds','Round','round'],['library','Bibliothèque','library']]){
@@ -150,14 +151,55 @@ export class ProgramEditor {
     const formatting=el('div',{class:'pe-formatbar',role:'group','aria-label':'Mise en forme du texte'});
     const format=(text,key,value,title)=>{const b=button(text,()=>{if(!this.textInput.format(key,value))this.status.textContent='Sélectionne le texte à mettre en forme.';},'pe-button pe-format',{title,'aria-label':title});b.addEventListener('mousedown',e=>e.preventDefault());formatting.append(b);return b;};
     format('G','bold',null,'Gras').style.fontWeight='700';format('S','underline',null,'Souligné').style.textDecoration='underline';
-    for(const [color,title] of [['blue','Bleu'],['mint','Menthe'],['coral','Corail'],['lavender','Lavande']]){const b=format('●','color',color,`Texte ${title.toLowerCase()}`);b.classList.add(`training-color-${color}`);}
-    format('A','color',null,'Couleur normale');
+    this.colorMenu=this.createColorMenu();formatting.append(this.colorMenu.node);
     for(const [text,redo,title] of [['↶',false,'Annuler la modification'],['↷',true,'Rétablir la modification']]){const b=button(text,()=>this.textInput.undo(redo),'pe-button pe-format',{'aria-label':title,title});b.addEventListener('mousedown',e=>e.preventDefault());formatting.append(b);}
     this.surface=el('div',{class:'pe-text-input'});this.status=el('div',{class:'pe-text-status',role:'status'});this.miniMount=el('div');this.graph=el('div',{class:'session-program-preview'});this.summary=el('p',{class:'pe-summary'});
-    this.container.append(tools,this.help(),formatting,this.surface,this.status,this.miniMount,this.graph,this.summary);
+    this.container.append(tools,formatting,this.surface,this.status,this.help(),this.miniMount,this.graph,this.summary);
     this.textInput=new TrainingTextInput(this.surface,this.document,doc=>this.onDocument(doc));
     if(this.lockedReason){this.surface.contentEditable='false';this.status.textContent=this.lockedReason;formatting.hidden=true;}
     this.updatePreview();
+  }
+  createColorMenu(){
+    const labels={normal:'Couleur normale',blue:'Bleu pastel',mint:'Menthe pastel',coral:'Corail pastel',lavender:'Lavande pastel',red:'Rouge',royal:'Bleu',green:'Vert',yellow:'Jaune',orange:'Orange',purple:'Violet',mixed:'Couleurs variées'};
+    const node=el('div',{class:'pe-color-picker'}),menu=el('div',{class:'pe-color-menu',role:'menu','aria-label':'Couleur du texte',hidden:true});
+    const swatch=el('span',{class:'pe-color-swatch','aria-hidden':'true',dataset:{color:'normal'}});
+    const trigger=button('',()=>menu.hidden?open():close(true),'pe-button pe-color-trigger',{'aria-label':'Couleur du texte',title:'Couleur du texte','aria-haspopup':'menu','aria-expanded':'false'});
+    trigger.append(swatch,el('span',{'aria-hidden':'true',class:'pe-color-chevron'},'⌄'));
+    const options=['normal',...TRAINING_COLORS].map(color=>{
+      const option=button('',()=>{
+        if(!this.textInput.format('color',color==='normal'?null:color))this.status.textContent='Sélectionne le texte à mettre en forme.';
+        close();sync();
+      },'pe-button pe-color-option',{role:'menuitemradio','aria-label':labels[color],title:labels[color],'aria-checked':'false',tabIndex:-1,dataset:{color}});
+      option.append(el('span',{class:'pe-color-swatch','aria-hidden':'true',dataset:{color}}));
+      menu.append(option);return option;
+    });
+    const doc=this.container.ownerDocument;
+    const sync=()=>{
+      if(!this.textInput)return;
+      const color=this.textInput.selectionColor();swatch.dataset.color=color;trigger.title=`Couleur du texte : ${labels[color]}`;
+      for(const option of options)option.setAttribute('aria-checked',String(option.dataset.color===color));
+    };
+    const close=(focus=false)=>{menu.hidden=true;trigger.setAttribute('aria-expanded','false');if(focus)trigger.focus();};
+    const open=()=>{
+      this.textInput.capture();sync();menu.hidden=false;trigger.setAttribute('aria-expanded','true');
+      (options.find(option=>option.getAttribute('aria-checked')==='true')||options[0]).focus();
+    };
+    trigger.addEventListener('pointerdown',()=>this.textInput.capture());
+    trigger.addEventListener('keydown',event=>{if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();open();if(event.key==='ArrowUp')options.at(-1).focus();}});
+    menu.addEventListener('keydown',event=>{
+      const index=options.indexOf(doc.activeElement);let next;
+      if(['ArrowRight','ArrowDown'].includes(event.key))next=(index+1)%options.length;
+      if(['ArrowLeft','ArrowUp'].includes(event.key))next=(index+options.length-1)%options.length;
+      if(event.key==='Home')next=0;if(event.key==='End')next=options.length-1;
+      if(next!=null){event.preventDefault();options[next].focus();}
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close(true);}
+      if(event.key==='Tab'){event.preventDefault();close();const controls=[...node.parentElement.querySelectorAll('button')].filter(control=>!menu.contains(control)),index=controls.indexOf(trigger);controls[index+(event.shiftKey?-1:1)]?.focus();}
+    });
+    const outside=event=>{if(!node.contains(event.target))close();};
+    const selection=()=>{if(this.container.isConnected)sync();};
+    doc.addEventListener('pointerdown',outside);doc.addEventListener('focusin',outside);doc.addEventListener('selectionchange',selection);
+    node.append(trigger,menu);
+    return {node,sync,close,destroy(){doc.removeEventListener('pointerdown',outside);doc.removeEventListener('focusin',outside);doc.removeEventListener('selectionchange',selection);}};
   }
   help(){
     const table=(rows)=>el('table',{},el('tbody',{},rows.map(([a,b])=>el('tr',{},el('th',{scope:'row'},a),el('td',{},b)))));
@@ -173,6 +215,7 @@ export class ProgramEditor {
   }
   updatePreview(){
     if(!this.graph)return;
+    this.colorMenu?.sync();
     if(!this.lockedReason){this.status.replaceChildren();if(this.textErrors.length)this.status.append(el('p',{},'Graphique partiel · le texte peut être enregistré.'),el('ul',{},this.textErrors.slice(0,8).map(e=>el('li',{},`Ligne ${e.line} : ${e.message}`))));}
     const previewBlocks=this.lockedReason?this.blocks:this.result?.blocks||this.blocks;
     this.graph.replaceChildren(renderSessionChart({blocks:previewBlocks,sport:this.sport},{compact:false,partial:!!this.textErrors.length,onSelect:id=>this.editStep(id)}));
@@ -185,7 +228,7 @@ export class ProgramEditor {
     const block=this.result.blocks.flatMap(b=>b.kind==='repeat'?b.children:[b]).find(b=>b.id===id)||this.locate(id);if(!block||block.kind==='repeat')return;
     this.openMini('edit',block,{start:line.start,end:line.end});
   }
-  setEditing(value){this.surface.contentEditable=String(!value&&!this.lockedReason);this.surface.setAttribute('aria-readonly',String(value));for(const b of this.container.querySelectorAll('.pe-tools button,.pe-formatbar button'))b.disabled=value||!!this.lockedReason||b.dataset.action==='library'&&!this.onLibrary;}
+  setEditing(value){this.colorMenu?.close();this.surface.contentEditable=String(!value&&!this.lockedReason);this.surface.setAttribute('aria-readonly',String(value));for(const b of this.container.querySelectorAll('.pe-tools button,.pe-formatbar button,.pe-formatbar select'))b.disabled=value||!!this.lockedReason||b.dataset.action==='library'&&!this.onLibrary;}
   openMini(action,source=null,range=null){
     if(this.mini||this.lockedReason)return;this.textInput.capture();
     this.mini={action,source,range,selection:{...this.textInput.selection}};this.setEditing(true);

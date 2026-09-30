@@ -7,7 +7,7 @@ for(const file of await readdir('js')) {
   const result=spawnSync(process.execPath,['--check',`js/${file}`],{encoding:'utf8'});
   if(result.status){console.error(result.stderr);failures++;}
 }
-for(const file of ['index.html','planning.html','roster.html','login.html','profile.html','admin/index.html']) {
+for(const file of ['index.html','planning.html','roster.html','login.html','profile.html','tools.html','admin/index.html']) {
   const window=new Window({settings:{disableJavaScriptEvaluation:true,disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});
   window.document.write(await readFile(file,'utf8'));
   const ids=[...window.document.querySelectorAll('[id]')].map(e=>e.id);

@@ -86,3 +86,15 @@ Conserver de préférence `verify_jwt=true` : le navigateur connecté transmet s
 ### Couleurs des événements · 24 septembre 2026
 
 `20260924041944_event_pastel_colors.sql` ajoute `personal_events.color`, obligatoire avec défaut `sand`; valeurs autorisées : `sand`, `coral`, `blue`, `lavender`, `mint`. Les droits INSERT/UPDATE de cette colonne sont accordés à authenticated et restent soumis aux règles RLS et aux verrous existants. Aucun autre champ ou droit ne change. Migration appliquée et vérifiée sur le projet distant; contenu historique et règles inchangés. Tests isolés : valeur par défaut, persistance, refus d’une couleur inconnue et interdiction de modifier la couleur d’une note verrouillée créée par autrui.
+
+
+### Groupes et séances communes — 30 septembre 2026
+
+`20260930183034_training_groups.sql` ajoute les groupes privés du coach, leurs membres et les séances communes. Les tables nouvelles exposent seulement la lecture autorisée; les mutations atomiques passent par les RPC `save_training_group`, `delete_training_group`, `save_shared_training_session` et `delete_shared_training_session`, avec contrôle de propriétaire, permissions et versions. Les copies athlètes conservent les mécanismes existants de réalisation et de bilan, et ne peuvent pas être modifiées directement tant qu’elles sont liées à une séance commune.
+
+Les tests `tests/groups-database.test.js` exécutent la chaîne de migrations dans PGlite et vérifient l’ajout/retrait de membres, le dédoublonnage, la conservation de l’historique et les restrictions entre comptes. Migration appliquée sur le projet distant le 30 septembre 2026, avant la publication des interfaces Groupes, sous la version distante `20260930194129`.
+
+
+`20260930191243_shared_calendar_notes.sql` étend les calendriers de groupe aux notes communes (dates ou plages, texte et couleur). Les commandes `save_shared_calendar_event` et `delete_shared_calendar_event` réservent les modifications à l’auteur; les membres accèdent à leurs propres copies, sans liste des autres destinataires. Les changements de groupe réconcilient notes et séances dans la même transaction. Les copies de notes déjà commencées sont conservées lors d’un retrait; les notes futures sans autre attribution sont retirées lorsque les permissions le permettent.
+
+`20260930191446_workout_text_base_colors.sql` étend la validation des couleurs de texte aux six couleurs de base, en conservant les anciennes couleurs pastel et toutes les autres validations du document. Ces deux migrations ont été appliquées le 30 septembre 2026 sous les versions distantes `20260930194145` et `20260930194217`. Les 137 lignes des 18 tables préexistantes sont conservées à l’identique, hors nouvelles colonnes nulles. Les six RPC publics sont SECURITY INVOKER et inaccessibles au rôle anonyme; aucun nouvel avis de sécurité Supabase. Une sauvegarde applicative (tables, fonctions, politiques, colonnes, droits et historique des migrations) est conservée hors dépôt; elle ne remplace pas une sauvegarde Auth/Storage complète.

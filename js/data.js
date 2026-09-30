@@ -67,18 +67,42 @@ export async function loadCalendar(athleteId,start,end) {
   const feedback=sessions.length ? await result(client.from('session_feedback').select('*').eq('athlete_id',athleteId).in('session_id',sessions.map(s=>s.id))) : [];
   return {sessions,events,feedback};
 }
-export async function saveSession(payload,existing) {
-  if(preview)return preview.saveSession(payload,existing);
-  if(existing) return result(client.from('training_sessions').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single());
-  return result(client.from('training_sessions').insert(payload).select().single());
+export async function saveSession(payload,existing,database=client) {
+  if(preview&&database===client)return preview.saveSession(payload,existing);
+  if(!existing&&Array.isArray(payload.athlete_ids)&&!payload.group_ids?.length&&new Set(payload.athlete_ids).size===1){
+    const {group_ids,athlete_ids,...content}=payload;payload={...content,athlete_id:athlete_ids[0]};
+  }
+  if(existing?.shared_session_id&&!existing.is_group_session)throw new Error('Ouvre la séance commune pour modifier son contenu.');
+  if(existing?.is_group_session||(!existing&&('group_ids' in payload||'athlete_ids' in payload))) {
+    return result(database.rpc('save_shared_training_session',{p_payload:payload,p_id:existing?.id??null,p_updated_at:existing?.updated_at??null}));
+  }
+  if(existing) return result(database.from('training_sessions').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single());
+  return result(database.from('training_sessions').insert(payload).select().single());
 }
-export const deleteSession=s=>preview?preview.deleteSession(s):result(client.from('training_sessions').delete().eq('id',s.id).eq('updated_at',s.updated_at).select('id').single());
-export async function saveEvent(payload,existing) {
-  if(preview)return preview.saveEvent(payload,existing);
-  if(existing) return result(client.from('personal_events').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single());
-  return result(client.from('personal_events').insert(payload).select().single());
+export async function deleteSession(s,database=client) {
+  if(preview&&database===client)return preview.deleteSession(s);
+  if(s.is_group_session)return result(database.rpc('delete_shared_training_session',{p_id:s.id,p_updated_at:s.updated_at}));
+  if(s.shared_session_id)throw new Error('Ouvre la séance commune pour la supprimer.');
+  return result(database.from('training_sessions').delete().eq('id',s.id).eq('updated_at',s.updated_at).select('id').single());
 }
-export const deleteEvent=e=>preview?preview.deleteEvent(e):result(client.from('personal_events').delete().eq('id',e.id).eq('updated_at',e.updated_at).select('id').single());
+export async function saveEvent(payload,existing,database=client) {
+  if(preview&&database===client)return preview.saveEvent(payload,existing);
+  if(!existing&&Array.isArray(payload.athlete_ids)&&!payload.group_ids?.length&&new Set(payload.athlete_ids).size===1){
+    const {group_ids,athlete_ids,...content}=payload;payload={...content,athlete_id:athlete_ids[0]};
+  }
+  if(existing?.shared_event_id&&!existing.is_group_event)throw new Error('Ouvre la note commune pour modifier son contenu.');
+  if(existing?.is_group_event||(!existing&&('group_ids' in payload||'athlete_ids' in payload))){
+    return result(database.rpc('save_shared_calendar_event',{p_payload:{...payload,is_private:false,is_locked:true},p_id:existing?.id??null,p_updated_at:existing?.updated_at??null}));
+  }
+  if(existing) return result(database.from('personal_events').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single());
+  return result(database.from('personal_events').insert(payload).select().single());
+}
+export async function deleteEvent(e,database=client){
+  if(preview&&database===client)return preview.deleteEvent(e);
+  if(e.is_group_event)return result(database.rpc('delete_shared_calendar_event',{p_id:e.id,p_updated_at:e.updated_at}));
+  if(e.shared_event_id)throw new Error('Ouvre la note commune pour la supprimer.');
+  return result(database.from('personal_events').delete().eq('id',e.id).eq('updated_at',e.updated_at).select('id').single());
+}
 export const initializeLibrary=()=>preview?preview.initializeLibrary():rpc('initialize_training_library',{p_templates:getStarterTemplates().map(({title,sport,description,notes,blocks,workout_document})=>({title,sport,description,notes,blocks,workout_document}))});
 async function libraryRows(table,order) {
  const rows=[];for(let offset=0;;offset+=500){const page=await result(client.from(table).select('*').order(order).order('id').range(offset,offset+499));rows.push(...page);if(page.length<500)return rows;}
@@ -113,3 +137,57 @@ export async function loadJournal(athleteId) {
 }
 export const saveJournalEntry=(payload,existing)=>preview?preview.saveJournalEntry(payload,existing):result(existing?client.from('journal_entries').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single():client.from('journal_entries').insert(payload).select().single());
 export const addJournalComment=(entryId,content)=>preview?preview.addJournalComment(entryId,content):result(client.from('journal_updates').insert({entry_id:entryId,content}).select().single());
+
+// Group identities are private to their coach. Athlete copies retain the existing
+// calendar/feedback security model and never expose the other recipients.
+export async function loadTrainingGroups(database=client) {
+  if(preview&&database===client)return preview.loadTrainingGroups();
+  const rows=[];
+  for(let offset=0;;offset+=500){
+    const page=await result(database.from('training_groups').select('*,training_group_members(athlete_id)').order('name').order('id').range(offset,offset+499));
+    rows.push(...page.map(({training_group_members,...group})=>({...group,athlete_ids:(training_group_members||[]).map(m=>m.athlete_id)})));
+    if(page.length<500)return rows;
+  }
+}
+export async function saveTrainingGroup(payload,existing,database=client) {
+  if(preview&&database===client)return preview.saveTrainingGroup(payload,existing);
+  return result(database.rpc('save_training_group',{p_name:payload.name,p_athlete_ids:[...new Set(payload.athlete_ids||[])],p_id:existing?.id??null,p_updated_at:existing?.updated_at??null}));
+}
+export async function deleteTrainingGroup(group,database=client) {
+  if(preview&&database===client)return preview.deleteTrainingGroup(group);
+  return result(database.rpc('delete_training_group',{p_id:group.id,p_updated_at:group.updated_at}));
+}
+const sharedColumns='*,shared_session_groups(group_id),shared_session_athletes(athlete_id)';
+function sharedSession({shared_session_groups,shared_session_athletes,...session}) {
+  return {...session,is_group_session:true,shared_session_id:session.id,athlete_id:null,completed_at:null,
+    group_ids:(shared_session_groups||[]).map(g=>g.group_id),athlete_ids:(shared_session_athletes||[]).map(a=>a.athlete_id)};
+}
+export async function getSharedSession(id,database=client) {
+  if(preview&&database===client)return preview.getSharedSession(id);
+  return sharedSession(await result(database.from('shared_training_sessions').select(sharedColumns).eq('id',id).single()));
+}
+const sharedEventColumns='*,shared_event_groups(group_id),shared_event_athletes(athlete_id)';
+function sharedEvent({shared_event_groups,shared_event_athletes,...event}){
+  return {...event,is_group_event:true,shared_event_id:event.id,athlete_id:null,is_private:false,
+    group_ids:(shared_event_groups||[]).map(g=>g.group_id),athlete_ids:(shared_event_athletes||[]).map(a=>a.athlete_id)};
+}
+export async function getSharedEvent(id,database=client){
+  if(preview&&database===client)return preview.getSharedEvent(id);
+  return sharedEvent(await result(database.from('shared_calendar_events').select(sharedEventColumns).eq('id',id).single()));
+}
+export async function loadGroupCalendar(groupId,start,end,database=client) {
+  if(preview&&database===client)return preview.loadGroupCalendar(groupId,start,end);
+  const sessions=[],events=[];
+  for(let offset=0;;offset+=500){
+    const page=await result(database.from('shared_training_sessions').select(`${sharedColumns},selected_group:shared_session_groups!inner(group_id)`)
+      .eq('selected_group.group_id',groupId).gte('date',start).lte('date',end).order('date').order('sort_order').order('id').range(offset,offset+499));
+    sessions.push(...page.map(({selected_group,...row})=>sharedSession(row)));
+    if(page.length<500)break;
+  }
+  for(let offset=0;;offset+=500){
+    const page=await result(database.from('shared_calendar_events').select(`${sharedEventColumns},selected_group:shared_event_groups!inner(group_id)`)
+      .eq('selected_group.group_id',groupId).lte('date',end).or(`end_date.gte.${start},and(end_date.is.null,date.gte.${start})`).order('date').order('sort_order').order('id').range(offset,offset+499));
+    events.push(...page.map(({selected_group,...row})=>sharedEvent(row)));
+    if(page.length<500)return {sessions,events,feedback:[]};
+  }
+}

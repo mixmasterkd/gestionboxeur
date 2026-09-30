@@ -12,7 +12,7 @@ import {renderSessionChart} from '../js/session-chart.js';
 
 const settle=async()=>{for(let i=0;i<20;i++)await Promise.resolve();await new Promise(r=>setImmediate(r));};
 const makeSession=(id,created_by='coach',date=domain.todayLocal(),order=1024)=>({id,athlete_id:'athlete',created_by,author_name:'Camille',title:`Séance ${id}`,sport:'running',date,sort_order:order,updated_at:'2026-09-21T12:00:00Z',blocks:[{...domain.makeBlock('run'),duration_seconds:600,zone:2}]});
-async function surface({role='coach',sessions=[],events=[],feedback=[],url='https://example.test/gestionboxeur/planning.html',invitationError=null,planningAvailable=true,userId=role==='coach'?'coach':'athlete-user',storage={},storageFailure=false}={}) {
+async function surface({role='coach',sessions=[],events=[],feedback=[],url='https://example.test/gestionboxeur/planning.html',invitationError=null,planningAvailable=true,userId=role==='coach'?'coach':'athlete-user',storage={},storageFailure=false,groups=[]}={}) {
   const window=new Window({url,settings:{disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});
   for(const [key,value] of Object.entries(storage))window.localStorage.setItem(key,value);
   if(storageFailure)Object.defineProperty(window,'localStorage',{configurable:true,get(){throw new Error('Storage inaccessible');}});
@@ -25,20 +25,22 @@ async function surface({role='coach',sessions=[],events=[],feedback=[],url='http
   const source={sessions,events,feedback};let authCallback;
   const api={client:{auth:{getSession:async()=>({data:{session:{user:{id:account.profile.id,email:'user@example.test'}}}}),onAuthStateChange:fn=>{authCallback=fn;},signOut:async()=>{authCallback('SIGNED_OUT');return {};}}},
     loadAccount:async()=>controls.account?controls.account():structuredClone(account),loadCalendar:async(...args)=>{calls.push(['load',...args]);if(controls.calendar)return controls.calendar(...args);const [athleteId,start,end]=args;return structuredClone({...source,sessions:source.sessions.filter(session=>session.athlete_id===athleteId&&session.date>=start&&session.date<=end),events:source.events.filter(event=>event.date<=end&&(event.end_date||event.date)>=start)});},
+    loadTrainingGroups:async()=>{if(controls.groups)return controls.groups();return structuredClone(groups);},
+    loadGroupCalendar:async(...args)=>{calls.push(['loadGroup',...args]);if(controls.groupCalendar)return controls.groupCalendar(...args);const [id,start,end]=args;return {sessions:source.sessions.filter(s=>s.is_group_session&&s.group_ids?.includes(id)&&s.date>=start&&s.date<=end),events:source.events.filter(e=>e.is_group_event&&e.group_ids?.includes(id)&&e.date<=end&&(e.end_date||e.date)>=start),feedback:[]};},
     rpc:async(name,args)=>{calls.push([name,args]);if(invitationError)throw new Error(invitationError);return 'athlete';},
     saveSession:async(...args)=>{calls.push(['save',...args]);return args[0];},
     saveEvent:async(payload,existing)=>{calls.push(['saveEvent',payload,existing]);if(controls.saveEvent)return controls.saveEvent(payload,existing);const index=source.events.findIndex(item=>item.id===existing.id);source.events[index]={...source.events[index],...payload,updated_at:'saved-event'};return structuredClone(source.events[index]);}};
   const methods={editSession:(...args)=>calls.push(['edit',...args]),showSession:s=>calls.push(['show',s]),editEvent:(...args)=>calls.push(['event',...args]),showEvent:e=>calls.push(['showEvent',e]),setCompleted:async(s,completed)=>{calls.push(['complete',s.id,completed]);source.sessions.find(item=>item.id===s.id).completed_at=completed?'2026-09-22T12:00:00Z':null;await window.__app.refreshCalendar();}};
   window.__bridge={createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
     Sortable:class {constructor(node,options){this.node=node;this.options=options;instances.push(this);}destroy(){}},
-    createSessionUI:()=>methods,createConnectionsUI:()=>({open:options=>calls.push(['connections',options]),inviteAthlete:()=>{}}),createLibraryUI:options=>({open:()=>{},options})};
+    createSessionUI:()=>methods,createConnectionsUI:()=>({open:options=>calls.push(['connections',options]),inviteAthlete:()=>{}}),createLibraryUI:options=>({open:config=>calls.push(['library',config]),options})};
   const code=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
   window.eval(`const mountNavigation=()=>{};const {createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor,accessIcon}=window.__bridge;
     const dataApi=window.__bridge.api;
     const {client,loadAccount,loadCalendar,rpc,saveSession}=dataApi;
     const {SPORTS,summarizeBlocks,formatDuration}=window.__bridge.domain;
     const {todayLocal,datesForView,shiftPeriod,orderedSessions,positionBetween,eventOnDate,dateLabel,periodLabel,orderedEvents,eventSpans,moveEventDates}=window.__bridge.calendar;
-    const {$,el,button,displayName,initials,toast,showError}=window.__bridge.ui;
+    const {$,el,button,displayName,initials,toast,showError,openDialog}=window.__bridge.ui;
     ${code.replace(/^import .*;\n/gm,'')}
     window.__app={state,refreshAccount,refreshCalendar,canEdit,canAdd,handleDrop,handleEventDrop,libraryUI};`);
   await settle();
@@ -60,6 +62,20 @@ test('coach calendar renders seven days, own handles, known totals and personal 
     assert.match(page.$('calendar').textContent,/RPE 8\/10/);
     assert.equal(page.app.canEdit(b),false);assert.equal(page.app.canEdit(a),true);
     page.$('calendar').querySelector('.session-title').click();assert.equal(page.calls.at(-1)[0],'show');
+  }finally{await page.close();}
+});
+
+test('training cards reuse the note palette, keep readable headers and remain sortable siblings',async()=>{
+  const first=makeSession('palette-a'),second={...makeSession('palette-b'),sport:'boxing',is_locked:false};
+  const page=await surface({sessions:[first,second]});
+  try{
+    const content=page.$('calendar').querySelector(`[data-date="${first.date}"] .day-content`);
+    const cards=[...content.querySelectorAll(':scope > .session-card')];
+    assert.equal(cards.length,2);assert.equal(cards[0].dataset.color,'sand');
+    assert.ok(['#f4ecd9','#fbe2dc','#e1edf9','#eee5f8','#e0f1e8'].includes(cards[0].style.getPropertyValue('--event-bg')));
+    assert.ok(['#cfbc8d','#d6a499','#9ebbd9','#c0a6d6','#9cbfaa'].includes(cards[1].style.getPropertyValue('--event-border')));
+    assert.equal(cards[0].querySelector('.session-card-header .session-title').textContent,first.title);
+    assert.equal(cards[1].querySelector('.session-card-header .lock-badge'),null);
   }finally{await page.close();}
 });
 
@@ -357,7 +373,7 @@ test('coach switches between personal and coached calendars with independent per
    const personal={...makeSession('personal-session',page.account.profile.id),athlete_id:'personal'};
    assert.equal(page.app.canEdit(personal),true);
    assert.equal(page.app.canEdit(makeSession('foreign')),false);
-   assert.match(page.$('athleteList').textContent,/Mon calendrier/);
+   assert.match(page.$('athleteList').textContent,/CoachPersonnel/);
    page.$('athleteList').querySelectorAll('button')[1].click();await settle();
    assert.equal(page.app.state.selectedAthlete.id,'athlete');assert.equal(page.app.canEdit(personal),false);
  }finally{await page.close();}
@@ -471,5 +487,123 @@ test('dragging a continued band shifts the complete note relative to its visible
   const from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-30"]');to.append(card);
   await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});
   const payload=page.calls.find(call=>call[0]==='saveEvent')[1];assert.equal(payload.date,'2026-09-27');assert.equal(payload.end_date,'2026-10-04');
+ }finally{await page.close();}
+});
+
+
+test('group picker identifies groups and displays only their common sessions with no personal completion',async()=>{
+ const master={...makeSession('shared'),athlete_id:null,is_group_session:true,shared_session_id:'shared',group_ids:['g1'],athlete_ids:[]};
+ const page=await surface({groups:[{id:'g1',name:'Compétition',athlete_ids:['athlete']}],sessions:[master,makeSession('private')]});
+ try {
+  assert.equal(page.app.state.groupsAvailable,true);
+  const picker=[...page.$('athleteList').querySelectorAll('button')].find(b=>b.textContent.includes('Compétition'));
+  assert.match(picker.textContent,/Groupe · 1 membre/);picker.click();await settle();
+  assert.equal(page.app.state.selectedAthlete,null);assert.equal(page.app.state.selectedGroup.id,'g1');
+  assert.equal(page.$('sessionTotal').textContent,'1');assert.equal(page.$('calendar').querySelectorAll('.session-card').length,1);
+  assert.equal(page.$('calendar').querySelectorAll('.completion-pill,.completion-button').length,0);
+  assert.equal(page.$('addEventButton').hidden,false);assert.equal(page.app.canEdit(master),true);
+  assert.equal(page.$('calendar').querySelectorAll('.drag-handle').length,1);
+  assert.match(page.$('athleteTitle').textContent,/Compétition/);
+  page.$('journalButton').click();await settle();assert.equal(page.app.state.selectedGroup,null);assert.equal(page.app.state.surface,'journal');
+ }finally{await page.close();}
+});
+
+test('unavailable group feature keeps individual planning usable and shared copies never drag',async()=>{
+ const shared={...makeSession('copy'),shared_session_id:'master'};
+ const page=await surface({sessions:[shared]});
+ try {
+  page.controls.groups=async()=>{throw new Error('Mise à jour nécessaire');};await page.app.refreshAccount();await page.app.refreshCalendar();
+  assert.equal(page.app.state.groupsAvailable,false);assert.equal(page.app.canAdd(),true);
+  assert.match(page.$('athleteList').textContent,/Groupes indisponibles/);
+  assert.equal(page.$('calendar').querySelectorAll('.drag-handle').length,0);
+  assert.equal(page.app.canEdit(shared),true);
+  assert.equal(page.app.canEdit({...shared,created_by:'other-coach',is_locked:false}),false);
+ }finally{await page.close();}
+});
+
+test('group deep link survives refresh and late group calendar cannot overwrite an athlete',async()=>{
+ const page=await surface({groups:[{id:'g1',name:'Équipe',athlete_ids:['athlete']}],url:'https://example.test/planning.html?group=g1'});
+ try {
+  assert.equal(page.app.state.selectedGroup.id,'g1');
+  let resolve;page.controls.groupCalendar=()=>new Promise(r=>{resolve=r;});const pending=page.app.refreshCalendar();
+  page.$('athleteList').querySelector('button').click();await settle();
+  resolve({sessions:[{...makeSession('late'),athlete_id:null,is_group_session:true,group_ids:['g1']}],events:[],feedback:[]});await pending;
+  assert.equal(page.app.state.selectedGroup,null);assert.equal(page.app.state.selectedAthlete.id,'athlete');assert.equal(page.app.state.sessions.length,0);
+  assert.equal(page.window.location.search,'?athlete=athlete');
+ }finally{await page.close();}
+});
+
+
+test('day plus opens the three original choices with the clicked date and neutral focus',async()=>{
+ const page=await surface();
+ try {
+  const day=page.$('calendar').querySelectorAll('.day')[2],date=day.dataset.date,plus=day.querySelector('.add-day');
+  assert.equal(day.querySelectorAll('.day-actions button').length,1);assert.equal(plus.textContent,'＋');
+  assert.equal(page.$('addSessionButton').hidden,false);assert.equal(page.$('addEventButton').hidden,false);
+  plus.click();assert.equal(page.$('dayAddDialog').open,true);
+  assert.deepEqual([...page.$('dayAddOptions').querySelectorAll('button')].map(b=>b.textContent),['Bibliothèque','Planifier une séance','Notes']);
+  assert.equal(page.window.document.activeElement.id,'dayAddTitle');
+  page.$('dayAddOptions').querySelectorAll('button')[1].click();assert.equal(page.$('dayAddDialog').open,false);
+  assert.deepEqual(structuredClone(page.calls.at(-1)),['edit',null,date]);
+  plus.click();page.$('dayAddOptions').querySelectorAll('button')[2].click();assert.deepEqual(structuredClone(page.calls.at(-1)),['event',null,date]);
+  plus.click();page.$('dayAddOptions').querySelectorAll('button')[0].click();
+  const choice=page.calls.at(-1);assert.equal(choice[0],'library');assert.equal(choice[1].kind,'session');
+  choice[1].onSelect({id:'template',title:'Footing'});
+  assert.deepEqual(structuredClone(page.calls.at(-1)),['edit',{id:undefined,title:'Footing',athlete_id:'athlete',date},date,true]);
+  plus.click();page.$('dayAddDialog').dispatchEvent(new page.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await settle();
+  assert.equal(page.$('dayAddDialog').open,false);assert.equal(page.window.document.activeElement,plus);
+  plus.click();page.$('dayAddDialog').click();assert.equal(page.$('dayAddDialog').open,false);
+ }finally{await page.close();}
+});
+
+test('day library choices preserve group context and reject a stale calendar, permission or account',async()=>{
+ const page=await surface({groups:[{id:'g1',name:'Équipe',athlete_ids:['athlete']}],url:'https://example.test/planning.html?group=g1'});
+ try {
+  const open=()=>{const day=page.$('calendar').querySelectorAll('.day')[1];day.querySelector('.add-day').click();page.$('dayAddOptions').querySelector('button').click();return {date:day.dataset.date,select:page.calls.at(-1)[1].onSelect};};
+  const group=open();assert.match(page.$('dayAddContext').textContent,/Groupe · Équipe/);
+  group.select({id:'template',title:'Équipe'});assert.equal(page.calls.at(-1)[0],'edit');assert.equal(page.calls.at(-1)[2],group.date);assert.equal(page.app.state.selectedGroup.id,'g1');
+  const old=open();page.$('athleteList').querySelector('button').click();await settle();const before=page.calls.filter(c=>c[0]==='edit').length;
+  old.select({id:'template'});assert.equal(page.calls.filter(c=>c[0]==='edit').length,before);
+  const individual=open();page.app.state.relation.can_add_sessions=false;individual.select({id:'template'});assert.equal(page.calls.filter(c=>c[0]==='edit').length,before);
+  page.app.state.relation.can_add_sessions=true;
+  const previousAccount=open();page.app.state.user={id:'someone-else'};previousAccount.select({id:'template'});assert.equal(page.calls.filter(c=>c[0]==='edit').length,before);
+ }finally{await page.close();}
+});
+
+test('unlocked notes omit access icons and short text has a safe compact preview',async()=>{
+ const note=makeEvent('brief',{is_locked:false,notes:'  Mobilité <script>alert(1)</script>  avant le cours.  '});
+ const page=await surface({events:[note,makeEvent('title-only',{is_locked:false})]});
+ try {
+  page.app.state.anchor=note.date;await page.app.refreshCalendar();
+  const card=page.$('calendar').querySelector('[data-event-id="brief"]');
+  assert.equal(card.querySelector('.lock-badge'),null);assert.equal(card.querySelector('script'),null);
+  assert.equal(card.querySelector('.event-preview').textContent,'Mobilité <script>alert(1)</script> avant le cours.');
+  assert.equal(page.$('calendar').querySelector('[data-event-id="title-only"] .event-preview'),null);
+  card.querySelector('.event-open').click();assert.equal(page.calls.at(-1)[1].notes,note.notes);
+ }finally{await page.close();}
+});
+
+test('group notes show only on the selected group, remain author-only and can move as a master',async()=>{
+ const note=makeEvent('group-note',{athlete_id:null,is_group_event:true,shared_event_id:'group-note',group_ids:['g1'],athlete_ids:[],is_locked:false});
+ const page=await surface({groups:[{id:'g1',name:'Équipe',athlete_ids:['athlete']}],events:[note,makeEvent('individual')],url:'https://example.test/planning.html?group=g1'});
+ try {
+  page.app.state.anchor=note.date;await page.app.refreshCalendar();
+  assert.equal(page.$('calendar').querySelectorAll('.event-card').length,1);assert.equal(page.$('addEventButton').hidden,false);
+  assert.equal(page.app.canEdit(note),true);assert.equal(page.app.canEdit({...note,created_by:'other'}),false);
+  assert.equal(page.app.canEdit({...note,group_ids:['other']}),false);
+  const card=page.$('calendar').querySelector('[data-event-id="group-note"]');assert.match(card.querySelector('.lock-badge').getAttribute('aria-label'),/Note commune/);assert.ok(card.querySelector('.event-drag-handle'));
+  const from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-23"]');to.append(card);
+  await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});
+  assert.equal(page.calls.find(call=>call[0]==='saveEvent')[1].date,'2026-09-23');assert.equal(page.app.state.events[0].date,'2026-09-23');
+ }finally{await page.close();}
+});
+
+test('shared note copies are author-only and cannot move separately from the common note',async()=>{
+ const note=makeEvent('copy',{shared_event_id:'master',is_locked:false});const page=await surface({events:[note]});
+ try {
+  page.app.state.anchor=note.date;await page.app.refreshCalendar();assert.equal(page.app.canEdit(note),true);assert.equal(page.app.canEdit({...note,created_by:'other'}),false);
+  const card=page.$('calendar').querySelector('[data-event-id="copy"]');assert.match(card.querySelector('.lock-badge').getAttribute('aria-label'),/Note commune/);assert.equal(card.querySelector('.event-drag-handle'),null);
+  const from=card.parentElement,to=page.$('calendar').querySelector('.day-content[data-date="2026-09-23"]');to.append(card);
+  await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});assert.equal(page.calls.some(call=>call[0]==='saveEvent'),false);
  }finally{await page.close();}
 });

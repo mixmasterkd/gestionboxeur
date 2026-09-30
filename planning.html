@@ -31,9 +31,10 @@
 <dialog id="journalDialog" class="app-dialog detail-dialog" aria-labelledby="journalTitle"><div id="journalContent"></div></dialog>
 <dialog id="athletePickerDialog" class="app-dialog athlete-picker-dialog" aria-labelledby="athletePickerTitle"><aside id="athleteSidebar" class="athlete-sidebar" hidden aria-label="Choix de l’athlète">
 <div class="sidebar-heading"><h2 id="athletePickerTitle">Choisir un calendrier</h2><button id="closeAthletePicker" class="close-button" type="button" aria-label="Fermer le choix de calendrier">×</button></div>
-<label class="search-box"><span aria-hidden="true">⌕</span><input id="athleteSearch" type="search" aria-label="Rechercher un athlète"></label><div id="athleteList" class="athlete-list"></div>
-<div class="sidebar-footer"><a class="roster-shortcut" href="roster.html">Préparer une liste combat / sparring</a><button id="manageConnectionsButton" class="quiet-button" type="button">Coachs et invitations ↗</button></div>
+<label class="search-box"><span aria-hidden="true">⌕</span><input id="athleteSearch" type="search" aria-label="Rechercher un athlète ou un groupe"></label><div id="athleteList" class="athlete-list"></div>
+<div class="sidebar-footer"><a class="roster-shortcut" href="roster.html#groupes">Gérer les groupes</a><a class="roster-shortcut" href="roster.html">Préparer une liste combat / sparring</a><button id="manageConnectionsButton" class="quiet-button" type="button">Coachs et invitations ↗</button></div>
 </aside></dialog>
+<dialog id="dayAddDialog" class="app-dialog day-add-dialog" aria-labelledby="dayAddTitle" aria-describedby="dayAddContext"><div class="dialog-heading"><div><h2 id="dayAddTitle" tabindex="-1"></h2><p id="dayAddContext" class="muted"></p></div><button id="closeDayAdd" class="close-button" type="button" aria-label="Fermer">×</button></div><div id="dayAddOptions" class="day-add-options"></div></dialog>
 <dialog id="sessionDialog" class="app-dialog wide-dialog" aria-labelledby="sessionDialogTitle"><div id="sessionDialogContent"></div></dialog>
 <dialog id="detailDialog" class="app-dialog detail-dialog" aria-labelledby="detailTitle"><div id="detailContent"></div></dialog>
 <dialog id="eventDialog" class="app-dialog" aria-labelledby="eventDialogTitle"><div id="eventDialogContent"></div></dialog>

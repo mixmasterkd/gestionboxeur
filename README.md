@@ -35,7 +35,21 @@ npm run preview
 
 - `check` vérifie la syntaxe JavaScript, les identifiants HTML, les dialogues accessibles et les balises mobiles.
 - `test` vérifie les dates, les calculs de blocs, les parcours d'interface et les protections entre comptes.
-- `build` produit le site statique dans `dist/` puis vérifie les styles compilés des cinq pages à 375 et 1280 px; `preview` permet de consulter cette construction localement. Chaque famille de pages possède une entrée CSS ordonnée (`account-page.css`, `planning-page.css`, `roster-page.css`) pour empêcher l'extraction des styles partagés de remettre les anciennes règles après le thème.
+- `build` produit le site statique dans `dist/` puis vérifie les styles compilés des pages à 375 et 1280 px; `preview` permet de consulter cette construction localement. Chaque famille de pages possède une entrée CSS ordonnée (`account-page.css`, `planning-page.css`, `roster-page.css`) pour empêcher l'extraction des styles partagés de remettre les anciennes règles après le thème.
+
+## Groupes et outils
+
+Les groupes se gèrent dans **Mes athlètes → Groupes** : nom, membres et suppression. Le profil personnel du coach figure sous son propre nom dans la sélection, avec les comptes athlètes associés qui autorisent la planification. Le menu **Changer** distingue Athlètes et Groupes; un calendrier de groupe affiche uniquement ses séances et notes communes.
+
+La création de séance propose un champ **Destinataires** : une personne, plusieurs personnes, des groupes, ou une sélection mixte. Une personne sélectionnée plusieurs fois ne reçoit qu’une séance. Une seule personne sans groupe conserve une séance individuelle; une sélection collective produit un contenu commun géré par son auteur, avec une réalisation et un bilan propres à chaque athlète. Ajouter un membre attribue les séances à venir; le retrait enlève seulement les séances à venir non réalisées, sans bilan, sans autre source d’attribution et pour lesquelles le coach conserve le droit de modification. Les séances passées et les bilans sont conservés. Les comparaisons de dates de cette règle utilisent le jour courant de la base de données.
+
+La nouvelle entrée **Outils** ouvre les timers de boxe et à intervalles, les compteurs de coups bleu/rouge à appuis simultanés, et le compteur manuel de pas par minute. Les timers proposent pause, reprise, plein écran et signaux sonores; le timer de boxe mémorise le choix Boxe/Classique. Garder la page ouverte pour les signaux; le maintien de l’écran dépend du navigateur. L’aperçu local est disponible sur `tools.html?demo=coach` ou `tools.html?demo=athlete`.
+
+Les notes peuvent également être attribuées à un groupe ou à plusieurs personnes : leur auteur gère le contenu commun. L’ajout d’un membre lui attribue les notes à venir ou encore en cours. Le retrait d’un membre conserve les notes déjà commencées et retire les notes futures sans autre source d’attribution, tant que les droits de modification existent. Les notes communes sont partagées et verrouillées; les notes individuelles gardent leurs réglages indépendants de confidentialité et de verrouillage.
+
+Les ouvertures de création de séance, sujet du journal et sélection du calendrier ciblent un titre neutre sur mobile : le clavier apparaît en touchant un champ. Les cartes de séance utilisent une fine bande colorée. L’éditeur propose un menu de pastilles pour les couleurs de texte, avec quatre pastels, six couleurs de base et le retour à la couleur normale. Les notes s’adaptent au contenu avec un aperçu de texte compact; seul un élément verrouillé affiche un cadenas. Chaque journée contient un seul bouton **+**, ouvrant **Bibliothèque**, **Planifier une séance** et **Notes** avec la date et le calendrier choisis. Les boutons en haut du calendrier restent accessibles.
+
+**Activation des groupes sur une base connectée :** appliquer les migrations `20260930183034_training_groups.sql`, `20260930191243_shared_calendar_notes.sql` et `20260930191446_workout_text_base_colors.sql`, dans cet ordre, avant de publier cette version. Elles ont été testées avec PGlite puis appliquées au projet distant le 30 septembre 2026, après sauvegarde et vérification des données existantes. Sur une base où ces migrations sont absentes, la planification individuelle reste disponible et les groupes indiquent leur indisponibilité. L’aperçu de planification contient un groupe fictif et les mutations restent en mémoire.
 
 ## Parcours
 

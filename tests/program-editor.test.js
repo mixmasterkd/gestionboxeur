@@ -270,6 +270,10 @@ test('help documents the agreed units, effort ranges, blank group boundary, fina
   const {mount}=fixture();const help=mount.querySelector('.pe-help');assert.equal(help.open,false);
   for(const pattern of [/m signifie toujours minutes/,/400mtr/,/1'30"/,/120-150 bpm/,/5:30-6:30\/km/,/Z2-Z4/,/RPE 6\/10/,/Vert-Jaune/,/vraie ligne vide/,/dernier repos/,/Un seul niveau/,/sans bandes intermédiaires/,/colorier une phrase ne change pas l’effort/,/ligne juste avant le nombre/,/Shadow\n3 rounds\n- 3min/])assert.match(help.textContent,pattern);
   assert.equal(mount.querySelector('.pe-text-input').textContent,'');
+  const children=[...mount.children],surface=mount.querySelector('.pe-text-input'),formatting=mount.querySelector('.pe-formatbar');
+  assert.ok(children.indexOf(formatting)<children.indexOf(surface));assert.ok(children.indexOf(surface)<children.indexOf(help));
+  const colors=formatting.querySelector('.pe-color-picker');assert.equal(colors.querySelector('button').getAttribute('aria-label'),'Couleur du texte');
+  assert.equal(colors.querySelectorAll('[role=menuitemradio]').length,11);assert.equal(colors.querySelector('[role=menu]').textContent,'');
 });
 
 test('opening and formatting a legacy round session never adds its historically omitted final rest',()=>{
@@ -289,7 +293,7 @@ test('legacy nested blocks and additional fields are preserved simply by opening
 
 test('formatting remains independent from effort and undo restores inserted text and its previous plan',()=>{
   const {editor,mount}=fixture({sport:'boxing'});write(editor,'Conseil important\n- Sac 3min @ RPE 6');const initial=editor.getValue();
-  editor.textInput.select(0,'Conseil important'.length);mount.querySelector('[aria-label="Texte corail"]').click();mount.querySelector('[aria-label=Gras]').click();
+  editor.textInput.select(0,'Conseil important'.length);mount.querySelector('.pe-color-trigger').click();mount.querySelector('.pe-color-option[data-color=coral]').click();mount.querySelector('[aria-label=Gras]').click();
   assert.deepEqual(editor.getValue(),initial);assert.ok(editor.getDocument().marks.some(mark=>mark.bold&&mark.color==='coral'));
   const styled=editor.getDocument();editor.textInput.select(styled.text.length);click(mount,'add-step');fill(mount,'duration','1min');click(mount,'apply-mini');
   assert.equal(summarizeBlocks(editor.getValue()).duration_seconds,240);
@@ -340,4 +344,31 @@ test('the repetitions measure accepts an arbitrary optional name and emits the c
   assert.equal(editor.getDocument().text,name?`- ${name} 10x`:'- 10x');
   assert.equal(editor.getValue()[0].repetitions,10);
  }
+});
+
+test('visual colors preserve selections after focus, repeat choices, reset normal and support undo',()=>{
+  const {editor,mount}=fixture();write(editor,'Première Seconde');const trigger=mount.querySelector('.pe-color-trigger'),menu=mount.querySelector('.pe-color-menu');
+  const choose=color=>mount.querySelector(`.pe-color-option[data-color="${color}"]`).click();
+  editor.textInput.select(0,8);trigger.dispatchEvent(new window.Event('pointerdown'));trigger.click();window.getSelection().removeAllRanges();
+  assert.equal(menu.hidden,false);choose('red');assert.deepEqual(editor.getDocument().marks,[{start:0,end:8,color:'red'}]);assert.equal(menu.hidden,true);
+  assert.equal(trigger.querySelector('.pe-color-swatch').dataset.color,'red');assert.deepEqual(editor.textInput.capture(),{start:0,end:8});
+  editor.textInput.select(9,16);trigger.dispatchEvent(new window.Event('pointerdown'));trigger.click();window.getSelection().removeAllRanges();
+  choose('red');assert.deepEqual(editor.getDocument().marks,[{start:0,end:8,color:'red'},{start:9,end:16,color:'red'}]);
+  editor.textInput.select(0,8);trigger.click();choose('normal');assert.deepEqual(editor.getDocument().marks,[{start:9,end:16,color:'red'}]);
+  mount.querySelector('[aria-label="Annuler la modification"]').click();assert.equal(editor.getDocument().marks[0].color,'red');
+  trigger.click();click(mount,'add-step');assert.equal(trigger.disabled,true);assert.equal(menu.hidden,true);cancel(mount);assert.equal(trigger.disabled,false);
+});
+
+test('color palette supports keyboard navigation, Escape, Tab and outside dismissal without changing text',()=>{
+  const {editor,mount}=fixture();write(editor,'Conseil');editor.textInput.select(0,7);
+  const trigger=mount.querySelector('.pe-color-trigger'),menu=mount.querySelector('.pe-color-menu'),options=[...menu.querySelectorAll('button')];
+  const key=(node,key,extra={})=>node.dispatchEvent(new window.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,...extra}));
+  trigger.focus();key(trigger,'ArrowDown');assert.equal(document.activeElement,options[0]);
+  key(menu,'End');assert.equal(document.activeElement,options.at(-1));key(menu,'ArrowRight');assert.equal(document.activeElement,options[0]);
+  key(menu,'ArrowLeft');assert.equal(document.activeElement,options.at(-1));key(menu,'Home');assert.equal(document.activeElement,options[0]);
+  key(menu,'Escape');assert.equal(menu.hidden,true);assert.equal(document.activeElement,trigger);assert.equal(trigger.getAttribute('aria-expanded'),'false');
+  trigger.click();key(menu,'Tab');assert.equal(menu.hidden,true);assert.equal(document.activeElement.getAttribute('aria-label'),'Annuler la modification');
+  trigger.click();document.body.dispatchEvent(new window.Event('pointerdown',{bubbles:true}));assert.equal(menu.hidden,true);
+  trigger.click();editor.surface.focus();assert.equal(menu.hidden,true);assert.deepEqual(editor.getDocument().marks,[]);
+  editor.destroy();document.dispatchEvent(new window.Event('selectionchange'));assert.equal(mount.childElementCount,0);
 });

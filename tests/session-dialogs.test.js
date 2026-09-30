@@ -80,6 +80,21 @@ test('note color choices have accessible names without visible labels and the se
   assert.doesNotMatch(document.querySelector('#detailDialog').textContent, /événement/i);
 });
 
+test('workout banner color uses the note palette and survives saving and editing', async () => {
+  let payload;
+  const { ui } = fixture({ api: { saveSession: async data => { payload = data; } } });
+  const original={...session(),workout_document:{version:1,text:'Travail technique',marks:[],banner_color:'coral'}};
+  ui.editSession(original);
+  const palette=document.querySelector('.session-banner-colors');
+  assert.equal(palette.querySelector('legend').textContent,'Couleur du bandeau');
+  assert.equal(palette.querySelector('input:checked').value,'coral');
+  assert.ok(document.querySelector('.program-editor').compareDocumentPosition(palette)&Node.DOCUMENT_POSITION_FOLLOWING);
+  palette.querySelector('input[value="coral"]').checked=false;palette.querySelector('input[value="mint"]').checked=true;submit('sessionDialog');await tick();
+  assert.equal(payload.workout_document.banner_color,'mint');
+  ui.editSession({...original,workout_document:payload.workout_document});
+  assert.equal(document.querySelector('.session-banner-colors input:checked').value,'mint');
+});
+
 test('session update sends only editable fields, preserves order and optimistic version', async () => {
   let payload, previous;
   const { ui, refreshed } = fixture({ api: { saveSession: async (p, s) => { payload = p; previous = s; } } });
@@ -410,8 +425,10 @@ test('calendar note privacy and edit lock are independent accessible icon contro
   assert.equal(privateControl.checked,false);assert.equal(lock.checked,false);
   assert.match(privateControl.getAttribute('aria-label'),/Privé/);
   assert.ok(privateControl.closest('label').querySelector('svg'));
-  assert.ok(lock.closest('label').querySelector('svg'));
-  assert.equal(lock.closest('label').textContent,'');
+  assert.equal(lock.closest('label').querySelector('svg'),null);
+  assert.equal(lock.closest('label').textContent,'Verrouiller');
+  lock.checked=true;lock.dispatchEvent(new window.Event('change'));assert.ok(lock.closest('label').querySelector('svg'));
+  lock.checked=false;lock.dispatchEvent(new window.Event('change'));
   document.querySelector('#eventDialog [name=title]').value='Suivi technique';
   document.querySelector('#eventDialog [name=notes]').value='À revoir ensemble';
   privateControl.checked=true;privateControl.dispatchEvent(new window.Event('change',{bubbles:true}));
@@ -479,4 +496,135 @@ test('failed library updates preserve drafts and account changes prevent writes 
  ui.editTemplate(template,{onClose:()=>returns++});writeTraining('Mon texte');submit('sessionDialog');await tick();
  assert.equal(document.getElementById('sessionDialog').open,true);assert.equal(document.querySelector('.pe-text-input').textContent,'Mon texte');assert.match(document.querySelector('.form-error').textContent,/modifié ailleurs/);assert.equal(returns,0);
  state.user.id='other';submit('sessionDialog');await tick();assert.equal(writes,1);document.getElementById('sessionDialog').close();await tick();assert.equal(returns,0);
+});
+
+
+test('coach chooses people and groups while own name is a normal recipient',async()=>{
+ let saved;
+ const {ui,state}=fixture({api:{saveSession:async(payload)=>{saved=payload;}}});
+ state.groupsAvailable=true;state.athletes=[state.selectedAthlete,{id:'own',user_id:'coach1',first_name:'Camille'}];
+ state.relations=[{athlete_id:'a1',status:'accepted',can_view_calendar:true,can_add_sessions:true}];
+ state.groups=[{id:'g1',name:'Compétition',athlete_ids:['a1','own']}];
+ ui.editSession();document.querySelector('[name="title"]').value='Travail commun';
+ assert.match(document.querySelector('.recipient-picker').textContent,/Camille/);
+ const group=document.querySelector('[name="recipient_group"]');group.checked=true;group.dispatchEvent(new window.Event('change'));
+ submit('sessionDialog');await tick();
+ assert.deepEqual(saved.group_ids,['g1']);assert.deepEqual(saved.athlete_ids,['a1']);
+});
+
+test('a group calendar creates a common session without an individual calendar and rejects no recipients',async()=>{
+ let saved;
+ const {ui,state}=fixture({api:{saveSession:async(p)=>{saved=p;},loadGroupCalendar:async()=>({sessions:[]})}});
+ state.groupsAvailable=true;state.selectedGroup={id:'g1',name:'Équipe',athlete_ids:[]};state.groups=[state.selectedGroup];state.selectedAthlete=null;
+ ui.editSession();document.querySelector('[name="title"]').value='Boxe';
+ submit('sessionDialog');await tick();assert.deepEqual(saved.group_ids,['g1']);assert.deepEqual(saved.athlete_ids,[]);
+ assert.equal(saved.athlete_id,null);
+});
+
+test('editing an individual shared copy loads the common version and saves that version',async()=>{
+ const master={...session(),id:'master',athlete_id:null,is_group_session:true,shared_session_id:'master',group_ids:['g1'],athlete_ids:[],updated_at:'master-v2'};
+ let savedExisting;
+ const {ui,state}=fixture({api:{getSharedSession:async()=>master,saveSession:async(_p,existing)=>{savedExisting=existing;}}});
+ state.groupsAvailable=true;state.groups=[{id:'g1',name:'Équipe',athlete_ids:['a1']}];
+ await ui.editSession({...session(),shared_session_id:'master'});
+ assert.match(document.querySelector('.session-shared-note').textContent,/tous les destinataires/);
+ submit('sessionDialog');await tick();assert.equal(savedExisting.id,'master');assert.equal(savedExisting.updated_at,'master-v2');
+});
+
+
+test('a delayed common-session load cannot replace a newer draft in the same calendar',async()=>{
+ let resolve;
+ const {ui}=fixture({api:{getSharedSession:()=>new Promise(r=>{resolve=r;})}});
+ const loading=ui.editSession({...session(),shared_session_id:'master'});
+ ui.editSession();document.querySelector('#sessionDialog [name="title"]').value='Mon nouveau brouillon';
+ resolve({...session(),id:'master',athlete_id:null,is_group_session:true,shared_session_id:'master'});await loading;
+ assert.equal(document.querySelector('#sessionDialog [name="title"]').value,'Mon nouveau brouillon');
+});
+
+function enableNoteGroups(state) {
+  state.groupsAvailable=true;
+  state.athletes=[state.selectedAthlete,{id:'own',user_id:state.user.id,first_name:'Camille'}].filter(Boolean);
+  state.relations=[{athlete_id:'a1',status:'accepted',can_view_calendar:true,can_add_sessions:true}];
+  state.groups=[{id:'g1',name:'Équipe',athlete_ids:['a1']}];
+}
+
+test('a group calendar can create a shared note for a date range without an athlete context',async()=>{
+ let saved;
+ const {ui,state}=fixture({api:{saveEvent:async p=>{saved=p;}}});enableNoteGroups(state);
+ state.selectedGroup=state.groups[0];state.selectedAthlete=null;
+ ui.editEvent(null,'2026-10-03');
+ document.querySelector('#eventDialog [name=title]').value='Apporter les gants';
+ document.querySelector('#eventDialog [name=end_date]').value='2026-10-05';
+ document.querySelector('#eventDialog [name=notes]').value='Pour les exercices en équipe.';
+ assert.equal(document.querySelector('[name=is_private]').closest('label').hidden,true);
+ assert.match(document.querySelector('.event-visibility').textContent,/modifiable seulement par son auteur/);
+ submit('eventDialog');await tick();
+ assert.deepEqual(saved.group_ids,['g1']);assert.deepEqual(saved.athlete_ids,[]);
+ assert.equal(saved.athlete_id,null);assert.equal(saved.date,'2026-10-03');assert.equal(saved.end_date,'2026-10-05');
+ assert.equal(saved.is_private,false);assert.equal(saved.is_locked,true);
+ ui.showEvent({...saved,id:'master',shared_event_id:'master',is_group_event:true});
+ assert.match(document.querySelector('#detailContent').textContent,/Note commune/);
+});
+
+test('switching a private draft to group recipients shares common content while preserving the individual preference',async()=>{
+ let saved;
+ const {ui,state}=fixture({api:{saveEvent:async p=>{saved=p;}}});enableNoteGroups(state);
+ ui.editEvent();document.querySelector('#eventDialog [name=title]').value='Note commune';
+ document.querySelector('[name=is_private]').click();assert.equal(document.querySelector('[name=is_private]').checked,true);
+ const group=document.querySelector('[name=recipient_group]');group.checked=true;group.dispatchEvent(new window.Event('change'));
+ assert.equal(document.querySelector('[name=is_private]').checked,true);assert.equal(document.querySelector('[name=is_private]').closest('label').hidden,true);
+ submit('eventDialog');await tick();assert.equal(saved.is_private,false);assert.equal(saved.is_locked,true);
+ assert.deepEqual(saved.group_ids,['g1']);assert.deepEqual(saved.athlete_ids,['a1']);
+});
+
+test('shared note copy edits load the authoritative master and preserve its optimistic version',async()=>{
+ const note={id:'copy',athlete_id:'a1',created_by:'coach1',title:'Note',category:'note',date:'2026-10-03',shared_event_id:'master',is_locked:true,notes:'Texte'};
+ const master={...note,id:'master',athlete_id:null,is_group_event:true,group_ids:['g1'],athlete_ids:[],updated_at:'master-v2'};
+ let saved;
+ const {ui,state}=fixture({api:{getSharedEvent:async()=>master,saveEvent:async(p,existing)=>{saved={p,existing};}}});enableNoteGroups(state);
+ await ui.editEvent(note);document.querySelector('#eventDialog [name=title]').value='Correction';
+ submit('eventDialog');await tick();assert.equal(saved.existing.id,'master');assert.equal(saved.existing.updated_at,'master-v2');assert.equal(saved.p.title,'Correction');
+});
+
+test('late common note loading never replaces a newer note draft and obsolete context never saves',async()=>{
+ let resolve,writes=0;
+ const {ui,state}=fixture({api:{getSharedEvent:()=>new Promise(r=>{resolve=r;}),saveEvent:async()=>{writes++;}}});enableNoteGroups(state);
+ const loading=ui.editEvent({id:'copy',athlete_id:'a1',shared_event_id:'master',created_by:'coach1'});
+ ui.editEvent();document.querySelector('#eventDialog [name=title]').value='Brouillon récent';
+ resolve({id:'master',athlete_id:null,shared_event_id:'master',is_group_event:true,created_by:'coach1',title:'Ancien',date:'2026-10-03',group_ids:['g1'],athlete_ids:[]});await loading;
+ assert.equal(document.querySelector('#eventDialog [name=title]').value,'Brouillon récent');
+ state.selectedGroup=state.groups[0];state.selectedAthlete=null;submit('eventDialog');await tick();assert.equal(writes,0);
+});
+
+test('unlocked details display no padlock and locked details retain their state',()=>{
+ const {ui}=fixture();
+ ui.showSession({...session(),is_locked:false});assert.equal(document.querySelector('#detailContent .access-badge'),null);
+ ui.showSession({...session(),is_locked:true});assert.match(document.querySelector('#detailContent .access-badge').getAttribute('aria-label'),/Verrouillé/);
+ const event={id:'note',athlete_id:'a1',created_by:'coach1',title:'Note',date:'2026-10-03',notes:'',is_locked:false,is_private:false};
+ ui.showEvent(event);assert.equal(document.querySelector('#detailContent .access-badge'),null);
+ ui.showEvent({...event,is_private:true});assert.equal(document.querySelectorAll('#detailContent .access-badge').length,1);assert.match(document.querySelector('#detailContent .access-badge').getAttribute('aria-label'),/Privé/);
+});
+
+
+test('returning from group recipients restores a private draft with a consistent visibility control',()=>{
+ const {ui,state}=fixture();enableNoteGroups(state);ui.editEvent();
+ const privacy=document.querySelector('[name=is_private]');privacy.click();
+ const group=document.querySelector('[name=recipient_group]');group.click();assert.equal(privacy.closest('label').hidden,true);
+ group.click();assert.equal(privacy.closest('label').hidden,false);assert.equal(privacy.checked,true);
+ assert.equal(privacy.closest('label').dataset.active,'true');assert.match(document.querySelector('.event-visibility').textContent,/seulement par toi/);
+});
+
+for(const kind of ['session','event'])test(`author can delete a multi-person ${kind} from an individual copy using the latest master`,async()=>{
+ const base=kind==='session'?session():{id:'e1',athlete_id:'a1',created_by:'coach1',title:'Consigne',category:'note',date:'2026-10-03',notes:''};
+ const sharedKey=kind==='session'?'shared_session_id':'shared_event_id',groupKey=kind==='session'?'is_group_session':'is_group_event';
+ const copy={...base,[sharedKey]:'master',is_locked:true};
+ const master={...base,id:'master',athlete_id:null,[sharedKey]:'master',[groupKey]:true,athlete_ids:['a1','a2'],group_ids:[],updated_at:'latest'};
+ let deleted;
+ const {ui}=fixture({api:{getSharedSession:async()=>master,getSharedEvent:async()=>master,deleteSession:async item=>{deleted=item;},deleteEvent:async item=>{deleted=item;}}});
+ const confirmation=document.createElement('dialog');confirmation.id='confirmDialog';confirmation.innerHTML='<h2 id="confirmTitle"></h2><p id="confirmText"></p><button id="confirmYes"></button>';document.body.append(confirmation);
+ if(kind==='session')ui.showSession(copy);else ui.showEvent(copy);
+ const remove=[...document.querySelectorAll('#detailContent button')].find(b=>b.textContent.startsWith('Supprimer'));
+ assert.ok(remove);remove.click();await tick();assert.equal(confirmation.open,true);assert.match(document.querySelector('#confirmText').textContent,/destinataires/);
+ confirmation.close('confirm');await tick();
+ assert.equal(deleted.id,'master');assert.equal(deleted.updated_at,'latest');assert.equal(document.querySelector('#detailDialog').open,false);
 });

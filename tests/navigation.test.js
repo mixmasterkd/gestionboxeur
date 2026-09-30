@@ -29,7 +29,7 @@ test('athlete navigation exposes their calendar, coaches and profile without coa
   try {
     assert.equal(ui.banners, 1, 'return-to-admin banner can mount before account loading');
     ui.mount({ role: 'athlete', isAdmin: false });
-    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes coachs', 'Mon profil']);
+    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes coachs', 'Outils', 'Mon profil']);
     assert.equal(ui.link('Mon profil').href, 'https://example.test/boxing/profile.html');
     assert.equal(ui.link('Calendrier').getAttribute('aria-current'), 'page');
     assert.equal(ui.window.document.body.dataset.accountRole, 'athlete');
@@ -43,7 +43,7 @@ test('admin navigation resolves routes correctly from the nested administration 
     ui.mount({ role: 'coach', isAdmin: true });
     assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/roster.html');
     assert.equal(ui.link('Mes listes'), undefined);
-    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Mon profil', 'Administration']);
+    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Outils', 'Mon profil', 'Administration']);
     assert.equal(ui.link('Mon profil').href, 'https://example.test/boxing/profile.html');
     assert.equal(ui.link('Administration').getAttribute('aria-current'), 'page');
     ui.mount({ role: 'coach', isAdmin: true });
@@ -56,7 +56,7 @@ test('coach navigation has one athlete entry and keeps old list URLs on that tab
     const ui = navigation(`https://example.test${path}`);
     try {
       ui.mount({ role: 'coach', isAdmin: false });
-      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Mon profil']);
+      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Outils', 'Mon profil']);
       assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/roster.html');
       assert.equal(ui.link('Mes athlètes').getAttribute('aria-current'), 'page');
       assert.equal(ui.window.document.querySelectorAll('[aria-current="page"]').length, 1);
@@ -163,4 +163,20 @@ test('coach library opens once through its deep link without Explorer', () => {
     assert.equal(doc.querySelector('#spaceNavigation'),null);
 
   } finally { ui.window.happyDOM.abort(); }
+});
+
+
+test('tools are active for both roles and keep local previews isolated across routes', () => {
+  for (const role of ['coach', 'athlete']) {
+    const ui = navigation(`https://example.test/boxing/tools.html?demo=${role}`);
+    try {
+      ui.mount({ role });
+      assert.equal(ui.link('Outils').getAttribute('aria-current'), 'page');
+      assert.equal(ui.link('Outils').href, `https://example.test/boxing/tools.html?demo=${role}`);
+      assert.equal(ui.link('Calendrier').href, `https://example.test/boxing/planning.html?demo=${role}`);
+      assert.equal(ui.link('Outils').title, '');
+      assert.ok(ui.link('Outils').querySelector('svg[aria-hidden="true"]'));
+      assert.equal(ui.window.document.querySelectorAll('[aria-current="page"]').length, 1);
+    } finally { ui.window.happyDOM.abort(); }
+  }
 });

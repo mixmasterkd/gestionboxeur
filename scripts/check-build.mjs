@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { Window } from 'happy-dom';
 
-const pages = ['roster.html', 'login.html', 'planning.html', 'profile.html', 'admin/index.html'];
+const pages = ['roster.html', 'login.html', 'planning.html', 'profile.html', 'tools.html', 'admin/index.html'];
 for (const page of pages) {
   const file = resolve('dist', page);
   const html = await readFile(file, 'utf8');
@@ -18,6 +18,14 @@ for (const page of pages) {
         const style = window.document.createElement('style');
         style.textContent = await readFile(resolve(dirname(file), link.getAttribute('href')), 'utf8');
         link.replaceWith(style);
+      }
+      if (page === 'tools.html') {
+        const start = window.document.createElement('button');
+        start.className = 'button primary';
+        window.document.getElementById('toolStage').append(start);
+        const grid = window.document.querySelector('.tools-grid');
+        assert.equal(window.getComputedStyle(grid).display, 'grid', 'tools use an adaptable grid');
+        assert.ok(parseFloat(window.getComputedStyle(grid.querySelector('.tool-card')).minHeight) >= 180, 'tools have large touch targets');
       }
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);
@@ -72,4 +80,4 @@ for (const page of pages) {
     } finally { await window.happyDOM.abort(); }
   }
 }
-console.log('CSS compilé : palette, boutons et règles mobiles vérifiés sur les cinq pages.');
+console.log(`CSS compilé : palette, boutons et règles mobiles vérifiés sur les ${pages.length} pages.`);

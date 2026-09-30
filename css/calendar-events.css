@@ -10,17 +10,18 @@
 .calendar-week > .day > .day-content { grid-row: 3; }
 .calendar-week > .day > .day-actions { grid-row: 4; display: flex; flex-direction: column; }
 .day-actions .add-day + .add-day { margin-top: 0; }
-.calendar-event-lanes { grid-column: 1 / -1; grid-row: 2; z-index: 1; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-auto-rows: minmax(44px,auto); gap: 5px 7px; padding: 0 5px 9px; min-width: 0; }
+.calendar-event-lanes { grid-column: 1 / -1; grid-row: 2; z-index: 1; display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-auto-rows: auto; gap: 5px 7px; padding: 0 5px 9px; min-width: 0; }
 :root .calendar-spanning .event-card { display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; margin: 0 0 8px; padding: 4px 5px 4px 8px; border: 1px solid var(--event-border); border-radius: 8px; background: var(--event-bg); color: var(--event-ink); text-align: left; overflow: hidden; }
 :root .calendar-event-lanes > .event-card { margin: 0; }
-:root .calendar-spanning .event-open { flex: 1; min-width: 0; min-height: 36px; padding: 2px 0; background: transparent; border: 0; border-radius: 4px; color: inherit; text-align: left; line-height: 1.4; font-size: 11px; }
+:root .calendar-spanning .event-open { flex: 1; min-width: 0; min-height: 0; padding: 2px 0; background: transparent; border: 0; border-radius: 4px; color: inherit; text-align: left; line-height: 1.4; font-size: 11px; }
 .event-open strong { overflow-wrap: anywhere; font-size: inherit; }
+.event-preview { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; margin-top: 2px; font-weight: 400; }
 .event-date-range { display: block; margin-top: 2px; font-size: 10px; font-weight: 450; }
 .event-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; }
 :root .calendar-access-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; padding: 3px; width: 22px; height: 22px; border-radius: 5px; }
 .calendar-access-icon svg { width: 15px; height: 15px; }
 :root .event-controls .calendar-access-icon { background: transparent; color: inherit; width: 19px; padding: 2px; }
-:root .event-drag-handle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; min-height: 36px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; font-size: 21px; cursor: grab; touch-action: none; }
+:root .event-drag-handle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; min-height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: inherit; font-size: 21px; cursor: grab; touch-action: none; }
 .event-drag-handle:hover { background: #ffffff60; }
 .event-drag-handle:active { cursor: grabbing; }
 .event-span.continues-before { border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
@@ -31,27 +32,73 @@
 .calendar-spanning.month .calendar-week:last-child { margin-bottom: 0; }
 .calendar-spanning.month .calendar-event-lanes { column-gap: 1px; padding: 0 4px 5px; }
 .calendar-spanning.month .event-open { font-size: 10px; }
+
+/* A thin color strip identifies each training session without tinting its title. */
+:root .calendar-spanning .day-content { display: grid; grid-template-columns: minmax(0,1fr); align-content: start; gap: 8px; padding-bottom: 10px; }
+:root .calendar-spanning .day-content > .event-card,
+:root .calendar-spanning .day-content > .empty-day { grid-column: 1 / -1; }
+:root .calendar-spanning .day-content > .session-card {
+  min-width: 0; margin: 0; padding: 0 9px 10px; overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--white); box-shadow: 0 4px 12px #00000014;
+}
+:root .calendar-spanning .day-content > .session-card:hover { border-color: var(--muted); box-shadow: 0 6px 16px #00000020; }
+:root .calendar-spanning .day-content > .session-card.is-completed { border-color: color-mix(in srgb,var(--line) 55%,#8fb59b 45%); }
+.session-card-header {
+  margin: 0 -9px 8px; padding: 7px 9px 6px; border-top: 4px solid var(--event-border);
+  background: transparent; color: var(--ink);
+}
+.session-card-header .session-top { min-width: 0; }
+.session-card-header .session-title { color: var(--ink); padding: 7px 0 1px; }
+
 @media(min-width:801px) {
+  :root .calendar-spanning.today-view .day-content:has(> .session-card + .session-card) { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .calendar-event-lanes .event-open strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .calendar-event-lanes .event-date-range { white-space: nowrap; }
-  .calendar-spanning .day-content > .event-card:not(.event-span) { flex-wrap: wrap; }
-  .calendar-spanning .day-content > .event-card:not(.event-span) .event-open { flex-basis: 100%; }
-  .calendar-spanning .day-content > .event-card:not(.event-span) .event-controls { margin-left: auto; }
+}
+@media(min-width:681px) and (max-width:800px) {
+  :root .calendar-spanning:not(.month) .day-content:has(> .session-card + .session-card) { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:800px) {
   .calendar-spanning:not(.month) .calendar-week { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
   .calendar-spanning:not(.month) .calendar-week > .day { display: flex; }
   .calendar-spanning:not(.month) .calendar-event-lanes { display: none; }
   :root .calendar-spanning:not(.month) .event-mobile-span { display: flex; }
-  :root .calendar-spanning:not(.month) .event-open { min-height: 44px; font-size: 12px; }
-  :root .calendar-spanning:not(.month) .event-drag-handle { width: 44px; flex-basis: 44px; min-height: 44px; }
+  :root .calendar-spanning:not(.month) .event-open { min-height: 0; font-size: 12px; }
+  :root .calendar-spanning:not(.month) .event-drag-handle { width: 32px; flex-basis: 32px; min-height: 30px; }
   .calendar-spanning.month .calendar-week > .day { display: grid; }
-  .calendar-spanning.month .event-card { flex-wrap: wrap; gap: 1px; }
-  :root .calendar-spanning.month .event-open { flex-basis: 100%; min-height: 26px; font-size: 9px; }
+  .calendar-spanning.month .event-card { gap: 1px; padding: 3px; }
+  :root .calendar-spanning.month .event-open { min-height: 0; font-size: 9px; }
   .calendar-spanning.month .event-open strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .calendar-spanning.month .event-date-range { font-size: 8px; }
-  .calendar-spanning.month .event-controls { margin-left: auto; }
+  .calendar-spanning.month .event-controls { align-self: flex-start; }
+  .calendar-spanning.month .event-preview { -webkit-line-clamp: 1; font-size: 8px; }
   :root .calendar-spanning.month .event-controls .calendar-access-icon { width: 13px; height: 16px; padding: 0; }
   :root .calendar-spanning.month .event-controls .calendar-access-icon svg { width: 12px; height: 12px; }
   :root .calendar-spanning.month .event-drag-handle { display: none; }
+
+  /* Month cells are narrow: keep the color cue and move the access state into a small corner indicator. */
+  :root .calendar-spanning.month .day-content { grid-template-columns: minmax(0,1fr); gap: 3px; padding-bottom: 5px; }
+  :root .calendar-spanning.month .day-content > .session-card { padding: 0 3px 4px; border: 1px solid var(--line); border-radius: 4px; }
+  .calendar-spanning.month .session-card-header { position: relative; margin: 0 -3px 2px; padding: 3px 19px 3px 3px; min-height: 22px; }
+  .calendar-spanning.month .session-card-header .session-top { position: absolute; top: 2px; right: 2px; margin: 0; }
+  .calendar-spanning.month .session-card-header .sport-tag,
+  .calendar-spanning.month .session-card-header .drag-handle { display: none; }
+  :root .calendar-spanning.month .session-card-header .lock-badge {
+    display: inline-flex; width: 17px; height: 17px; min-width: 17px; padding: 2px;
+    border: 0; border-radius: 4px; background: var(--soft); color: var(--muted);
+  }
+  :root .calendar-spanning.month .session-card-header .lock-badge svg { width: 11px; height: 11px; }
+  .calendar-spanning.month .session-card-header .session-title { min-height: 0; padding: 1px 0; font-size: 9px; line-height: 1.3; }
 }
+
+/* One compact entry point per day; the choices keep their original toolbar icons. */
+:root .day-actions .add-day { font-size: 20px; line-height: 1; }
+:root .day-add-dialog { width: min(360px,calc(100vw - 24px)); max-width: calc(100vw - 24px); padding: 0; }
+.day-add-dialog .dialog-heading { align-items: flex-start; padding: 16px 16px 10px; }
+.day-add-dialog .dialog-heading h2 { font-size: 16px; text-transform: capitalize; }
+.day-add-dialog .dialog-heading p { margin: 5px 0 0; font-size: 12px; }
+.day-add-options { display: grid; gap: 5px; padding: 0 10px 10px; }
+:root .day-add-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 10px 12px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--ink); text-align: left; font-size: 14px; }
+.day-add-option svg { width: 21px; height: 21px; flex: 0 0 21px; }
+:root .day-add-option:hover, :root .day-add-option:focus-visible { background: var(--soft); border-color: var(--line); }

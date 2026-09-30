@@ -291,3 +291,12 @@
  .library-body .template-actions>.button{grid-column:1}
 }
 .library-body .template-grid{align-items:start}
+
+/* An unlocked item offers a text action; the padlock appears only once locked. */
+:root .access-control.lock-control[data-active="false"],:root .session-basics .access-control.lock-control[data-active="false"]{width:auto;min-width:44px;padding:0 10px}
+:root .access-control .lock-action-label{font-size:11px;font-weight:600;white-space:nowrap}
+@media(max-width:620px){
+ .event-access-row{flex-wrap:wrap;gap:8px}
+ .event-access-row .event-visibility{flex:1 1 100%}
+ .event-access-row .access-controls{margin-left:auto}
+}

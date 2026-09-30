@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#24272c">
+  <meta name="description" content="Timers de boxe et à intervalles, compteur de coups et cadence de pas."><title>Outils d’entraînement</title>
+  <link rel="stylesheet" href="css/tools-page.css"><script type="module" src="js/appearance.js"></script>
+</head>
+<body class="tools-page">
+  <a class="skip-link" href="#main">Aller aux outils</a>
+  <header class="topbar"><a class="brand" href="planning.html"><span id="gymBrand">Mon espace</span><span id="gymAddress" class="brand-location"></span></a><nav class="top-actions" aria-label="Mon compte"><span id="accountName"></span><button class="text-button" id="logoutButton" type="button">Déconnexion</button></nav></header>
+  <main id="main" class="tools-main" tabindex="-1">
+    <p id="toolsLoading" class="muted" role="status">Chargement de tes outils…</p>
+    <p id="toolsError" class="form-error" role="alert" hidden></p>
+    <div id="toolsApp" hidden>
+      <section id="toolsMenu" aria-labelledby="toolsTitle">
+        <header class="tools-heading"><p class="eyebrow">À l’entraînement</p><h1 id="toolsTitle">Outils</h1><p>Choisis ton outil et concentre-toi sur ta séance.</p></header>
+        <div class="tools-grid">
+          <button class="tool-card" type="button" data-tool="boxing"><span class="tool-card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2h8M12 2v4m5 1 2-2M12 10v5l3 2"/><circle cx="12" cy="15" r="8"/></svg></span><strong>Timer de boxe</strong><span>Rounds, repos et avertissement à 30 secondes.</span><span class="tool-card-open" aria-hidden="true">Ouvrir ↗</span></button>
+          <button class="tool-card" type="button" data-tool="intervals"><span class="tool-card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a8 8 0 0 1 14-3l2 3M20 3v5h-5M20 16a8 8 0 0 1-14 3l-2-3M4 21v-5h5M12 8v4l3 2"/></svg></span><strong>Timer à intervalles</strong><span>Alterne effort et récupération à ton rythme.</span><span class="tool-card-open" aria-hidden="true">Ouvrir ↗</span></button>
+          <button class="tool-card" type="button" data-tool="punches"><span class="tool-card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="8" height="14" rx="2"/><rect x="14" y="5" width="8" height="14" rx="2"/><path d="M4 12h4m-2-2v4m10-2h4m-2-2v4"/></svg></span><strong>Compteur de coups</strong><span>Coin bleu et coin rouge, même en simultané.</span><span class="tool-card-open" aria-hidden="true">Ouvrir ↗</span></button>
+          <button class="tool-card" type="button" data-tool="steps"><span class="tool-card-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3c3 0 3 8 1 10H4C2 10 4 3 8 3Zm-4 13h5v4H4zm13-7c3 0 5 7 3 10h-5c-2-2-1-10 2-10Zm-2 13h5"/></svg></span><strong>Compteur de pas</strong><span>Un appui par pas pour mesurer ta cadence.</span><span class="tool-card-open" aria-hidden="true">Ouvrir ↗</span></button>
+        </div>
+      </section>
+      <section id="toolDetail" class="tool-detail" aria-labelledby="toolTitle" hidden>
+        <header class="tool-toolbar"><button id="toolsBack" class="button secondary" type="button">← Outils</button><h1 id="toolTitle" tabindex="-1"></h1><button id="toolFullscreen" class="button secondary" type="button" aria-pressed="false">Plein écran</button></header>
+        <div id="toolStage"></div>
+        <p id="toolNotice" class="tool-notice" role="status"></p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="js/tools-page.js"></script>
+</body>
+</html>
