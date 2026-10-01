@@ -1,5 +1,15 @@
 # Base de données
 
+### Outils personnels — 1er octobre 2026
+
+La migration locale `20261001203022_personal_tool_saves.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261001203531`. Elle ajoute seulement `timer_presets` et `bulletin_boards`, sans modifier les tables ni les données existantes (empreintes identiques sur les 26 tables préexistantes après application).
+
+Les timers et notes sont privés au propriétaire Auth, coach ou athlète. RLS obligatoire, aucun accès `anon`, pas de privilège d’UPDATE sur les timers et impossibilité de changer le propriétaire du babillard. Aucun nouveau RPC ni fonction SECURITY DEFINER. `js/tool-saves.js` valide les charges, filtre chaque requête par propriétaire et protège les modifications du babillard avec une révision UUID; lectures et écritures sont sérialisées pour éviter une course lors d’une réouverture. Une version modifiée sur un autre appareil est refusée, sans repli silencieux vers le stockage local.
+
+Vérifications : tests PostgreSQL isolés d’ownership/contraintes/droits, CRUD et conflit de révision sur la base réelle dans une transaction intégralement annulée, aucune note ni timer de test laissé en base. Aucun nouvel avis de sécurité sur ces tables. Les avis préexistants concernent les RPC SECURITY DEFINER historiques, `athlete_invitations` sans politique directe et la protection contre les mots de passe compromis désactivée; ils ne sont pas modifiés par cette livraison. Références : [RPC privilégiés](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable), [table sans politique](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy), [protection des mots de passe](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+
+L’application de cette migration ne publie pas le frontend sur GitHub Pages. Ne pas réappliquer la migration distante sous son horodatage local différent.
+
 **Correctif du 23 septembre 2026 (Toronto)** : `admin-users` version 4 est active avec `verify_jwt=true`. Le mot de passe interne de l'athlète de test fait désormais 67 octets ASCII au lieu de 74, conformément à la limite de 72 constatée dans Auth. La source déployée a été comparée au correctif, et l'appel non authentifié reste refusé (401). Aucune migration ni donnée n'a été modifiée; la connexion réelle via le bouton reste à confirmer. Le paragraphe suivant décrit la publication initiale.
 
 Le projet `opxsaykcofzbufzzzqwz` est à jour depuis le 22 septembre 2026 (heure de Toronto) : les huit migrations locales sont enregistrées, `admin-users` version 3 est active avec `verify_jwt=true`, et la nouvelle interface est publiée sur GitHub Pages. La sauvegarde applicative et sa restauration isolée ont été vérifiées avant la bascule ; les contrôles de conservation et de droits ont réussi sur la base réelle. Aucun compte de test distant n'a été créé pendant cette publication.

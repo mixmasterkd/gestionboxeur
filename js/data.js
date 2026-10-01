@@ -4,6 +4,7 @@ import { client as connectedClient } from './config.js';
 const preview = import.meta.env?.DEV && typeof location !== 'undefined' && ['coach','athlete'].includes(new URL(location.href).searchParams.get('demo'))
   ? await import('./demo-data.js') : null;
 const client = preview?.client || connectedClient;
+export const isDemo = Boolean(preview);
 export const ATHLETE_FIELDS = 'id,user_id,coach_id,first_name,last_name,birth_date,sex,status,weight_kg,is_active';
 export async function result(query) {
   const {data,error}=await query;

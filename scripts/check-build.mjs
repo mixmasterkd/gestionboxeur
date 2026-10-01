@@ -4,8 +4,40 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { Window } from 'happy-dom';
+import { intervalControlsMarkup } from '../js/timer-interval-controls.js';
 
 const pages = ['roster.html', 'login.html', 'planning.html', 'profile.html', 'tools.html', 'admin/index.html'];
+// Validate the deployed subdirectory, not only a server mounted at '/'.
+const siteURL = new URL('https://mixmasterkd.github.io/gestionboxeur/');
+const manifestURL = new URL('manifest.webmanifest', siteURL);
+const manifest = JSON.parse(await readFile('dist/manifest.webmanifest', 'utf8'));
+assert.equal(manifest.name, 'GBoxeur');
+assert.equal(manifest.short_name, 'GBoxeur');
+assert.equal(manifest.display, 'standalone');
+assert.equal(manifest.prefer_related_applications, false);
+for (const key of ['id', 'start_url', 'scope']) assert.equal(new URL(manifest[key], manifestURL).href, siteURL.href, `app ${key} stays inside gestionboxeur/`);
+for (const size of [192, 512]) {
+  const icon = manifest.icons.find(icon => icon.sizes === `${size}x${size}` && icon.type === 'image/png');
+  assert.ok(icon, `install icon ${size}`);
+  const data = await readFile(resolve('dist', icon.src));
+  assert.equal(data.toString('hex', 0, 8), '89504e470d0a1a0a', 'real PNG icon');
+  assert.equal(data.readUInt32BE(16), size); assert.equal(data.readUInt32BE(20), size);
+}
+for (const page of ['index.html', ...pages]) {
+  const window = new Window({settings:{disableJavaScriptEvaluation:true,disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});
+  try {
+    window.document.write(await readFile(resolve('dist', page), 'utf8'));
+    const link = window.document.querySelector('link[rel="manifest"]');
+    assert.ok(link, `${page}: app manifest`);
+    assert.equal(new URL(link.getAttribute('href'), new URL(page, siteURL)).href, manifestURL.href, `${page}: shared app identity`);
+    assert.equal(window.document.querySelector('meta[name="apple-mobile-web-app-title"]')?.content, 'GBoxeur');
+    const apple = window.document.querySelector('link[rel="apple-touch-icon"]');
+    assert.ok(apple, `${page}: iPhone icon`);
+    const data = await readFile(resolve('dist', dirname(page), apple.getAttribute('href')));
+    assert.equal(data.readUInt32BE(16), 180); assert.equal(data.readUInt32BE(20), 180);
+  } finally { await window.happyDOM.abort(); }
+}
+console.log('GBoxeur : manifeste, chemins GitHub Pages et icônes vérifiés sur les 7 pages.');
 for (const page of pages) {
   const file = resolve('dist', page);
   const html = await readFile(file, 'utf8');
@@ -26,6 +58,31 @@ for (const page of pages) {
         const grid = window.document.querySelector('.tools-grid');
         assert.equal(window.getComputedStyle(grid).display, 'grid', 'tools use an adaptable grid');
         assert.ok(parseFloat(window.getComputedStyle(grid.querySelector('.tool-card')).minHeight) >= 180, 'tools have large touch targets');
+        const board=window.document.createElement('div');board.className='timer-board';board.dataset.design='boxing';board.dataset.status='running';board.dataset.phase='work';board.dataset.warning='false';
+        window.document.getElementById('toolStage').append(board);
+        const workingBackground=window.getComputedStyle(board).backgroundImage;
+        board.dataset.warning='true';
+        assert.notEqual(window.getComputedStyle(board).backgroundImage,workingBackground,'the 30-second warning replaces the green background');
+        assert.equal(window.getComputedStyle(board).color,'#29200c','warning uses dark text on yellow');
+        board.dataset.warning='false';board.dataset.phase='rest';
+        assert.notEqual(window.getComputedStyle(board).backgroundImage,workingBackground,'rest has a separate red background');
+        board.dataset.design='intervals';board.dataset.phase='work';board.dataset.colored='true';
+        board.style.setProperty('--interval-color','#25a567');board.style.setProperty('--interval-high-color','#ed9427');board.style.setProperty('--interval-ink','#101722');
+        assert.equal(window.getComputedStyle(board).backgroundColor,'#25a567','interval work uses its assigned intensity');
+        assert.equal(window.getComputedStyle(board).color,'#101722','interval text remains readable in both themes');
+        board.dataset.range='true';
+        assert.match(window.getComputedStyle(board).backgroundImage,/linear-gradient/,'intensity ranges retain both endpoint colors');
+        board.dataset.range='false';board.dataset.phase='rest';board.style.setProperty('--interval-color','#a3a9b2');
+        assert.equal(window.getComputedStyle(board).backgroundColor,'#a3a9b2','interval rest is gray, not boxing red');
+        board.dataset.colored='false';board.dataset.phase='prepare';
+        assert.notEqual(window.getComputedStyle(board).backgroundColor,'#a3a9b2','preparation is not a recovery intensity');
+        const controls=window.document.createElement('div');controls.className='timer-controls-panel';
+        controls.innerHTML=intervalControlsMarkup({rounds:8,series:1});
+        window.document.getElementById('toolStage').append(controls);
+        const unit=controls.querySelector('[data-unit="M"]');unit.setAttribute('aria-pressed','true');
+        assert.ok(parseFloat(window.getComputedStyle(unit).minWidth)>=34,'unit toggles keep a usable target despite their compact appearance');
+        assert.equal(window.getComputedStyle(controls.querySelector('#timerAdvancedPanel')).display,'none','the inactive mode never leaks into the base panel');
+        assert.equal(window.getComputedStyle(controls.querySelector('.interval-mode-tabs')).gridTemplateColumns,'repeat(2,minmax(0,1fr))','Base and Advanced stay side by side');
       }
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);

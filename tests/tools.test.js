@@ -6,15 +6,20 @@ import { RoundTimer, StepCounter, makePhases, formatTime, timerCue } from '../js
 import { mountTools } from '../js/tools.js';
 
 const html = await readFile(new URL('../tools.html', import.meta.url), 'utf8');
-function fixture(saved) {
+function fixture(saved, { setupWindow = () => {}, ...options } = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
   window.document.write(html);
+  setupWindow(window);
   if (saved) window.localStorage.setItem('gestionboxeur:tools:v1', JSON.stringify(saved));
   let time = 0;
   const root = window.document.getElementById('toolsApp');
-  const ui = mountTools(root, { now: () => time, autoTick: false });
+  const ui = mountTools(root, { now: () => time, autoTick: false, ...options });
   return { window, ui, $: id => window.document.getElementById(id), advance: ms => { time += ms; ui.tick(); }, async close() { ui.destroy(); await window.happyDOM.abort(); } };
 }
+const settle = () => new Promise(resolve => setImmediate(resolve));
+const change = (app, element) => element.dispatchEvent(new app.window.Event('change', { bubbles: true }));
+const selectDesign = (app, design) => { app.$('timerDesign').value = design; change(app, app.$('timerDesign')); };
+const boxingConfig = { rounds: 2, work: 120, rest: 30, preparation: 10, warning: true };
 
 test('rounds have preparation and between-round rest, with no extra rest after the last round', () => {
   const phases = makePhases({ rounds: 2, work: 120, rest: 30, preparation: 5, warning: true });
@@ -162,4 +167,170 @@ test('an invalid saved duration cannot break the timer', async () => {
   const app = fixture({ boxing: { rounds: -4, work: 120, rest: 30, preparation: 0 }, intervals: { rounds: 4, work: '<script>', rest: 10, preparation: 0 } });
   try { app.ui.select('boxing'); assert.equal(app.$('timerForm').elements.rounds.value, '3'); app.ui.select('intervals'); assert.equal(app.$('timerForm').elements.work.value, '45'); }
   finally { await app.close(); }
+});
+
+test('modern timer exposes preparation, round, optional warning, rest and completion without stale warning state', async () => {
+  const app = fixture({ sound: false, boxing: boxingConfig });
+  try {
+    app.ui.select('boxing');
+    const board = app.$('timerBoard');
+    assert.equal(board.dataset.design, 'boxing');
+    assert.equal(board.dataset.phase, 'prepare'); assert.equal(board.dataset.warning, 'false');
+    app.$('timerStart').click(); app.advance(10000);
+    assert.equal(board.dataset.phase, 'work'); assert.equal(board.dataset.warning, 'false');
+    app.advance(90000);
+    assert.equal(board.dataset.warning, 'true'); assert.equal(app.$('timerPhase').textContent, 'DERNIÈRES 30 SECONDES');
+    app.advance(30000);
+    assert.equal(board.dataset.phase, 'rest'); assert.equal(board.dataset.warning, 'false');
+    app.advance(30000);
+    assert.equal(board.dataset.phase, 'work'); assert.equal(board.dataset.warning, 'false');
+    app.advance(120000);
+    assert.equal(board.dataset.phase, 'done'); assert.equal(board.dataset.warning, 'false');
+    app.$('timerReset').click();
+    assert.equal(board.dataset.phase, 'prepare'); assert.equal(board.dataset.status, 'idle');
+    app.$('timerForm').elements.warning.checked = false;
+    change(app, app.$('timerForm'));
+    app.$('timerStart').click(); app.advance(100000);
+    assert.equal(board.dataset.phase, 'work'); assert.equal(app.$('timerDigits').textContent, '00:30');
+    assert.equal(board.dataset.warning, 'false'); assert.equal(app.$('timerPhase').textContent, 'BOXE');
+  } finally { await app.close(); }
+});
+
+test('classic duration buttons synchronize the form, honor their bounds and persist across reopening', async () => {
+  const app = fixture({ sound: false, design: 'classic' });
+  let saved;
+  try {
+    app.ui.select('boxing');
+    const button = (name, direction) => app.$('toolsApp').querySelector(`[data-adjust="${name}"][data-direction="${direction}"]`);
+    assert.equal(button('work', 1).disabled, true);
+    button('work', -1).click(); button('rest', -1).click();
+    assert.equal(app.$('timerForm').elements.work.value, '120'); assert.equal(app.$('classicworkValue').textContent, '2 min');
+    assert.equal(app.$('timerForm').elements.rest.value, '30'); assert.equal(app.$('classicrestValue').textContent, '30 s');
+    assert.equal(button('work', -1).disabled, true); assert.equal(button('rest', -1).disabled, true);
+    assert.equal(button('work', 1).disabled, false);
+    button('work', -1).click(); assert.equal(app.$('timerForm').elements.work.value, '120');
+    button('rest', 1).click(); assert.equal(app.$('timerForm').elements.rest.value, '60');
+    app.$('timerForm').elements.rest.value = '30'; change(app, app.$('timerForm'));
+    assert.equal(app.$('classicrestValue').textContent, '30 s');
+    saved = JSON.parse(app.window.localStorage.getItem('gestionboxeur:tools:v1'));
+    assert.equal(saved.boxing.work, 120); assert.equal(saved.boxing.rest, 30);
+  } finally { await app.close(); }
+  const reopened = fixture(saved);
+  try {
+    reopened.ui.select('boxing');
+    assert.equal(reopened.$('timerBoard').dataset.design, 'classic');
+    assert.equal(reopened.$('classicworkValue').textContent, '2 min');
+    assert.equal(reopened.$('classicrestValue').textContent, '30 s');
+  } finally { await reopened.close(); }
+});
+
+test('classic settings are locked while running and paused, including direct 3D callbacks', async () => {
+  let controls;
+  const states = [];
+  const app = fixture({ sound: false, design: 'classic', boxing: { ...boxingConfig, preparation: 0 } }, {
+    setupWindow: window => { window.WebGL2RenderingContext = class {}; },
+    loadClassicScene: async () => ({ createClassicTimerScene: (host, callbacks) => {
+      controls = callbacks; return { update: state => states.push(state), destroy() {} };
+    } }),
+  });
+  try {
+    app.ui.select('boxing'); await settle();
+    controls.onAdjust('work', 1);
+    assert.equal(app.$('timerForm').elements.work.value, '180');
+    app.$('timerStart').click(); app.advance(6000);
+    assert.ok([...app.$('toolsApp').querySelectorAll('[data-adjust]')].every(button => button.disabled));
+    controls.onAdjust('work', -1); controls.onAdjust('rest', 1);
+    assert.equal(app.$('timerForm').elements.work.value, '180'); assert.equal(app.$('timerForm').elements.rest.value, '30');
+    app.$('timerStart').click(); controls.onAdjust('work', -1);
+    assert.equal(app.$('timerForm').elements.work.value, '180');
+    assert.equal(states.at(-1).status, 'paused');
+    app.$('timerReset').click(); controls.onAdjust('work', -1);
+    assert.equal(app.$('timerForm').elements.work.value, '120');
+  } finally { await app.close(); }
+});
+
+test('changing timer appearance during a round preserves elapsed time and disposes the scene', async () => {
+  let disposed = 0;
+  const states = [];
+  const app = fixture({ sound: false, boxing: { ...boxingConfig, preparation: 0 } }, {
+    setupWindow: window => { window.WebGL2RenderingContext = class {}; },
+    loadClassicScene: async () => ({ createClassicTimerScene: () => ({ update: state => states.push(state), destroy() { disposed++; } }) }),
+  });
+  try {
+    app.ui.select('boxing'); app.$('timerStart').click(); app.advance(6000);
+    selectDesign(app, 'classic'); await settle();
+    assert.equal(app.$('timerDigits').textContent, '01:54'); assert.equal(app.$('timerBoard').dataset.status, 'running');
+    assert.equal(states.at(-1).status, 'running');
+    app.advance(4000); selectDesign(app, 'boxing');
+    assert.equal(app.$('timerDigits').textContent, '01:50'); assert.equal(disposed, 1);
+    assert.equal(app.$('timerStart').textContent, 'Pause');
+  } finally { await app.close(); }
+});
+
+test('classic remains usable when WebGL is unavailable or its scene cannot load', async () => {
+  for (const webgl of [false, true]) {
+    let loads = 0;
+    const app = fixture({ sound: false, design: 'classic' }, {
+      setupWindow: window => { window.WebGL2RenderingContext = webgl ? class {} : undefined; },
+      loadClassicScene: async () => { loads++; throw new Error('WebGL unavailable'); },
+    });
+    try {
+      app.ui.select('boxing'); await settle();
+      assert.equal(loads, webgl ? 1 : 0);
+      assert.equal(app.$('classicViewport').dataset.render, 'fallback');
+      assert.match(app.$('classicRenderStatus').textContent, /3D est indisponible/);
+      app.$('toolsApp').querySelector('[data-adjust="work"][data-direction="-1"]').click();
+      app.$('timerStart').click(); app.advance(11000);
+      assert.equal(app.$('timerDigits').textContent, '01:59');
+      assert.equal(app.$('timerBoard').dataset.phase, 'work');
+    } finally { await app.close(); }
+  }
+});
+
+test('late scene loads cannot mount after a design change, tool exit or destruction', async () => {
+  const pending = [];
+  let mounted = 0, disposed = 0;
+  const module = { createClassicTimerScene: () => { mounted++; return { update() {}, destroy() { disposed++; } }; } };
+  const app = fixture({ sound: false, design: 'classic' }, {
+    setupWindow: window => { window.WebGL2RenderingContext = class {}; },
+    loadClassicScene: () => new Promise(resolve => pending.push(resolve)),
+  });
+  let closed = false;
+  try {
+    app.ui.select('boxing'); assert.equal(pending.length, 1);
+    selectDesign(app, 'boxing'); pending[0](module); await settle(); assert.equal(mounted, 0);
+    selectDesign(app, 'classic'); assert.equal(pending.length, 2);
+    app.ui.select('steps'); pending[1](module); await settle(); assert.equal(mounted, 0);
+    app.ui.select('boxing'); pending[2](module); await settle();
+    assert.equal(mounted, 1); assert.equal(app.$('classicViewport').dataset.render, 'ready');
+    selectDesign(app, 'boxing'); assert.equal(disposed, 1);
+    selectDesign(app, 'classic'); assert.equal(pending.length, 4);
+    await app.close(); closed = true;
+    pending[3](module); await settle(); assert.equal(mounted, 1); assert.equal(disposed, 1);
+  } finally { if (!closed) await app.close(); }
+});
+
+test('a delayed audio unlock cannot ring for a cancelled start after the timer restarts', async () => {
+  const pending = [], strikes = [];
+  const parameter = () => ({ value: 1, setValueAtTime() {}, exponentialRampToValueAtTime() {} });
+  const node = type => ({ frequency: parameter(), gain: parameter(), connect() {}, disconnect() {}, stop() {}, start(at) { if (type === 'impact') strikes.push(at); } });
+  class DelayedAudio {
+    constructor() { this.state = 'suspended'; this.sampleRate = 48000; this.currentTime = 0; this.destination = {}; }
+    createGain() { return node('gain'); }
+    createOscillator() { return node('oscillator'); }
+    createBufferSource() { return node('impact'); }
+    createBuffer(channels, length, rate) { return { duration: length / rate, getChannelData: () => new Float32Array(length) }; }
+    resume() { return new Promise(resolve => pending.push(() => { this.state = 'running'; resolve(); })); }
+    async close() { this.state = 'closed'; }
+  }
+  const app = fixture({ boxing: { ...boxingConfig, preparation: 0 } }, { setupWindow: window => { window.AudioContext = DelayedAudio; } });
+  try {
+    app.ui.select('boxing'); app.$('timerStart').click();
+    app.$('timerReset').click(); app.$('timerStart').click();
+    assert.equal(pending.length, 2);
+    pending[0](); await settle();
+    assert.equal(strikes.length, 0, 'the old start must stay cancelled, even though the new timer is running');
+    pending[1](); await settle();
+    assert.equal(strikes.length, 3, 'only the current start should ring');
+  } finally { await app.close(); }
 });

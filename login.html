@@ -4,9 +4,17 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#24272c">
   <title>Connexion — Athlètes et entraînements</title>
+  <meta name="application-name" content="GBoxeur">
+  <meta name="apple-mobile-web-app-title" content="GBoxeur">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/app-icon-192.png">
 
 <link rel="stylesheet" href="css/account-page.css">
+<link rel="stylesheet" href="css/app-install.css">
 <script type="module" src="js/appearance.js"></script>
+<script type="module" src="js/app-install.js"></script>
 </head>
 <body class="auth-page">
   <main class="auth-card">
@@ -46,6 +54,7 @@
       <button class="link-button" id="forgotPassword" type="button">Mot de passe oublié</button>
     </div>
     <a class="link-button hidden" id="continueButton" href="./">Accéder à mon espace</a>
+    <div id="appInstallMount"></div>
   </main>
   <script type="module" src="js/auth.js"></script>
 </body>

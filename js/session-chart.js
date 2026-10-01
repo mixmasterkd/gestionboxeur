@@ -9,7 +9,7 @@ const distanceLabel = metres => metres >= 1000 ? `${Number((metres / 1000).toFix
 const numericRange = (effort, max) => Number.isFinite(effort.min) && Number.isFinite(effort.max ?? effort.min) && effort.min >= 1 && effort.min <= (effort.max ?? effort.min) && (effort.max ?? effort.min) <= max;
 
 /** Effort scales stay separate. Absolute pace/HR never acquire an inferred zone. */
-function effortAppearance(segment) {
+export function effortAppearance(segment) {
   const effort = segment.phase === 'rest'
     ? { kind: 'recovery', label: 'Repos' }
     : segment.effort || (segment.zone ? { kind: 'zone', min: segment.zone, max: segment.zone } : null);

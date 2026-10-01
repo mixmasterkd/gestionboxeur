@@ -3,9 +3,17 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#171918">
   <title>Mon profil</title>
+  <meta name="application-name" content="GBoxeur">
+  <meta name="apple-mobile-web-app-title" content="GBoxeur">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="images/app-icon-192.png">
 
 <link rel="stylesheet" href="css/account-page.css">
+<link rel="stylesheet" href="css/app-install.css">
 <script type="module" src="js/appearance.js"></script>
+<script type="module" src="js/app-install.js"></script>
 </head>
 <body>
   <header class="topbar"><a class="brand" href="./"><span id="gymBrand">Mon espace</span><span class="brand-location" id="gymAddress"></span></a><nav class="top-actions" aria-label="Navigation principale"><a class="text-button" href="planning.html">Mon calendrier</a><button class="text-button" id="logoutButton" type="button">Déconnexion</button></nav></header>
@@ -15,6 +23,7 @@
     <p id="profileError" class="form-error hidden" role="alert"></p>
     <p id="profileSuccess" class="success hidden" role="status"></p>
     <div class="intro-actions"><a class="button secondary" href="planning.html#coachs">Mes coachs</a><button id="enableCoachingButton" class="button secondary" type="button" hidden>Activer les fonctions coach</button></div>
+    <div id="appInstallMount"></div>
     <section class="panel hidden" id="athletePanel">
       <div class="panel-head"><h2>Informations personnelles</h2><span class="pill" id="profileAge"></span></div>
       <form id="athleteProfileForm">
