@@ -84,7 +84,7 @@ export function mountBulletinBoard(host, { store, createScene } = {}) {
         <form id="bulletinForm"><header><h2 id="bulletinEditorTitle">Épingler une note</h2><button type="button" class="bulletin-icon" data-close aria-label="Fermer">${icons.remove}</button></header>
           <label class="bulletin-field"><span>Titre</span><input name="title" required maxlength="100" autocomplete="off"></label>
           <label class="bulletin-field"><span>Ta note <small>facultatif</small></span><textarea name="body" rows="4" maxlength="1200"></textarea></label>
-          <fieldset class="bulletin-colors"><legend>Couleur du papier</legend>${[['cream', 'Crème'], ['yellow', 'Jaune'], ['mint', 'Sauge'], ['rose', 'Rose']].map(([color, label]) => `<label data-color="${color}"><input type="radio" name="color" value="${color}"><span>${label}</span></label>`).join('')}</fieldset>
+          <fieldset class="bulletin-colors"><legend>Couleur du papier</legend>${[['cream', 'Crème'], ['yellow', 'Jaune'], ['mint', 'Sauge'], ['rose', 'Rose']].map(([color, label]) => `<label data-color="${color}"><input type="radio" name="color" value="${color}" aria-label="${label}"><span aria-hidden="true"></span></label>`).join('')}</fieldset>
           <div class="bulletin-links-heading"><h3>Liens <small>facultatifs</small></h3><button id="bulletinAddLink" type="button" class="button secondary">+ Ajouter un lien</button></div>
           <div id="bulletinLinkFields" class="bulletin-link-fields"></div>
           <p id="bulletinFormError" class="bulletin-form-error" role="alert" hidden></p>

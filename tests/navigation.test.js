@@ -41,9 +41,9 @@ test('admin navigation resolves routes correctly from the nested administration 
   const ui = navigation('https://example.test/boxing/admin/');
   try {
     ui.mount({ role: 'coach', isAdmin: true });
-    assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/roster.html');
+    assert.equal(ui.link('Athlètes').href, 'https://example.test/boxing/roster.html');
     assert.equal(ui.link('Mes listes'), undefined);
-    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Outils', 'Mon profil', 'Administration']);
+    assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Athlètes', 'Outils', 'Mon profil', 'Administration']);
     assert.equal(ui.link('Mon profil').href, 'https://example.test/boxing/profile.html');
     assert.equal(ui.link('Administration').getAttribute('aria-current'), 'page');
     ui.mount({ role: 'coach', isAdmin: true });
@@ -56,9 +56,9 @@ test('coach navigation has one athlete entry and keeps old list URLs on that tab
     const ui = navigation(`https://example.test${path}`);
     try {
       ui.mount({ role: 'coach', isAdmin: false });
-      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Mes athlètes', 'Outils', 'Mon profil']);
-      assert.equal(ui.link('Mes athlètes').href, 'https://example.test/boxing/roster.html');
-      assert.equal(ui.link('Mes athlètes').getAttribute('aria-current'), 'page');
+      assert.deepEqual([...ui.window.document.querySelectorAll('.nav-label')].map(el => el.textContent), ['Calendrier', 'Journal', 'Athlètes', 'Outils', 'Mon profil']);
+      assert.equal(ui.link('Athlètes').href, 'https://example.test/boxing/roster.html');
+      assert.equal(ui.link('Athlètes').getAttribute('aria-current'), 'page');
       assert.equal(ui.window.document.querySelectorAll('[aria-current="page"]').length, 1);
       assert.equal(ui.link('Mes listes'), undefined);
     } finally { ui.window.happyDOM.abort(); }
@@ -71,7 +71,7 @@ test('obsolete list query cannot mark the roster active on another page', () => 
     try {
       ui.mount({ role: 'coach', isAdmin: true });
       assert.equal(ui.link(active).getAttribute('aria-current'), 'page');
-      assert.equal(ui.link('Mes athlètes').hasAttribute('aria-current'), false);
+      assert.equal(ui.link('Athlètes').hasAttribute('aria-current'), false);
       assert.equal(ui.window.document.querySelectorAll('[aria-current="page"]').length, 1);
     } finally { ui.window.happyDOM.abort(); }
   }

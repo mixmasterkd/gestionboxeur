@@ -1,5 +1,15 @@
 # Base de données
 
+### Records cognitifs privés — 1er octobre 2026
+
+La migration locale `20261001230552_cognitive_personal_records.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261001232704`. Elle ajoute seulement `cognitive_records` et le RPC `save_cognitive_record(p_mode text, p_score integer, p_expected_owner uuid)`. Ne pas la rejouer sous son horodatage local. Le frontend de cet ajout n’est pas encore publié.
+
+La clé primaire est `(owner_id, mode)`; sept variantes sont autorisées : `tiles-4`, `tiles-6`, `tiles-8`, `bag-sequence-visible`, `bag-sequence-hidden`, `bag-targets-visible`, `bag-targets-hidden`. Chaque compte lit et supprime uniquement ses records. Le RPC SECURITY INVOKER calcule le propriétaire avec `auth.uid()` et conserve atomiquement le maximum avec `ON CONFLICT … greatest`. Le propriétaire attendu ne choisit jamais le destinataire : il refuse une sauvegarde différée après un changement de compte. RLS est active, avec quatre politiques, des droits de colonnes limités et aucun accès anonyme à la table ou au RPC. Ces scores personnels ne constituent pas un classement vérifié anti-triche.
+
+`js/cognitive-records.js` sérialise les lectures, sauvegardes et suppressions; la suppression concerne un mode seulement. `tests/cognitive-records-database.test.js` vérifie ces contrats dans PostgreSQL isolé, notamment l’accès entre comptes, les scores malformés, les tentatives anonymes, le maximum atomique et le changement de compte. La base réelle a été vérifiée en lecture seule après migration : RLS, politiques, droits et caractère SECURITY INVOKER conformes, table nouvelle vide. Aucun compte ni score de test distant n’a été créé.
+
+Une sauvegarde applicative privée est conservée hors dépôt dans `/home/mixmasterkd/Documents/Codex/gboxeur-cognitive-backup-O13B5f/application-before.json` (répertoire accessible uniquement à son propriétaire). Elle contient les tables publiques, leur schéma et l’historique de migrations, pas Auth/Storage. Les 146 lignes des 28 tables préexistantes sont identiques après application. Aucun nouvel avis de sécurité; les avis historiques décrits ci-dessous restent inchangés.
+
 ### Outils personnels — 1er octobre 2026
 
 La migration locale `20261001203022_personal_tool_saves.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261001203531`. Elle ajoute seulement `timer_presets` et `bulletin_boards`, sans modifier les tables ni les données existantes (empreintes identiques sur les 26 tables préexistantes après application).

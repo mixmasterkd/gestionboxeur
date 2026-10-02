@@ -205,13 +205,13 @@ test('classic duration buttons synchronize the form, honor their bounds and pers
     assert.equal(button('work', 1).disabled, true);
     button('work', -1).click(); button('rest', -1).click();
     assert.equal(app.$('timerForm').elements.work.value, '120'); assert.equal(app.$('classicworkValue').textContent, '2 min');
-    assert.equal(app.$('timerForm').elements.rest.value, '30'); assert.equal(app.$('classicrestValue').textContent, '30 s');
+    assert.equal(app.$('timerForm').elements.rest.value, '30'); assert.equal(app.$('classicrestValue').textContent, '30 sec');
     assert.equal(button('work', -1).disabled, true); assert.equal(button('rest', -1).disabled, true);
     assert.equal(button('work', 1).disabled, false);
     button('work', -1).click(); assert.equal(app.$('timerForm').elements.work.value, '120');
     button('rest', 1).click(); assert.equal(app.$('timerForm').elements.rest.value, '60');
     app.$('timerForm').elements.rest.value = '30'; change(app, app.$('timerForm'));
-    assert.equal(app.$('classicrestValue').textContent, '30 s');
+    assert.equal(app.$('classicrestValue').textContent, '30 sec');
     saved = JSON.parse(app.window.localStorage.getItem('gestionboxeur:tools:v1'));
     assert.equal(saved.boxing.work, 120); assert.equal(saved.boxing.rest, 30);
   } finally { await app.close(); }
@@ -220,7 +220,7 @@ test('classic duration buttons synchronize the form, honor their bounds and pers
     reopened.ui.select('boxing');
     assert.equal(reopened.$('timerBoard').dataset.design, 'classic');
     assert.equal(reopened.$('classicworkValue').textContent, '2 min');
-    assert.equal(reopened.$('classicrestValue').textContent, '30 s');
+    assert.equal(reopened.$('classicrestValue').textContent, '30 sec');
   } finally { await reopened.close(); }
 });
 

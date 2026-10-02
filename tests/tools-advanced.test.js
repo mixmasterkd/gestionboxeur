@@ -57,13 +57,14 @@ test('classic lamps appear green, warning, red from left to right and follow rou
   } finally { await app.close(); }
 });
 
-test('infinite boxing persists, disables the fixed count and progresses beyond the selected round count', async () => {
+test('infinite boxing persists in the unified round selector and progresses beyond the previous fixed count', async () => {
   const storage = storageWith({ boxing: { rounds: 1, work: 120, rest: 30, preparation: 0, warning: false } });
   const app = fixture({ storage });
   try {
     app.ui.select('boxing');
-    configure(app, { roundMode: 'infinite' });
-    assert.equal(app.$('timerForm').elements.rounds.disabled, true);
+    configure(app, { rounds: 0 });
+    assert.equal(app.$('timerForm').elements.rounds.disabled, false);
+    assert.equal(app.$('timerForm').elements.rounds.value, '0');
     assert.equal(app.$('timerRound').textContent, 'Round 1 / ∞');
     assert.match(app.$('timerSummary').textContent, /Rounds infinis/);
     assert.equal(JSON.parse(storage.getItem(preferenceKey)).boxing.infinite, true);
@@ -75,9 +76,9 @@ test('infinite boxing persists, disables the fixed count and progresses beyond t
   const reopened = fixture({ storage });
   try {
     reopened.ui.select('boxing');
-    assert.equal(reopened.$('timerForm').elements.roundMode.value, 'infinite');
-    assert.equal(reopened.$('timerForm').elements.rounds.disabled, true);
-    configure(reopened, { roundMode: 'fixed' });
+    assert.equal(reopened.$('timerForm').elements.rounds.value, '0');
+    assert.equal(reopened.$('timerForm').elements.rounds.disabled, false);
+    configure(reopened, { rounds: 1 });
     assert.equal(reopened.$('timerForm').elements.rounds.disabled, false);
     reopened.$('timerStart').click(); reopened.advance(120000);
     assert.equal(reopened.$('timerPhase').textContent, 'TERMINÉ');

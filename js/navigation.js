@@ -57,7 +57,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
     ]
     : [
       { icon: 'calendar', text: 'Calendrier', href: 'planning.html', active: onPlanning&&!onJournal, calendar:true },
-      { icon: 'athletes', text: 'Mes athlètes', href: 'roster.html', active: path.endsWith('/roster.html') },
+      { icon: 'athletes', text: 'Athlètes', href: 'roster.html', active: path.endsWith('/roster.html') },
       { icon: 'gym', text: 'Mon profil', href: 'profile.html', active: onProfile },
     ];
   items.splice(1,0,{icon:'journal',text:'Journal',href:'planning.html#journal',active:onJournal,journal:true});

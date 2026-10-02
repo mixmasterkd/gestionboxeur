@@ -27,9 +27,9 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
   const textures = new Set(), materials = new Set(), geometries = new Set();
   let disposed = false, frame = 0, visualKey = '', locked = false, pointer = null;
   let rotationEnabled = false;
-  let workSeconds = 180, restSeconds = 60;
+  let workSeconds = 180, restSeconds = 60, timerStatus = 'idle';
   let environmentTarget, observer;
-  const knobs = {}, lamps = {};
+  const rockers = {}, rockerButtons = {}, lamps = {};
   const originalPosition = host.style.position;
   const originalTouchAction = host.style.touchAction;
   if (view.getComputedStyle(host).position === 'static') host.style.position = 'relative';
@@ -92,6 +92,7 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     environmentTarget?.dispose();
     renderer.dispose(); renderer.forceContextLoss(); canvas.remove();
     rotationButton.remove();
+    for (const button of Object.values(rockerButtons)) button.remove();
     host.style.position = originalPosition;
     host.style.touchAction = originalTouchAction;
   }
@@ -125,7 +126,6 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     const rubber = material(THREE.MeshStandardMaterial, { color: 0x101215, roughness: .8, metalness: .05 });
     const black = material(THREE.MeshStandardMaterial, { color: 0x020304, roughness: .9 });
     const chrome = material(THREE.MeshStandardMaterial, { color: 0xc9d0d7, metalness: 1, roughness: .21 });
-    const white = material(THREE.MeshStandardMaterial, { color: 0xeae7db, roughness: .45 });
 
     const body = mesh(new RoundedBoxGeometry(7.25, 2.9, 2.12, 3, .09), enamel);
     body.position.y = -.23;
@@ -148,16 +148,15 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     // Painted legends sit on the face; the controls and speaker have real depth.
     const faceMap = makeCanvasTexture(1792, 700, context => {
       const sx = x => (x + 3.5) / 7 * 1792, sy = y => (1.12 - y) / 2.7 * 700;
-      const label = (text, x, y, size, color = '#e9e7df') => {
+      const label = (text, x, y, size, color = '#f5f3eb') => {
         context.fillStyle = color; context.font = `700 ${size}px Arial, sans-serif`; context.textAlign = 'center'; context.fillText(text, sx(x), sy(y));
       };
-      label('CHRONOMÈTRE DE RING', -.55, .91, 27, '#8e969b');
-      label('ROUND', -2.35, .39, 40); label('REPOS', -.73, .39, 40);
-      label('2 MIN', -2.97, -.05, 24, '#abb1b5'); label('3 MIN', -1.73, -.05, 24, '#abb1b5');
-      label('30 S', -1.35, -.05, 24, '#abb1b5'); label('60 S', -.11, -.05, 24, '#abb1b5');
-      label('TOURNER POUR RÉGLER', -1.52, -1.2, 22, '#828b91');
-      label('MARCHE / PAUSE', -2.91, .64, 17, '#9ea6ac');
-      label('PRÊT POUR LE PROCHAIN ROUND', 1.89, -1.32, 17, '#828b91');
+      label('CHRONOMÈTRE DE RING', -.55, 1.015, 32, '#e5e6e2');
+      label('MARCHE', -1.69, .84, 42); label('ROUND', -1.69, .08, 42); label('REPOS', -1.69, -.68, 42);
+      label('PAUSE', -2.73, .44, 38); label('MARCHE', -.64, .44, 38);
+      label('2 MIN', -2.73, -.32, 40); label('3 MIN', -.64, -.32, 40);
+      label('30 S', -2.73, -1.08, 40); label('1 MIN', -.64, -1.08, 40);
+      label('PRÊT POUR LE PROCHAIN ROUND', 1.89, -1.32, 26, '#e5e6e2');
     });
     const legends = mesh(new THREE.PlaneGeometry(7, 2.7), material(THREE.MeshStandardMaterial, { map: faceMap, transparent: true, roughness: .7, depthWrite: false }));
     legends.position.set(0, -.23, 1.111); legends.castShadow = false;
@@ -217,8 +216,8 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
         context.globalAlpha = .15; context.fillStyle = '#262620'; context.fillText(text, .8, -.6);
         context.restore();
       }
-      pencil('Une pause entre deux rounds ?', 93, 196, 'italic 61px "Comic Sans MS", "Comic Sans", cursive', -.022);
-      pencil('Mon petit jeu de boxe', 157, 309, 'italic 67px "Comic Sans MS", "Comic Sans", cursive', .015);
+      pencil('Une pause entre deux rounds ?', 93, 196, 'italic 600 65px "Comic Sans MS", "Comic Sans", cursive', -.022);
+      pencil('Mon petit jeu de boxe', 157, 309, 'italic 600 70px "Comic Sans MS", "Comic Sans", cursive', .015);
       // Small hand-drawn graphite letterforms avoid relying on a handwriting font
       // installed on the visitor's device. Keep the complete URL on one line.
       const letters = {
@@ -244,7 +243,7 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
         '-': [3.8, 'M.3 4.5 L3 4.3'],
       };
       context.save(); context.translate(72, 461); context.rotate(-.012); context.scale(8.9, 8.9);
-      context.strokeStyle = '#080a08'; context.lineWidth = .53; context.lineCap = 'round'; context.lineJoin = 'round';
+      context.strokeStyle = '#080a08'; context.lineWidth = .8; context.lineCap = 'round'; context.lineJoin = 'round';
       for (const [index, character] of [...'mixmasterkd.github.io/BoxeurDeux-D'].entries()) {
         const [advance, strokes] = letters[character];
         context.save(); context.translate(0, Math.sin(index * 2.7) * .12); context.transform(1, 0, -.07, 1, 0, 0);
@@ -254,7 +253,7 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
       }
       context.restore();
       context.strokeStyle = '#746c5477'; context.lineWidth = 2.2; context.beginPath(); context.moveTo(70, 548); context.quadraticCurveTo(725, 562, 1450, 542); context.stroke();
-      pencil('À noter avant de retourner au gym !', 155, 729, 'italic 48px "Comic Sans MS", "Comic Sans", cursive', .018);
+      pencil('À noter avant de retourner au gym !', 155, 729, 'italic 600 52px "Comic Sans MS", "Comic Sans", cursive', .018);
     });
     const paperShape = new THREE.PlaneGeometry(3.84, 2.2, 36, 22);
     const paperPoints = paperShape.attributes.position;
@@ -286,31 +285,35 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
       logoFinish.map = map; logoFinish.needsUpdate = true; logo.visible = true; render();
     }, undefined, () => { /* A missing logo never blocks the clock. */ });
 
-    function makeKnob(name, x) {
-      const control = new THREE.Group(); control.position.set(x, -.39, 1.15); control.userData.control = name; timer.add(control);
-      const bezel = cylinder(.5, .065, chrome, 0, 0, 0, control); bezel.rotation.x = Math.PI / 2;
-      const inset = cylinder(.46, .075, rubber, 0, 0, .033, control); inset.rotation.x = Math.PI / 2;
-      const rotary = new THREE.Group(); rotary.position.z = .07; control.add(rotary); knobs[name] = rotary;
-      const barrel = cylinder(.416, .26, edge, 0, 0, .10, rotary); barrel.rotation.x = Math.PI / 2;
-      const cap = cylinder(.385, .04, rubber, 0, 0, .252, rotary); cap.rotation.x = Math.PI / 2;
-      const gripGeometry = geometry(new THREE.BoxGeometry(.028, .035, .22));
-      const grips = new THREE.InstancedMesh(gripGeometry, rubber, 44), dummy = new THREE.Object3D();
-      for (let index = 0; index < 44; index++) {
-        const angle = index * Math.PI * 2 / 44; dummy.position.set(Math.cos(angle) * .416, Math.sin(angle) * .416, .10); dummy.rotation.z = angle; dummy.updateMatrix(); grips.setMatrixAt(index, dummy.matrix);
+    const rockerFinish = material(THREE.MeshStandardMaterial, { color: 0x202326, roughness: .49, metalness: .14 });
+    function makeRocker(name, y) {
+      const control = new THREE.Group(); control.position.set(-1.69, y, 1.146); control.userData.control = name; timer.add(control);
+      const frame = mesh(new RoundedBoxGeometry(1.17, .62, .09, 3, .075), edge, control);
+      frame.position.z = .012;
+      const opening = mesh(new RoundedBoxGeometry(1.08, .55, .074, 3, .059), black, control);
+      opening.position.z = .060;
+      const pivot = new THREE.Group(); pivot.position.z = .119; control.add(pivot); rockers[name] = pivot;
+      const cap = mesh(new RoundedBoxGeometry(.93, .445, .145, 3, .047), rockerFinish, pivot);
+      cap.position.z = .009;
+      // The whole cap rotates around its real central axle; the pressed half
+      // sinks into the recess and the opposite edge lifts above the bezel.
+      const divider = mesh(new THREE.BoxGeometry(.008, .336, .006), rubber, pivot); divider.position.z = .084;
+      for (const x of [-.39, .39]) for (const shift of [-.016, .016]) {
+        const grip = mesh(new RoundedBoxGeometry(.009, .267, .010, 1, .003), rubber, pivot); grip.position.set(x + shift, 0, .081);
       }
-      grips.castShadow = true; rotary.add(grips);
-      const indicator = mesh(new RoundedBoxGeometry(.047, .19, .018, 1, .009), white, rotary); indicator.position.set(0, .245, .279);
-      const centre = cylinder(.09, .015, edge, 0, 0, .28, rotary); centre.rotation.x = Math.PI / 2;
+      // Keyboard focus follows the physical face. Pointer events stay on the
+      // canvas, so these overlays cannot overlap touch zones on narrow screens.
+      const button = doc.createElement('button'); button.type = 'button'; button.className = 'classic-rocker-control'; button.dataset.control = name;
+      button.style.cssText = 'position:absolute;z-index:2;transform:translate(-50%,-50%);padding:0;margin:0;min-width:0;min-height:0;border:0;border-radius:4px;background:transparent;box-shadow:none;pointer-events:none;';
+      button.addEventListener('click', () => activateControl(name));
+      button.addEventListener('focus', () => { if (button.matches(':focus-visible')) { button.style.outline = '2px solid #f1d99c'; button.style.outlineOffset = '3px'; } });
+      button.addEventListener('blur', () => { button.style.outline = 'none'; });
+      rockerButtons[name] = button; host.append(button);
     }
-    makeKnob('work', -2.35); makeKnob('rest', -.73);
-    const power = new THREE.Group(); power.position.set(-2.91, .89, 1.15); power.userData.control = 'power'; timer.add(power);
-    const powerRing = cylinder(.153, .065, chrome, 0, 0, 0, power); powerRing.rotation.x = Math.PI / 2;
-    const powerButton = cylinder(.12, .11, rubber, 0, 0, .052, power); powerButton.rotation.x = Math.PI / 2;
-    const powerMark = mesh(new THREE.TorusGeometry(.051, .008, 6, 22, Math.PI * 1.65), white, power); powerMark.position.z = .11; powerMark.rotation.z = Math.PI * .68;
-    const powerLine = mesh(new THREE.BoxGeometry(.009, .05, .008), white, power); powerLine.position.set(0, .042, .115);
+    makeRocker('power', .51); makeRocker('work', -.25); makeRocker('rest', -1.01);
 
     // A lathed, translucent lens plus horizontal and vertical moulded ridges.
-    const domeProfile = new THREE.SplineCurve([new THREE.Vector2(.57, 0), new THREE.Vector2(.595, .15), new THREE.Vector2(.54, .55), new THREE.Vector2(.40, 1.02), new THREE.Vector2(.235, 1.34), new THREE.Vector2(.08, 1.47), new THREE.Vector2(0, 1.49)]).getPoints(42);
+    const domeProfile = new THREE.SplineCurve([new THREE.Vector2(.57, 0), new THREE.Vector2(.592, .14), new THREE.Vector2(.55, .40), new THREE.Vector2(.435, .72), new THREE.Vector2(.29, .94), new THREE.Vector2(.13, 1.055), new THREE.Vector2(0, 1.09)]).getPoints(42);
     const lensGeometry = geometry(new THREE.LatheGeometry(domeProfile, 64));
     const ribRingGeometry = geometry(new THREE.TorusGeometry(1, .012, 5, 56));
     const radiusAt = y => {
@@ -333,7 +336,7 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
       const lensMaterial = material(THREE.MeshPhysicalMaterial, { color: baseColor.clone().multiplyScalar(.25), metalness: .02, roughness: .11, transmission: .5, thickness: .4, attenuationColor: baseColor, attenuationDistance: .6, ior: 1.47, clearcoat: 1, clearcoatRoughness: .055, emissive: color, emissiveIntensity: 0 });
       const lens = new THREE.Mesh(lensGeometry, lensMaterial); lens.position.y = .26; lens.castShadow = true; beacon.add(lens);
       const ribs = material(THREE.MeshPhysicalMaterial, { color: baseColor.clone().multiplyScalar(.25), roughness: .14, metalness: .03, clearcoat: 1, emissive: color, emissiveIntensity: 0 });
-      for (let y = .10; y < 1.42; y += .105) {
+      for (let y = .085; y < 1.055; y += .085) {
         const ring = new THREE.Mesh(ribRingGeometry, ribs); ring.rotation.x = Math.PI / 2; ring.scale.set(radiusAt(y), radiusAt(y), 1); ring.position.y = .26 + y; beacon.add(ring);
       }
       for (let index = 0; index < 16; index++) {
@@ -342,15 +345,15 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
         const ridge = mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 24, .010, 4, false), ribs, beacon); ridge.castShadow = false;
       }
       const bulbMaterial = material(THREE.MeshStandardMaterial, { color: 0x5a5040, emissive: color, emissiveIntensity: 0, roughness: .3 });
-      const bulb = mesh(new THREE.SphereGeometry(.265, 24, 16), bulbMaterial, beacon); bulb.scale.y = 1.55; bulb.position.y = .79;
-      const light = new THREE.PointLight(color, 0, 5, 2); light.position.set(0, .72, .3); beacon.add(light);
+      const bulb = mesh(new THREE.SphereGeometry(.265, 24, 16), bulbMaterial, beacon); bulb.scale.y = 1.16; bulb.position.y = .66;
+      const light = new THREE.PointLight(color, 0, 5, 2); light.position.set(0, .61, .3); beacon.add(light);
       const glowTexture = makeCanvasTexture(128, 128, (context, width, height) => {
         const gradient = context.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width / 2);
         gradient.addColorStop(0, 'rgba(255,255,255,.6)'); gradient.addColorStop(.3, 'rgba(255,255,255,.19)'); gradient.addColorStop(1, 'rgba(255,255,255,0)');
         context.fillStyle = gradient; context.fillRect(0, 0, width, height);
       });
       const halo = new THREE.Sprite(material(THREE.SpriteMaterial, { map: glowTexture, color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-      halo.position.set(0, .98, .02); halo.scale.set(2.25, 2.25, 1); beacon.add(halo);
+      halo.position.set(0, .79, .02); halo.scale.set(1.98, 1.98, 1); beacon.add(halo);
       lamps[name] = { baseColor, lensMaterial, ribs, bulbMaterial, light, halo };
     }
   } catch (error) { destroy(); throw error; }
@@ -369,6 +372,23 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     rotationButton.style.display = visible ? 'grid' : 'none';
     rotationButton.style.left = `${(point.x + 1) / 2 * 100}%`;
     rotationButton.style.top = `${(1 - point.y) / 2 * 100}%`;
+    for (const [name, button] of Object.entries(rockerButtons)) {
+      const y = name === 'power' ? .51 : name === 'work' ? -.25 : -1.01;
+      const corners = [];
+      for (const xOffset of [-.59, .59]) for (const yOffset of [-.31, .31]) corners.push(timer.localToWorld(new THREE.Vector3(-1.69 + xOffset, y + yOffset, 1.27)).project(camera));
+      const xValues = corners.map(p => (p.x + 1) * host.clientWidth / 2), yValues = corners.map(p => (1 - p.y) * host.clientHeight / 2);
+      const left = Math.min(...xValues), right = Math.max(...xValues), top = Math.min(...yValues), bottom = Math.max(...yValues);
+      const shown = facingCamera && corners.every(p => p.z > -1 && p.z < 1) && right > 0 && left < host.clientWidth && bottom > 0 && top < host.clientHeight;
+      if (!shown && doc.activeElement === button && rotationEnabled) canvas.focus({ preventScroll: true });
+      button.hidden = !shown; button.style.display = shown ? 'block' : 'none';
+      button.style.left = `${(left + right) / 2}px`; button.style.top = `${(top + bottom) / 2}px`;
+      button.style.width = `${right - left}px`; button.style.height = `${bottom - top}px`;
+    }
+  }
+  function activateControl(name) {
+    if (disposed) return;
+    if (name === 'power') onToggle();
+    else if (!locked && (name === 'work' || name === 'rest')) onAdjust(name, 1);
   }
   function describeRotation() {
     const rearVisible = Math.cos(timer.rotation.y - Math.atan(.34)) < -.4;
@@ -427,7 +447,7 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     if (!control || locked && control !== 'power' && control !== 'rotation') return;
     pointer = { id: event.pointerId, control, x: event.clientX, y: event.clientY, last: event.clientX, changed: false };
     canvas.setPointerCapture?.(event.pointerId);
-    canvas.style.cursor = control === 'power' ? 'pointer' : 'grabbing';
+    canvas.style.cursor = 'pointer';
   }
   function pointerMove(event) {
     if (!pointer) {
@@ -454,9 +474,8 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     if (!pointer || pointer.id !== event.pointerId) return;
     const gesture = pointer; pointer = null; canvas.style.cursor = rotationEnabled ? 'grab' : 'pointer';
     if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) <= 16 && !gesture.changed) {
-      if (gesture.control === 'power') onToggle();
-      else if (gesture.control === 'rotation') toggleRotation();
-      else if (gesture.control !== 'rotate' && !locked) onAdjust(gesture.control, 1);
+      if (gesture.control === 'rotation') toggleRotation();
+      else if (gesture.control !== 'rotate') activateControl(gesture.control);
     }
     if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   }
@@ -493,9 +512,18 @@ export function createClassicTimerScene(host, { onAdjust = () => {}, onToggle = 
     const key = `${phase}:${warning}:${status}:${config.work}:${config.rest}`;
     if (key === visualKey) return;
     visualKey = key;
+    timerStatus = status;
     workSeconds = config.work || 180; restSeconds = config.rest || 60;
-    knobs.work.rotation.z = workSeconds === 120 ? Math.PI / 3 : -Math.PI / 3;
-    knobs.rest.rotation.z = restSeconds === 30 ? Math.PI / 3 : -Math.PI / 3;
+    rockers.power.rotation.y = timerStatus === 'running' ? .24 : -.24;
+    rockers.work.rotation.y = workSeconds === 120 ? -.24 : .24;
+    rockers.rest.rotation.y = restSeconds === 30 ? -.24 : .24;
+    rockerButtons.power.setAttribute('aria-label', `${{ idle: 'Démarrer', running: 'Mettre en pause', paused: 'Reprendre', done: 'Recommencer' }[timerStatus] || 'Démarrer'} le timer avec la bascule Marche`);
+    rockerButtons.power.setAttribute('aria-pressed', String(timerStatus === 'running'));
+    rockerButtons.work.disabled = rockerButtons.rest.disabled = locked;
+    rockerButtons.work.setAttribute('aria-label', `Durée du round : ${workSeconds / 60} minutes. Basculer sur ${workSeconds === 120 ? 3 : 2} minutes`);
+    rockerButtons.rest.setAttribute('aria-label', `Repos : ${restSeconds} secondes. Basculer sur ${restSeconds === 30 ? 60 : 30} secondes`);
+    rockerButtons.work.setAttribute('aria-pressed', String(workSeconds === 180));
+    rockerButtons.rest.setAttribute('aria-pressed', String(restSeconds === 60));
     const active = status === 'idle' || status === 'done' ? null : phase === 'work' ? warning ? 'warning' : 'work' : phase === 'rest' ? 'rest' : null;
     for (const [name, lamp] of Object.entries(lamps)) {
       const on = name === active;

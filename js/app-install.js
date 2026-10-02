@@ -47,6 +47,7 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
   const host = doc?.getElementById('appInstallMount');
   if (!host || !view) return null;
   if (mounts.has(host)) return mounts.get(host);
+  const section = host.closest('[data-app-install-section]');
   let disposed = false, installedEvent = false, pending = false, installPrompt = null, returnFocus = null;
   const media = ['standalone', 'minimal-ui', 'window-controls-overlay'].flatMap(mode => {
     try { const query = view.matchMedia?.(`(display-mode: ${mode})`); return query ? [query] : []; }
@@ -54,7 +55,8 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
   });
   const installed = () => installedEvent || view.navigator?.standalone === true || media.some(query => query.matches);
   const button = doc.createElement('button');
-  button.id = 'appInstallButton'; button.type = 'button'; button.className = 'button secondary app-install-button';
+  button.id = 'appInstallButton'; button.type = 'button';
+  button.className = `${host.dataset.installAppearance === 'link' ? 'link-button' : 'button secondary'} app-install-button`;
   button.textContent = 'Installer GBoxeur'; button.setAttribute('aria-haspopup', 'dialog');
   const dialog = doc.createElement('dialog');
   dialog.id = 'appInstallDialog'; dialog.className = 'app-install-dialog';
@@ -107,6 +109,7 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
   function sync() {
     if (disposed) return;
     host.hidden = installed(); button.disabled = pending;
+    if (section) section.hidden = host.hidden;
     if (host.hidden) { installPrompt = null; closeDialog({ restore: false }); }
   }
   function beforeInstall(event) {
@@ -164,6 +167,7 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
         else query.removeListener?.(sync);
       }
       button.removeEventListener('click', install); button.remove(); dialog.remove(); backdrop.remove(); mounts.delete(host);
+      if (section) section.hidden = true;
     },
   };
   mounts.set(host, controller); return controller;

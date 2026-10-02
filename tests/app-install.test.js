@@ -48,6 +48,46 @@ test('only mounts inside the explicit install container and does not create a ba
   } finally { await app.close(); }
 });
 
+test('login installation is a text action alongside unchanged auth actions and respects their hidden states', async () => {
+  const html = await readFile(new URL('../login.html', import.meta.url), 'utf8');
+  const window = new Window({ url: 'https://example.test/login.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
+  window.document.write(html);
+  const doc = window.document, toggle = doc.getElementById('authToggle'), forgot = doc.getElementById('forgotPassword'), continuation = doc.getElementById('continueButton');
+  let ui;
+  try {
+    const host = doc.getElementById('appInstallMount');
+    assert.equal(host.parentElement, toggle.parentElement); assert.equal(host.parentElement, forgot.parentElement);
+    assert.equal(host.closest('form'), null); assert.equal(doc.querySelectorAll('#appInstallMount').length, 1);
+    assert.equal(host.dataset.installAppearance, 'link'); assert.equal(continuation.classList.contains('hidden'), true);
+    forgot.classList.add('hidden'); toggle.textContent = 'Retour à la connexion';
+    ui = mountAppInstall({ doc, view: window });
+    const button = doc.getElementById('appInstallButton');
+    assert.equal(button.classList.contains('link-button'), true); assert.equal(button.classList.contains('button'), false);
+    assert.equal(forgot.classList.contains('hidden'), true); assert.equal(toggle.textContent, 'Retour à la connexion'); assert.equal(continuation.classList.contains('hidden'), true);
+    window.dispatchEvent(new window.Event('appinstalled'));
+    assert.equal(host.hidden, true); assert.equal(toggle.hidden, false); assert.equal(forgot.classList.contains('hidden'), true);
+  } finally { ui?.destroy(); await window.happyDOM.abort(); }
+});
+
+test('profile Application section is compact and entirely hidden after installation or in standalone mode', async () => {
+  const html = await readFile(new URL('../profile.html', import.meta.url), 'utf8');
+  for (const standalone of [false, true]) {
+    const window = new Window({ url: 'https://example.test/profile.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
+    window.document.write(html); Object.defineProperty(window.navigator, 'standalone', { value: standalone });
+    const doc = window.document, section = doc.querySelector('[data-app-install-section]');
+    assert.equal(section.hidden, true); assert.equal(section.querySelector('h2').textContent, 'Application');
+    assert.ok(doc.getElementById('enableCoachingButton')); assert.ok(doc.getElementById('resetPasswordButton'));
+    const ui = mountAppInstall({ doc, view: window });
+    try {
+      assert.equal(section.hidden, standalone);
+      assert.equal(doc.getElementById('appInstallButton').classList.contains('secondary'), true);
+      window.dispatchEvent(new window.Event('appinstalled'));
+      assert.equal(section.hidden, true); assert.equal(doc.getElementById('appInstallMount').hidden, true);
+      assert.ok(doc.getElementById('enableCoachingButton')); assert.ok(doc.getElementById('resetPasswordButton'));
+    } finally { ui.destroy(); await window.happyDOM.abort(); }
+  }
+});
+
 test('instructions identify iPhone, iPad desktop mode, Android, Safari Mac and desktop', () => {
   assert.equal(appInstallInstructions({ userAgent: 'iPhone Safari' }).platform, 'ios');
   assert.equal(appInstallInstructions({ userAgent: 'Macintosh Safari', platform: 'MacIntel', maxTouchPoints: 5 }).platform, 'ios');

@@ -23,7 +23,6 @@
     <p id="profileError" class="form-error hidden" role="alert"></p>
     <p id="profileSuccess" class="success hidden" role="status"></p>
     <div class="intro-actions"><a class="button secondary" href="planning.html#coachs">Mes coachs</a><button id="enableCoachingButton" class="button secondary" type="button" hidden>Activer les fonctions coach</button></div>
-    <div id="appInstallMount"></div>
     <section class="panel hidden" id="athletePanel">
       <div class="panel-head"><h2>Informations personnelles</h2><span class="pill" id="profileAge"></span></div>
       <form id="athleteProfileForm">
@@ -68,6 +67,10 @@
       <div class="panel-head"><h2>Mot de passe</h2></div>
       <p class="muted">Le lien de réinitialisation sera envoyé au courriel de ton compte : <strong id="accountEmail"></strong>.</p>
       <div class="profile-security-actions"><button id="resetPasswordButton" class="button secondary" type="button">Recevoir un lien de réinitialisation</button><p id="passwordStatus" class="hidden" role="status"></p></div>
+    </section>
+    <section class="profile-app-install" data-app-install-section aria-labelledby="appInstallSectionTitle" hidden>
+      <h2 id="appInstallSectionTitle">Application</h2>
+      <div id="appInstallMount"></div>
     </section>
   </main>
   <script type="module" src="js/profile.js"></script>

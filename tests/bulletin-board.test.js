@@ -82,6 +82,25 @@ test('saving remains visible only while pending and disappears completely after 
   } finally { await app.close(); }
 });
 
+test('paper colors expose accessible names without visible words and still save the selected color', async () => {
+  const app = await fixture({ initial: { notes: [] } });
+  try {
+    app.$('#bulletinAdd').click();
+    const picker = app.$('.bulletin-colors'), radios = [...picker.querySelectorAll('input[type="radio"]')];
+    assert.deepEqual(radios.map(input => input.getAttribute('aria-label')), ['Crème', 'Jaune', 'Sauge', 'Rose']);
+    assert.equal(picker.textContent, 'Couleur du papier');
+    for (const radio of radios) {
+      assert.equal(radio.parentElement.tagName, 'LABEL');
+      assert.equal(radio.nextElementSibling.getAttribute('aria-hidden'), 'true');
+      assert.equal(radio.nextElementSibling.textContent, '');
+    }
+    radios[3].click(); assert.equal(radios[3].checked, true);
+    app.$('#bulletinForm').elements.title.value = 'Ma note'; app.submit(); await flush();
+    assert.equal(app.saved().notes[0].color, 'rose');
+    app.$('[data-action="edit"]').click(); assert.equal(app.$('[name="color"][value="rose"]').checked, true);
+  } finally { await app.close(); }
+});
+
 test('create, edit, order and delete notes persist the entire active board safely', async () => {
   const app = await fixture({ initial: { notes: [] } });
   try {

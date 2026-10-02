@@ -83,6 +83,15 @@ for (const page of pages) {
         assert.ok(parseFloat(window.getComputedStyle(unit).minWidth)>=34,'unit toggles keep a usable target despite their compact appearance');
         assert.equal(window.getComputedStyle(controls.querySelector('#timerAdvancedPanel')).display,'none','the inactive mode never leaks into the base panel');
         assert.equal(window.getComputedStyle(controls.querySelector('.interval-mode-tabs')).gridTemplateColumns,'repeat(2,minmax(0,1fr))','Base and Advanced stay side by side');
+        const cognitive=window.document.createElement('section');cognitive.className='cognitive';
+        cognitive.innerHTML='<div class="cognitive-tabs"><button aria-selected="true">Tuiles</button><button>Sac</button></div><div class="cognitive-tiles" data-count="8"><button class="cognitive-tile"></button></div><div class="cognitive-bag-fallback" hidden></div>';
+        window.document.getElementById('toolStage').append(cognitive);
+        assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-tabs')).gridTemplateColumns,'repeat(2,minmax(0,1fr))','cognitive tabs remain side by side');
+        assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-tiles')).gridTemplateColumns,width<620?'repeat(2,minmax(0,1fr))':'repeat(4,minmax(0,1fr))','eight tiles adapt to portrait width');
+        assert.ok(parseFloat(window.getComputedStyle(cognitive.querySelector('.cognitive-tile')).minHeight)>=44,'tiles keep accessible touch targets');
+        assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-bag-fallback')).display,'none','inactive bag fallback stays hidden');
+        const tabStyle=window.getComputedStyle(cognitive.querySelector('[aria-selected="true"]'));
+        assert.notEqual(tabStyle.color,tabStyle.backgroundColor,'cognitive selected tab remains readable in both themes');
       }
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);

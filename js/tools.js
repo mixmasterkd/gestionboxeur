@@ -12,7 +12,7 @@ const defaults = {
   boxing: { rounds: 3, work: 180, rest: 60, preparation: 10, warning: true, infinite: false },
   intervals: { rounds: 8, work: 45, rest: 15, preparation: 5, warning: false, series: 1, seriesRest: 60 },
 };
-const titles = { boxing: 'Timer de boxe', intervals: 'Timer à intervalles', punches: 'Compteur de coups', steps: 'Compteur de pas', bulletin: 'Babillard' };
+const titles = { boxing: 'Timer de boxe', intervals: 'Timer à intervalles', punches: 'Compteur de coups', steps: 'Compteur de pas', bulletin: 'Babillard', cognitive: 'Jeux cognitifs' };
 const options = (values, selected) => values.map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
 
 function preferences(storage) {
@@ -54,7 +54,7 @@ export function bindTap(button, callback) {
   button.addEventListener('contextmenu', event => event.preventDefault());
 }
 
-export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), ownerId = 'local', toolStore = null } = {}) {
+export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), ownerId = 'local', toolStore = null, cognitiveStore = null } = {}) {
   const doc = root.ownerDocument, view = doc.defaultView;
   const $ = id => root.querySelector(`#${id}`);
   if (storage === undefined) { try { storage = view.localStorage; } catch { storage = null; } }
@@ -91,6 +91,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
   let classicScene = null, sceneTicket = 0, sceneHost = null;
   let audioTicket = 0;
   let presetsUI = null, bulletinUI = null, bulletinTicket = 0;
+  let cognitiveUI = null, cognitiveTicket = 0;
   const save = () => { try { storage?.setItem(preferenceKey, JSON.stringify(settings)); storage?.setItem(draftKey, JSON.stringify(draft)); } catch { /* Tools remain usable without storage. */ } };
   const notice = text => { if (!destroyed && $('toolNotice')) $('toolNotice').textContent = text; };
   const audio = createTimerSignals(view, () => notice('Le son est indisponible. Vérifie les réglages audio de ton navigateur et le volume du téléphone.'));
@@ -158,12 +159,11 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       presetsUI?.sync();
     }
     if (selected === 'boxing') {
-      $('timerForm').elements.rounds.disabled = config.infinite;
       for (const name of ['work', 'rest']) {
-        $(`classic${name}Value`).textContent = name === 'work' ? `${config.work / 60} min` : `${config.rest} s`;
+        $(`classic${name}Value`).textContent = name === 'work' ? `${config.work / 60} min` : config.rest === 60 ? '1 min' : `${config.rest} sec`;
         for (const control of root.querySelectorAll(`[data-adjust="${name}"]`)) control.disabled = locked || (Number(control.dataset.direction) < 0 ? config[name] === (name === 'work' ? 120 : 30) : config[name] === (name === 'work' ? 180 : 60));
       }
-      $('classicControlsHint').textContent = locked ? 'Réinitialise le timer pour régler les boutons.' : 'Tourne les boutons du boîtier, ou utilise − et +.';
+      $('classicControlsHint').textContent = locked ? 'Réinitialise le timer pour régler les boutons.' : 'Actionne les bascules du boîtier, ou utilise − et +.';
       syncClassicScene();
       classicScene?.update({ phase, warning, status: state.status, config });
     }
@@ -199,6 +199,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     }).catch(() => { if (!destroyed && sceneTicket === ticket) { classicScene?.destroy(); classicScene = null; fallback(); } });
   }
   function tick() {
+    if (selected === 'cognitive' && !destroyed) { cognitiveUI?.tick(); return; }
     if (!isTimer() || destroyed) return;
     const state = timers[selected].snapshot(), cue = timerCue(previous, state);
     if (cue && settings.sound && doc.visibilityState !== 'hidden') audio.play(cue, selected === 'intervals' ? 'beep' : 'bell');
@@ -210,13 +211,12 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     const config = settings[kind], boxing = kind === 'boxing';
     const classic = boxing ? `<div class="classic-instrument"><div id="classicViewport" class="classic-viewport" aria-label="Boîtier de timer de boxe en trois dimensions"><div class="classic-fallback" aria-hidden="true"><div class="classic-fallback-lights"><i class="beacon work"></i><i class="beacon warning"></i><i class="beacon rest"></i></div><div class="classic-fallback-case"><div class="classic-fallback-vents"></div><img src="${import.meta.env?.BASE_URL || './'}images/boxing-logo.png" alt="" width="96" height="96"></div></div></div><p id="classicRenderStatus" class="classic-render-status" role="status"></p><div class="classic-legend" aria-hidden="true"><span data-lamp="work"><i></i>Round</span><span data-lamp="warning"><i></i>30 secondes</span><span data-lamp="rest"><i></i>Repos</span></div></div>` : '';
     const knobs = boxing ? `<div class="classic-knobs" role="group" aria-label="Réglages des boutons du boîtier">${[['work', 'Round'], ['rest', 'Repos']].map(([name, label]) => `<div class="classic-knob-control"><span>${label}</span><div><button type="button" data-adjust="${name}" data-direction="-1" aria-label="Diminuer la durée ${name === 'work' ? 'du round' : 'du repos'}">−</button><output id="classic${name}Value"></output><button type="button" data-adjust="${name}" data-direction="1" aria-label="Augmenter la durée ${name === 'work' ? 'du round' : 'du repos'}">+</button></div></div>`).join('')}<p id="classicControlsHint"></p></div>` : '';
-    const controls = boxing ? `<details class="timer-settings" id="timerSettings" open><summary>Réglages</summary><form id="timerForm"><fieldset id="timerFields" class="timer-fields">
-      <label><span>Rounds</span><select name="roundMode">${options([['fixed', 'Nombre déterminé'], ['infinite', 'Infini']], config.infinite ? 'infinite' : 'fixed')}</select></label>
-      <label><span>Nombre de rounds</span><input name="rounds" aria-label="Nombre de rounds" type="number" inputmode="numeric" min="1" max="99" value="${config.rounds}" required></label>
-      <label><span>Durée du round</span><select name="work">${options([[120, '2 minutes'], [180, '3 minutes']], config.work)}</select></label>
-      <label><span>Repos</span><select name="rest">${options([[30, '30 secondes'], [60, '1 minute']], config.rest)}</select></label>
-      <label><span>Préparation</span><select name="preparation">${options([[0, 'Aucune'], [5, '5 secondes'], [10, '10 secondes'], [15, '15 secondes'], [30, '30 secondes'], [60, '1 minute']], config.preparation)}</select></label>
-      <label class="timer-check"><input name="warning" type="checkbox"${config.warning ? ' checked' : ''}><span>Avertissement à 30 secondes</span></label>
+    const controls = boxing ? `<details class="timer-settings" id="timerSettings" open><summary>Réglages</summary><form id="timerForm"><fieldset id="timerFields" class="timer-fields boxing-fields">
+      <label><span>Nombre de rounds</span><select name="rounds" aria-label="Nombre de rounds" required>${options([[0, 'Infini'], ...Array.from({ length: 99 }, (_, index) => [index + 1, String(index + 1)])], config.infinite ? 0 : config.rounds)}</select></label>
+      <label><span>Durée du round</span><select name="work">${options([[120, '2 min'], [180, '3 min']], config.work)}</select></label>
+      <label><span>Repos</span><select name="rest">${options([[30, '30 sec'], [60, '1 min']], config.rest)}</select></label>
+      <label><span>Préparation</span><select name="preparation">${options([[0, 'Aucune'], [5, '5 sec'], [10, '10 sec'], [15, '15 sec'], [30, '30 sec'], [60, '1 min']], config.preparation)}</select></label>
+      <label class="timer-check"><input name="warning" type="checkbox"${config.warning ? ' checked' : ''}><span>Avertissement à 30 sec</span></label>
       </fieldset></form><p id="timerSettingsHint" class="timer-help" hidden>Réinitialise le timer pour modifier les durées.</p></details>` : intervalControlsMarkup(config);
     return `<div class="timer-layout" data-tool="${kind}"><div class="timer-main"><div id="timerBoard" class="timer-board" data-design="${boxing ? settings.design : 'intervals'}">${classic}<div class="timer-readout"><span id="timerRound" class="timer-round"></span><span id="timerPhase" class="timer-phase" role="status" aria-live="polite"></span><span id="timerDigits" class="timer-digits" role="timer" aria-label="Temps restant" aria-live="off"></span><span id="timerState" class="timer-state"></span><span id="timerSeries" class="timer-series" hidden></span><span id="timerNext" class="timer-next"></span></div>${knobs}<div class="timer-progress" aria-hidden="true"><span id="timerProgress"></span></div></div><div class="timer-actions"><button id="timerStart" type="button" class="button primary">Démarrer</button><button id="timerReset" type="button" class="button secondary">Réinitialiser</button></div><p id="timerSummary" class="timer-summary"></p></div>
       <div class="timer-controls-panel">${controls}
@@ -245,13 +245,14 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       }
     }
     const form = $('timerForm');
-    form.elements.rounds.disabled = form.elements.roundMode.value === 'infinite';
     if (!(report ? form.reportValidity() : form.checkValidity())) return false;
+    const rounds = Number(form.elements.rounds.value);
     const config = {
-      rounds: form.elements.rounds.disabled ? settings[selected].rounds : Number(form.elements.rounds.value),
+      // Keep the stored finite count for compatibility; zero is a UI choice only.
+      rounds: rounds === 0 ? settings[selected].rounds : rounds,
       work: Number(form.elements.work.value), rest: Number(form.elements.rest.value),
       preparation: Number(form.elements.preparation.value), warning: Boolean(form.elements.warning?.checked),
-      infinite: form.elements.roundMode.value === 'infinite',
+      infinite: rounds === 0,
     };
     try {
       const phases = makePhases(config);
@@ -273,7 +274,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       $('classicViewport').dataset.render = 'fallback';
       $('classicRenderStatus').textContent = 'Vue simplifiée · la 3D est indisponible sur ce navigateur.';
     });
-    if (selected === 'boxing') for (const name of ['rounds', 'work', 'rest', 'preparation']) $('timerForm').elements[name].value = String(settings[selected][name]);
+    if (selected === 'boxing') for (const name of ['rounds', 'work', 'rest', 'preparation']) $('timerForm').elements[name].value = String(name === 'rounds' && settings.boxing.infinite ? 0 : settings.boxing[name]);
     if ($('timerDesign')) $('timerDesign').value = settings.design;
     if (selected === 'intervals') advancedUI = mountIntervalControls($('timerSettings'), { config: settings.intervals, units: settings.intervalUnits, draft, onChange() {
       if (!['idle', 'done'].includes(timers.intervals.status)) return;
@@ -350,6 +351,14 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       host.innerHTML = '<p role="alert">Impossible d’ouvrir le babillard. Reviens aux outils puis réessaie.</p>';
     });
   }
+  function mountCognitive() {
+    const ticket = ++cognitiveTicket, host = $('toolStage');
+    host.innerHTML = '<p role="status">Ouverture du jeu…</p>';
+    loadCognitive().then(({ mountCognitiveGames }) => {
+      if (destroyed || selected !== 'cognitive' || ticket !== cognitiveTicket) return;
+      cognitiveUI = mountCognitiveGames(host, { store: cognitiveStore, ownerId, storage, now, autoTick: false, onActivity(active) { if (destroyed || ticket !== cognitiveTicket) return; counterActive = active; syncWake(); } });
+    }).catch(() => { if (!destroyed && ticket === cognitiveTicket) host.innerHTML = '<p role="alert">Impossible d’ouvrir le jeu. Reviens aux outils puis réessaie.</p>'; });
+  }
   function drawSteps() {
     const state = steps.snapshot();
     $('stepCount').textContent = String(state.count);
@@ -377,16 +386,18 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
   function select(kind) {
     if (kind !== null && !Object.hasOwn(titles, kind)) return;
     if (selected === 'bulletin' && bulletinUI?.canLeave && !bulletinUI.canLeave()) return;
+    if (selected === 'cognitive' && cognitiveUI?.canLeave && !cognitiveUI.canLeave()) return;
     const oldKind = selected;
     if (isTimer()) timers[selected].pause();
     stopAudio(); releaseClassicScene(); advancedUI?.destroy(); advancedUI = null;
     presetsUI?.destroy(); presetsUI = null; bulletinTicket++; bulletinUI?.destroy(); bulletinUI = null;
+    cognitiveTicket++; cognitiveUI?.destroy(); cognitiveUI = null;
     selected = kind; counterActive = false;
     closeFullscreen(); syncWake(); notice('');
     $('toolsMenu').hidden = Boolean(kind); $('toolDetail').hidden = !kind;
     if (!kind) { root.querySelector(`[data-tool="${oldKind}"]`)?.focus({ preventScroll: true }); return; }
     $('toolTitle').textContent = titles[kind];
-    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else mountSteps();
+    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else mountSteps();
     $('toolTitle').focus({ preventScroll: true });
   }
   root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => select(button.dataset.tool)));
@@ -413,6 +424,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     destroy() {
       destroyed = true; audioTicket++; view.clearInterval(interval); syncWake(); audio.destroy(); releaseClassicScene(); advancedUI?.destroy(); closeFullscreen();
       presetsUI?.destroy(); bulletinTicket++; bulletinUI?.destroy();
+      cognitiveTicket++; cognitiveUI?.destroy();
       doc.removeEventListener('fullscreenchange', updateFullscreen); doc.removeEventListener('keydown', onKey); doc.removeEventListener('visibilitychange', onVisibility); view.removeEventListener('pagehide', onPageHide);
       root.replaceChildren();
     },
