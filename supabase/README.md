@@ -1,5 +1,15 @@
 # Base de données
 
+### Records de réactivité privés — 5 octobre 2026
+
+La migration locale `20261005131442_reaction_personal_records.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261005132435`. Ne pas la rejouer sous son horodatage local. Elle ajoute uniquement `reaction_records` et le RPC `save_reaction_record(p_mode text, p_input text, p_best_ms integer, p_expected_owner uuid)`. L’interface du nouvel outil reste locale à ce stade, sans publication GitHub Pages.
+
+Chaque record appartient à `(owner_id, mode, input)` : `simple`, `locate` ou `choice`, avec `touch`, `mouse` ou `keyboard`. Le RPC SECURITY INVOKER utilise `auth.uid()`, un `search_path` vide et `LEAST` pour conserver atomiquement le temps minimal (entier de 1 à 10 000 ms). Le compte attendu bloque une sauvegarde différée après un changement de session. Quatre politiques RLS et des droits explicites limités aux colonnes utiles protègent les données; aucun accès anonyme et aucune modification de propriétaire. Il s’agit de records personnels déclarés par le navigateur, pas d’un classement anti-triche.
+
+`js/reaction-records.js` sérialise lecture, sauvegarde et suppression; la suppression ne concerne que le couple mode/commande affiché. Les tests PGlite vérifient les contraintes, l’isolation entre comptes, les refus anonymes, les minimums et les anciennes sessions. Aucun compte ni record de test n’a été créé sur la base distante. Après migration, la nouvelle table est vide, les politiques et les droits sont conformes et aucun nouvel avis de sécurité n’est apparu. Les trois catégories d’avis historiques restent inchangées.
+
+Sauvegarde applicative privée avant migration : `/home/mixmasterkd/Documents/Codex/gboxeur-reaction-backup-bsjHNu/application-before.json`, hors dépôt, dans un répertoire accessible uniquement à son propriétaire. Elle conserve les tables publiques, le schéma et les migrations, sans Auth/Storage. Les 183 lignes des 29 tables préexistantes ont été comparées après application : toutes sont identiques.
+
 ### Records cognitifs privés — 1er octobre 2026
 
 La migration locale `20261001230552_cognitive_personal_records.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261001232704`. Elle ajoute seulement `cognitive_records` et le RPC `save_cognitive_record(p_mode text, p_score integer, p_expected_owner uuid)`. Ne pas la rejouer sous son horodatage local. Le frontend est publié depuis le commit `26d29c9ee63cf6f7b57ea05ad2d7f3cb4fad7262` ([workflow vérifié](https://github.com/mixmasterkd/gestionboxeur/actions/runs/36949338597)). Avant cette publication, les 24 migrations, les quatre politiques RLS et les droits du nouveau RPC ont été revérifiés en lecture seule; aucune migration supplémentaire ni modification de données n’a été nécessaire.

@@ -12,7 +12,7 @@ const defaults = {
   boxing: { rounds: 3, work: 180, rest: 60, preparation: 10, warning: true, infinite: false },
   intervals: { rounds: 8, work: 45, rest: 15, preparation: 5, warning: false, series: 1, seriesRest: 60 },
 };
-const titles = { boxing: 'Timer de boxe', intervals: 'Timer à intervalles', punches: 'Compteur de coups', steps: 'Compteur de pas', bulletin: 'Babillard', cognitive: 'Jeux cognitifs' };
+const titles = { boxing: 'Timer de boxe', intervals: 'Timer à intervalles', punches: 'Compteur de coups', steps: 'Compteur de pas', bulletin: 'Babillard', cognitive: 'Jeux cognitifs', reaction: 'Test de réactivité' };
 const options = (values, selected) => values.map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
 
 function preferences(storage) {
@@ -54,7 +54,7 @@ export function bindTap(button, callback) {
   button.addEventListener('contextmenu', event => event.preventDefault());
 }
 
-export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), ownerId = 'local', toolStore = null, cognitiveStore = null } = {}) {
+export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), loadReaction = () => import('./reaction-game.js'), ownerId = 'local', toolStore = null, cognitiveStore = null, reactionStore = null } = {}) {
   const doc = root.ownerDocument, view = doc.defaultView;
   const $ = id => root.querySelector(`#${id}`);
   if (storage === undefined) { try { storage = view.localStorage; } catch { storage = null; } }
@@ -92,6 +92,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
   let audioTicket = 0;
   let presetsUI = null, bulletinUI = null, bulletinTicket = 0;
   let cognitiveUI = null, cognitiveTicket = 0;
+  let reactionUI = null, reactionTicket = 0;
   const save = () => { try { storage?.setItem(preferenceKey, JSON.stringify(settings)); storage?.setItem(draftKey, JSON.stringify(draft)); } catch { /* Tools remain usable without storage. */ } };
   const notice = text => { if (!destroyed && $('toolNotice')) $('toolNotice').textContent = text; };
   const audio = createTimerSignals(view, () => notice('Le son est indisponible. Vérifie les réglages audio de ton navigateur et le volume du téléphone.'));
@@ -199,6 +200,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     }).catch(() => { if (!destroyed && sceneTicket === ticket) { classicScene?.destroy(); classicScene = null; fallback(); } });
   }
   function tick() {
+    if (selected === 'reaction' && !destroyed) { if (!autoTick) reactionUI?.tick(); return; }
     if (selected === 'cognitive' && !destroyed) { cognitiveUI?.tick(); return; }
     if (!isTimer() || destroyed) return;
     const state = timers[selected].snapshot(), cue = timerCue(previous, state);
@@ -359,6 +361,14 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       cognitiveUI = mountCognitiveGames(host, { store: cognitiveStore, ownerId, storage, now, autoTick: false, onActivity(active) { if (destroyed || ticket !== cognitiveTicket) return; counterActive = active; syncWake(); } });
     }).catch(() => { if (!destroyed && ticket === cognitiveTicket) host.innerHTML = '<p role="alert">Impossible d’ouvrir le jeu. Reviens aux outils puis réessaie.</p>'; });
   }
+  function mountReaction() {
+    const ticket = ++reactionTicket, host = $('toolStage');
+    host.innerHTML = '<p role="status">Ouverture du test…</p>';
+    loadReaction().then(({ mountReactionGame }) => {
+      if (destroyed || selected !== 'reaction' || ticket !== reactionTicket) return;
+      reactionUI = mountReactionGame(host, { store: reactionStore, ownerId, storage, now, autoTick, onActivity(active) { if (destroyed || ticket !== reactionTicket) return; counterActive = active; syncWake(); } });
+    }).catch(() => { if (!destroyed && ticket === reactionTicket) host.innerHTML = '<p role="alert">Impossible d’ouvrir le test. Reviens aux outils puis réessaie.</p>'; });
+  }
   function drawSteps() {
     const state = steps.snapshot();
     $('stepCount').textContent = String(state.count);
@@ -387,17 +397,19 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     if (kind !== null && !Object.hasOwn(titles, kind)) return;
     if (selected === 'bulletin' && bulletinUI?.canLeave && !bulletinUI.canLeave()) return;
     if (selected === 'cognitive' && cognitiveUI?.canLeave && !cognitiveUI.canLeave()) return;
+    if (selected === 'reaction' && reactionUI?.canLeave && !reactionUI.canLeave()) return;
     const oldKind = selected;
     if (isTimer()) timers[selected].pause();
     stopAudio(); releaseClassicScene(); advancedUI?.destroy(); advancedUI = null;
     presetsUI?.destroy(); presetsUI = null; bulletinTicket++; bulletinUI?.destroy(); bulletinUI = null;
     cognitiveTicket++; cognitiveUI?.destroy(); cognitiveUI = null;
+    reactionTicket++; reactionUI?.destroy(); reactionUI = null;
     selected = kind; counterActive = false;
     closeFullscreen(); syncWake(); notice('');
     $('toolsMenu').hidden = Boolean(kind); $('toolDetail').hidden = !kind;
     if (!kind) { root.querySelector(`[data-tool="${oldKind}"]`)?.focus({ preventScroll: true }); return; }
     $('toolTitle').textContent = titles[kind];
-    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else mountSteps();
+    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else if (kind === 'reaction') mountReaction(); else mountSteps();
     $('toolTitle').focus({ preventScroll: true });
   }
   root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => select(button.dataset.tool)));
@@ -425,6 +437,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       destroyed = true; audioTicket++; view.clearInterval(interval); syncWake(); audio.destroy(); releaseClassicScene(); advancedUI?.destroy(); closeFullscreen();
       presetsUI?.destroy(); bulletinTicket++; bulletinUI?.destroy();
       cognitiveTicket++; cognitiveUI?.destroy();
+      reactionTicket++; reactionUI?.destroy();
       doc.removeEventListener('fullscreenchange', updateFullscreen); doc.removeEventListener('keydown', onKey); doc.removeEventListener('visibilitychange', onVisibility); view.removeEventListener('pagehide', onPageHide);
       root.replaceChildren();
     },

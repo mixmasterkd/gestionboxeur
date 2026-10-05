@@ -1,9 +1,11 @@
 import { client, loadAccount, result, isDemo } from './data.js';
 import { createToolStore, createDemoToolStore } from './tool-saves.js';
 import { createCognitiveRecordStore, createDemoCognitiveRecordStore } from './cognitive-records.js';
+import { createReactionRecordStore, createDemoReactionRecordStore } from './reaction-records.js';
 import '../css/bulletin-board.css';
 import '../css/timer-presets.css';
 import '../css/cognitive-games.css';
+import '../css/reaction-game.css';
 import { mountNavigation } from './navigation.js';
 import { mountTools } from './tools.js';
 
@@ -23,7 +25,7 @@ async function initialize() {
     $('gymBrand').textContent = account.gym?.gym_name || 'Mon espace';
     $('gymAddress').textContent = account.gym?.address || '';
     mountNavigation({ role: account.profile.account_type, isAdmin: account.profile.is_admin });
-    toolsUI = mountTools($('toolsApp'), { ownerId: session.user.id, toolStore: isDemo ? createDemoToolStore() : createToolStore(client, session.user.id), cognitiveStore: isDemo ? createDemoCognitiveRecordStore() : createCognitiveRecordStore(client, session.user.id) });
+    toolsUI = mountTools($('toolsApp'), { ownerId: session.user.id, toolStore: isDemo ? createDemoToolStore() : createToolStore(client, session.user.id), cognitiveStore: isDemo ? createDemoCognitiveRecordStore() : createCognitiveRecordStore(client, session.user.id), reactionStore: isDemo ? createDemoReactionRecordStore() : createReactionRecordStore(client, session.user.id) });
     $('toolsApp').hidden = false;
   } catch (error) { if (ticket === generation) failure(error); }
   finally { if (ticket === generation) $('toolsLoading').hidden = true; }

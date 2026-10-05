@@ -92,6 +92,23 @@ for (const page of pages) {
         assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-bag-fallback')).display,'none','inactive bag fallback stays hidden');
         const tabStyle=window.getComputedStyle(cognitive.querySelector('[aria-selected="true"]'));
         assert.notEqual(tabStyle.color,tabStyle.backgroundColor,'cognitive selected tab remains readable in both themes');
+        const reaction=window.document.createElement('section');reaction.className='reaction';reaction.dataset.mode='choice';
+        reaction.innerHTML='<div class="reaction-arena"><button class="reaction-pad"></button><button class="reaction-pad"></button><button class="reaction-pad"></button><button class="reaction-pad"></button></div><div class="reaction-actions"><button class="button secondary" hidden>Arrêter</button></div>';
+        window.document.getElementById('toolStage').append(reaction);
+        const reactionArena=reaction.querySelector('.reaction-arena');
+        assert.equal(window.getComputedStyle(reactionArena).display,'grid','four reaction targets remain a grid in both themes');
+        assert.equal(window.getComputedStyle(reactionArena).gridTemplateColumns,'repeat(2,minmax(0,1fr))','four reaction targets keep two columns in portrait and desktop');
+        for(const pad of reaction.querySelectorAll('.reaction-pad')) {
+          const padStyle=window.getComputedStyle(pad);
+          assert.ok(parseFloat(padStyle.minHeight)>=44,'reaction pads retain accessible touch targets');
+          assert.equal(padStyle.transition,'none','reaction colors appear immediately without a timing-distorting transition');
+        }
+        assert.equal(window.getComputedStyle(reaction.querySelector('[hidden]')).display,'none','inactive reaction actions remain hidden after CSS bundling');
+        const reactionPad=reaction.querySelector('.reaction-pad');reactionPad.classList.add('is-lit');reactionPad.style.backgroundColor='#22c55e';
+        assert.equal(window.getComputedStyle(reactionPad).transition,'none','lit reaction targets do not acquire a theme transition');
+        assert.equal(window.getComputedStyle(reactionPad).backgroundColor,'#22c55e','reaction signals preserve their assigned color');
+        reaction.dataset.mode='simple';
+        assert.equal(window.getComputedStyle(reactionArena).display,'block','simple reaction mode keeps a single large target');
       }
       const button = window.document.querySelector('.button-dark, .button.primary');
       assert.ok(button, `${page}: primary action`);

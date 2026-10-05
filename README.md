@@ -85,6 +85,22 @@ Les ouvertures de création de séance, sujet du journal et sélection du calend
 
 **Activation des groupes sur une base connectée :** appliquer les migrations `20260930183034_training_groups.sql`, `20260930191243_shared_calendar_notes.sql` et `20260930191446_workout_text_base_colors.sql`, dans cet ordre, avant de publier cette version. Elles ont été testées avec PGlite puis appliquées au projet distant le 30 septembre 2026, après sauvegarde et vérification des données existantes. Sur une base où ces migrations sont absentes, la planification individuelle reste disponible et les groupes indiquent leur indisponibilité. L’aperçu de planification contient un groupe fictif et les mutations restent en mémoire.
 
+## Test de réactivité — version locale
+
+Le nouvel outil **Outils → Test de réactivité** est disponible dans le projet local et l’aperçu `tools.html?demo=coach` ou `tools.html?demo=athlete`. Cette fonctionnalité n’est pas encore publiée; son ajout ne modifie pas les outils existants ni les publications décrites plus bas.
+
+Trois niveaux sont proposés :
+
+- **Réaction simple** : un bouton, à toucher seulement lorsque sa couleur apparaît.
+- **Repérage** : quatre boutons; la couleur annoncée apparaît sur un seul d’entre eux.
+- **Choix** : quatre boutons, quatre couleurs; toucher uniquement la couleur annoncée.
+
+Choisir **1 coup**, **5 coups** (par défaut) ou **10 coups**, puis **Démarrer**. Chaque coup commence après une attente variable. Un appui trop tôt, une mauvaise cible, plusieurs appuis simultanés ou l’absence de réponse sont des erreurs, exclues du meilleur temps et de la moyenne valide. Les résultats restent visibles coup par coup. Au clavier, utiliser **Espace** en mode simple; **A / K / Z / M** correspondent aux quatre positions, de gauche à droite puis de haut en bas. Relâcher les commandes entre les coups; maintenir une touche ou un doigt ne permet pas d’anticiper le prochain signal.
+
+Les records personnels conservent le plus petit temps valide, séparément pour chaque niveau et chaque commande (**Tactile**, **Souris**, **Clavier**), soit neuf variantes indépendantes. Le sélecteur **Commande** permet de consulter chacune d’elles; la commande réellement utilisée détermine le record enregistré. Un coup valide peut améliorer le record sans attendre la fin de toute la série. **Recommencer** ne l’efface pas; **Effacer ce record** demande confirmation et ne concerne que la variante affichée. Les réglages restent locaux au compte; les records connectés utilisent leur stockage privé, avec une erreur visible et **Réessayer** en cas d’échec, sans remplacement silencieux par un record local. En aperçu, ils restent seulement en mémoire jusqu’au rechargement.
+
+**Arrêter**, quitter la page ou passer en arrière-plan interrompt la série et abandonne le coup encore en cours, sans retirer les records déjà validés. Le maintien de l’écran est demandé pendant la série, selon les possibilités du navigateur. Le chronométrage commence à l’apparition effective du signal, sur une boucle d’affichage indépendante du timer de boxe; aucune transition de couleur ne retarde le signal. Les millisecondes restent une mesure pratique dépendant de l’écran, de la commande et du navigateur, pas une mesure clinique ni une comparaison équitable entre appareils.
+
 ## Parcours
 
 Un **coach** peut créer une fiche libre avec un prénom et en modifier toutes les informations. Cette fiche sert aux listes; aucun compte ni calendrier n'est obligatoire. **Un seul tableau**, accessible par « Mes athlètes », réunit toutes ses fiches et tous ses comptes athlètes liés et acceptés, y compris ceux sans droit de consultation du calendrier. Aucun regroupement ni filtre par type de compte et aucune entrée « Mes listes » redondante dans le menu. Le bouton « Préparer une liste » du tableau ouvre le générateur ; il n'y a pas de bibliothèque ni d'historique de listes. Les anciens liens `?liste=1` restent compatibles et ouvrent le même tableau, sans lancer le générateur. Les notes privées et les sélections appartiennent à la relation de chaque coach avec l'athlète. Les textes de navigation et les en-têtes sont fonctionnels, sans slogans.

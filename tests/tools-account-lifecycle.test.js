@@ -12,7 +12,7 @@ function fixture({pending=false}={}){
  window.__loadAccount=async()=>pending?new Promise(resolve=>resolveAccount=resolve):{profile:{full_name:'A',account_type:'coach'},gym:null};
  window.__mount=(root,options)=>{mounts.push(options.ownerId);return{destroy(){destroyed++;root.replaceChildren();}};};
  window.eval(source.replace(/^import .*;\s*$/gm,'')
-  .replace('const $ =','const client=window.__client,loadAccount=window.__loadAccount,result=async p=>(await p).data,isDemo=false,createToolStore=()=>({}),createDemoToolStore=()=>({}),createCognitiveRecordStore=()=>({}),createDemoCognitiveRecordStore=()=>({}),mountNavigation=()=>{},mountTools=window.__mount;const $ ='));
+  .replace('const $ =','const client=window.__client,loadAccount=window.__loadAccount,result=async p=>(await p).data,isDemo=false,createToolStore=()=>({}),createDemoToolStore=()=>({}),createCognitiveRecordStore=()=>({}),createDemoCognitiveRecordStore=()=>({}),createReactionRecordStore=()=>({}),createDemoReactionRecordStore=()=>({}),mountNavigation=()=>{},mountTools=window.__mount;const $ ='));
  return{window,mounts,get destroyed(){return destroyed},event:(e,s)=>authChange(e,s),resolve:()=>resolveAccount?.({profile:{full_name:'A',account_type:'coach'},gym:null})};
 }
 test('same-account refresh keeps tools while a different account clears old UI and reloads a fresh page',async()=>{
