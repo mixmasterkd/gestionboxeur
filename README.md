@@ -85,9 +85,9 @@ Les ouvertures de création de séance, sujet du journal et sélection du calend
 
 **Activation des groupes sur une base connectée :** appliquer les migrations `20260930183034_training_groups.sql`, `20260930191243_shared_calendar_notes.sql` et `20260930191446_workout_text_base_colors.sql`, dans cet ordre, avant de publier cette version. Elles ont été testées avec PGlite puis appliquées au projet distant le 30 septembre 2026, après sauvegarde et vérification des données existantes. Sur une base où ces migrations sont absentes, la planification individuelle reste disponible et les groupes indiquent leur indisponibilité. L’aperçu de planification contient un groupe fictif et les mutations restent en mémoire.
 
-## Test de réactivité — version locale
+## Test de réactivité
 
-Le nouvel outil **Outils → Test de réactivité** est disponible dans le projet local et l’aperçu `tools.html?demo=coach` ou `tools.html?demo=athlete`. Cette fonctionnalité n’est pas encore publiée; son ajout ne modifie pas les outils existants ni les publications décrites plus bas.
+Le nouvel outil **Outils → Test de réactivité** est publié sur GitHub Pages depuis le 5 octobre 2026. Il est accessible aux comptes connectés, sans modification du fonctionnement des autres outils. L’aperçu `tools.html?demo=coach` ou `tools.html?demo=athlete` reste réservé au développement local.
 
 Trois niveaux sont proposés :
 
@@ -197,6 +197,8 @@ Les tests de base utilisent **PGlite**, un moteur PostgreSQL isolé en mémoire.
 Les tests d'interface utilisent **Happy DOM** pour exercer les formulaires et les actions. Ils ne remplacent pas une vérification visuelle dans de vrais navigateurs sur ordinateur et téléphone. La livraison locale n'atteste pas d'un déploiement en production ni d'un parcours connecté validé sur la base réelle.
 
 ## Mise en production
+
+**Publication vérifiée — Test de réactivité (5 octobre 2026, Toronto)** : trois niveaux, séries de 1/5/10 coups, délai variable, résultats en millisecondes et records privés par mode et commande. Application `7ee1a5af17e853e5ca163d810102829d56243a88`, [workflow réussi](https://github.com/mixmasterkd/gestionboxeur/actions/runs/37318340647). Les 733 tests, contrôles et compilation réussissent; les 41 fichiers servis sont identiques à l’artefact GitHub Pages (SHA-256 comparés). Les essais locaux Chromium ont couvert ordinateur et portrait 320/390 px, toucher/clavier/souris, erreurs et records. Avant publication, les 25 migrations, RLS, politiques, droits et RPC des records ainsi que `admin-users` version 4 ont été revérifiés en lecture seule. Aucune nouvelle migration ni modification de données n’a été nécessaire pendant cette publication. La migration `reaction_personal_records` est déjà appliquée sous la version distante `20261005132435`; ne pas la rejouer sous sa version locale `20261005131442`.
 
 **Publication vérifiée — Jeux cognitifs et timer (1er octobre 2026, Toronto)** : modes Tuiles/Sac, rubans masquables, records privés, installation intégrée à la connexion et au profil, pastilles sans texte et menu « Athlètes ». Le timer propose un sélecteur unique Infini/1–99, des unités min/sec, des lampes raccourcies et trois bascules vierges; les inscriptions de façade et le post-it sont plus lisibles. Logo, rotation, vis et fonctionnement sont conservés. Application `26d29c9ee63cf6f7b57ea05ad2d7f3cb4fad7262`, [workflow réussi](https://github.com/mixmasterkd/gestionboxeur/actions/runs/36949338597). 678 tests, contrôles et compilation réussis; essais Chromium sur ordinateur et en portrait 320/390 px. Les 40 fichiers servis correspondent exactement à l’artefact GitHub Pages. Connexion et aide d’installation contrôlées sur le site public à 390/1280 px, sans erreur JavaScript; l’aperçu de développement reste inaccessible en production sans compte. Les parcours connectés sont couverts par les tests isolés, sans nouvelle donnée d’athlète réelle. La migration `cognitive_personal_records` est appliquée au serveur sous la version `20261001232704`, après sauvegarde et comparaison des 146 lignes des 28 tables préexistantes, toutes conservées. Ne pas la rejouer sous sa version locale `20261001230552`.
 
