@@ -2,6 +2,7 @@ const modes = new Set([
   'tiles-4', 'tiles-6', 'tiles-8',
   'bag-sequence-visible', 'bag-sequence-hidden',
   'bag-targets-visible', 'bag-targets-hidden',
+  'visual-memory', 'dual-task',
 ]);
 
 function validMode(mode) {

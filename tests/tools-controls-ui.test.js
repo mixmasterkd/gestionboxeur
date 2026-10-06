@@ -8,7 +8,7 @@ const html = await readFile(new URL('../tools.html', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
 function fixture({ audio = false } = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html);
+  window.document.write(html); window.confirm = () => true;
   const nodes = [];
   const parameter = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {} });
   const node = kind => { const value = { kind, frequency: parameter(), gain: parameter(), connect() {}, disconnect() {}, start() {}, stop() {} }; nodes.push(value); return value; };

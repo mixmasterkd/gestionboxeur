@@ -10,7 +10,7 @@ const deferred = () => { let resolve; const promise = new Promise(yes => { resol
 
 function fixture({ setupWindow = () => {}, ...options } = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html);
+  window.document.write(html); window.confirm = () => true;
   window.localStorage.setItem('gestionboxeur:tools:v1', JSON.stringify({ sound: false }));
   setupWindow(window);
   let time = 0;
@@ -31,8 +31,8 @@ test('reaction opens lazily from actual tools and receives its private store, cl
   } });
   try {
     assert.equal(loads, 0);
-    app.root.querySelector('button[data-tool="reaction"]').click(); await settle();
-    assert.equal(loads, 1); assert.equal(app.$('toolTitle').textContent, 'Test de réactivité');
+    app.ui.select('reaction'); await settle();
+    assert.equal(loads, 1); assert.equal(app.$('toolTitle').textContent, 'Jeux cognitifs');
     assert.equal(mounted.options.store, store); assert.equal(mounted.options.ownerId, 'owner-a');
     assert.equal(mounted.options.autoTick, false); assert.equal(typeof mounted.options.onActivity, 'function');
     assert.equal(mounted.options.now(), 0); app.advance(321); assert.equal(mounted.options.now(), 321); assert.equal(ticks, 1);
@@ -102,7 +102,7 @@ test('a real reaction session saves and reloads its personal best through the to
   const app = fixture({ reactionStore: store, loadReaction: async () => ({ mountReactionGame: (host, options) => mountReactionGame(host, { ...options, random: () => 0 }) }) });
   try {
     app.window.localStorage.setItem('gestionboxeur:reaction:v1:owner-a', JSON.stringify({ mode: 'simple', rounds: 1 }));
-    app.root.querySelector('button[data-tool="reaction"]').click(); await settle();
+    app.ui.select('reaction'); await settle();
     assert.equal(app.$('reactionRounds').value, '1');
     app.$('reactionStart').click(); app.advance(5000); app.advance(225);
     const target = app.root.querySelector('.reaction-pad[data-index="0"]');

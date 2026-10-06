@@ -8,7 +8,7 @@ import { mountTools } from '../js/tools.js';
 const html = await readFile(new URL('../tools.html', import.meta.url), 'utf8');
 function fixture(saved, { setupWindow = () => {}, ...options } = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html);
+  window.document.write(html); window.confirm = () => true;
   setupWindow(window);
   if (saved) window.localStorage.setItem('gestionboxeur:tools:v1', JSON.stringify(saved));
   let time = 0;

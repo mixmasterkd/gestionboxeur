@@ -11,7 +11,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((yes, 
 const basePayload = { mode: 'base', config: { rounds: 2, series: 2, work: 90, rest: 15, seriesRest: 120, preparation: 5, warning: false }, units: { work: 'M', rest: 'S', seriesRest: 'M', preparation: 'S' } };
 function fixture(options = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html);
+  window.document.write(html); window.confirm = () => true;
   window.localStorage.setItem('gestionboxeur:tools:v1', JSON.stringify({ sound: false }));
   let time = 0, closed = false;
   const store = options.toolStore || createDemoToolStore();

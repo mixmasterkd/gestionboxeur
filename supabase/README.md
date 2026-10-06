@@ -1,5 +1,12 @@
 # Base de données
 
+### Mémoire visuelle et Double Tâche — 5 octobre 2026 (Toronto)
+
+La migration locale `20261006024812_cognitive_memory_dual_task.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261006033329`, après autorisation de publication. Ne pas la rejouer sous son horodatage local. Elle conserve la table `cognitive_records` et les anciens RPC, ajoute les modes `visual-memory` et `dual-task`, les colonnes `best_result` et `last_result`, et le RPC `save_cognitive_result(p_mode, p_result, p_expected_owner)`. Le RPC est SECURITY INVOKER avec un search_path vide; l’authentification choisit le propriétaire et refuse une ancienne session. Le maximum et son résultat associé sont conservés atomiquement; le dernier résultat est remplacé séparément. Les droits anonymes restent interdits et les politiques RLS existantes protègent les nouvelles données. Le mode Vite local sauvegarde les deux nouveaux jeux explicitement dans le navigateur.
+
+Les tests PGlite et les essais distants vérifient les deux jeux, le meilleur et le dernier résultat, les validations, l’isolation des comptes et le refus anonyme. Les écritures d’essai distantes sont annulées par transaction. Les 196 lignes des 30 tables préexistantes sont identiques après migration, hors ajout des deux colonnes nulles. Aucun nouvel avis de sécurité Supabase; les trois catégories d’avis historiques restent inchangées. Une sauvegarde applicative privée (tables publiques, schéma des records cognitifs et historique des migrations) est conservée hors dépôt dans `/home/mixmasterkd/.local/share/gestionboxeur-backups/`, sans Auth/Storage.
+
+
 ### Records de réactivité privés — 5 octobre 2026
 
 La migration locale `20261005131442_reaction_personal_records.sql` est appliquée au projet `opxsaykcofzbufzzzqwz` sous la version distante `20261005132435`. Ne pas la rejouer sous son horodatage local. Elle ajoute uniquement `reaction_records` et le RPC `save_reaction_record(p_mode text, p_input text, p_best_ms integer, p_expected_owner uuid)`. L’interface est publiée depuis le commit `7ee1a5af17e853e5ca163d810102829d56243a88` ([workflow vérifié](https://github.com/mixmasterkd/gestionboxeur/actions/runs/37318340647)). Les 25 migrations, les politiques RLS, les droits et le RPC ont été revérifiés en lecture seule avant publication; aucune migration supplémentaire ni modification de données n’a été nécessaire.

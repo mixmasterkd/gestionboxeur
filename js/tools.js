@@ -6,6 +6,8 @@ import { basicTimerText } from './timer-interval-settings.js';
 import { mountPunchCounter } from './punch-counter.js';
 import { mountTimerPresets } from './timer-presets.js';
 import { validateTimerPreset } from './tool-saves.js';
+import { mountCognitiveMenu } from './cognitive-menu.js';
+import { mountTimerSession } from './timer-session.js';
 
 const preferenceKey = 'gestionboxeur:tools:v1';
 const defaults = {
@@ -54,7 +56,7 @@ export function bindTap(button, callback) {
   button.addEventListener('contextmenu', event => event.preventDefault());
 }
 
-export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), loadReaction = () => import('./reaction-game.js'), ownerId = 'local', toolStore = null, cognitiveStore = null, reactionStore = null } = {}) {
+export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), loadReaction = () => import('./reaction-game.js'), loadMental = () => import('./mental-games.js'), ownerId = 'local', toolStore = null, cognitiveStore = null, reactionStore = null, mentalStore = null } = {}) {
   const doc = root.ownerDocument, view = doc.defaultView;
   const $ = id => root.querySelector(`#${id}`);
   if (storage === undefined) { try { storage = view.localStorage; } catch { storage = null; } }
@@ -92,7 +94,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
   let audioTicket = 0;
   let presetsUI = null, bulletinUI = null, bulletinTicket = 0;
   let cognitiveUI = null, cognitiveTicket = 0;
-  let reactionUI = null, reactionTicket = 0;
+  let timerSession = null;
   const save = () => { try { storage?.setItem(preferenceKey, JSON.stringify(settings)); storage?.setItem(draftKey, JSON.stringify(draft)); } catch { /* Tools remain usable without storage. */ } };
   const notice = text => { if (!destroyed && $('toolNotice')) $('toolNotice').textContent = text; };
   const audio = createTimerSignals(view, () => notice('Le son est indisponible. Vérifie les réglages audio de ton navigateur et le volume du téléphone.'));
@@ -168,6 +170,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       syncClassicScene();
       classicScene?.update({ phase, warning, status: state.status, config });
     }
+    timerSession?.sync();
   }
   function releaseClassicScene() {
     sceneTicket++; classicScene?.destroy(); classicScene = null; sceneHost = null;
@@ -200,7 +203,6 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     }).catch(() => { if (!destroyed && sceneTicket === ticket) { classicScene?.destroy(); classicScene = null; fallback(); } });
   }
   function tick() {
-    if (selected === 'reaction' && !destroyed) { if (!autoTick) reactionUI?.tick(); return; }
     if (selected === 'cognitive' && !destroyed) { cognitiveUI?.tick(); return; }
     if (!isTimer() || destroyed) return;
     const state = timers[selected].snapshot(), cue = timerCue(previous, state);
@@ -267,6 +269,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     }
   }
   function mountTimer() {
+    timerSession?.destroy(); timerSession = null;
     releaseClassicScene();
     presetsUI?.destroy(); presetsUI = null;
     advancedUI?.destroy(); advancedUI = null;
@@ -311,6 +314,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       $('timerForm').addEventListener('change', () => { if (['idle', 'done'].includes(timers[selected].status)) readTimerForm(); });
     }
     $('timerStart').addEventListener('click', async () => {
+      if (timerSession?.locked) return;
       const kind = selected, timer = timers[kind];
       if (timer.status === 'running') { previous = timer.pause(); stopAudio(); drawTimer(); syncWake(); return; }
       if (['idle', 'done'].includes(timer.status) && !readTimerForm(true)) return;
@@ -322,11 +326,13 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       if (settings.sound && await audio.unlock() && !destroyed && ticket === audioTicket && settings.sound && selected === kind && timer.status === 'running' && wasIdle) audio.play(timer.snapshot().phase.kind === 'prepare' ? 'prepare' : 'phase', kind === 'intervals' ? 'beep' : 'bell');
     });
     $('timerReset').addEventListener('click', () => {
+      if (timerSession?.locked) return;
       previous = timers[selected].reset();
       stopAudio();
       if (selected === 'boxing') $('timerSettings').open = true;
       notice('Timer réinitialisé.'); drawTimer(); syncWake();
     });
+    timerSession = mountTimerSession($('timerBoard'), { now, autoTick, getState: () => ({ status: timers[selected].status, design: selected === 'boxing' ? settings.design : 'intervals' }), getWake: () => Boolean(wake), onToggle: () => $('timerStart').click(), onReset: () => $('timerReset').click() });
     $('timerDesign')?.addEventListener('change', event => { settings.design = event.target.value; save(); drawTimer(); });
     root.querySelectorAll('[data-adjust]').forEach(control => control.addEventListener('click', () => adjustClassic(control.dataset.adjust, Number(control.dataset.direction))));
     $('timerSound').addEventListener('change', async event => {
@@ -354,20 +360,8 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     });
   }
   function mountCognitive() {
-    const ticket = ++cognitiveTicket, host = $('toolStage');
-    host.innerHTML = '<p role="status">Ouverture du jeu…</p>';
-    loadCognitive().then(({ mountCognitiveGames }) => {
-      if (destroyed || selected !== 'cognitive' || ticket !== cognitiveTicket) return;
-      cognitiveUI = mountCognitiveGames(host, { store: cognitiveStore, ownerId, storage, now, autoTick: false, onActivity(active) { if (destroyed || ticket !== cognitiveTicket) return; counterActive = active; syncWake(); } });
-    }).catch(() => { if (!destroyed && ticket === cognitiveTicket) host.innerHTML = '<p role="alert">Impossible d’ouvrir le jeu. Reviens aux outils puis réessaie.</p>'; });
-  }
-  function mountReaction() {
-    const ticket = ++reactionTicket, host = $('toolStage');
-    host.innerHTML = '<p role="status">Ouverture du test…</p>';
-    loadReaction().then(({ mountReactionGame }) => {
-      if (destroyed || selected !== 'reaction' || ticket !== reactionTicket) return;
-      reactionUI = mountReactionGame(host, { store: reactionStore, ownerId, storage, now, autoTick, onActivity(active) { if (destroyed || ticket !== reactionTicket) return; counterActive = active; syncWake(); } });
-    }).catch(() => { if (!destroyed && ticket === reactionTicket) host.innerHTML = '<p role="alert">Impossible d’ouvrir le test. Reviens aux outils puis réessaie.</p>'; });
+    const ticket = ++cognitiveTicket;
+    cognitiveUI = mountCognitiveMenu($('toolStage'), { loadCognitive, loadReaction, loadMental, cognitiveStore, reactionStore, mentalStore, ownerId, storage, now, autoTick, onActivity(active) { if (destroyed || ticket !== cognitiveTicket) return; counterActive = active; syncWake(); } });
   }
   function drawSteps() {
     const state = steps.snapshot();
@@ -394,22 +388,23 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     updateFullscreen();
   }
   function select(kind) {
+    if (timerSession?.locked) return;
+    if (kind === 'reaction') { select('cognitive'); void cognitiveUI?.select('reaction'); return; }
     if (kind !== null && !Object.hasOwn(titles, kind)) return;
     if (selected === 'bulletin' && bulletinUI?.canLeave && !bulletinUI.canLeave()) return;
     if (selected === 'cognitive' && cognitiveUI?.canLeave && !cognitiveUI.canLeave()) return;
-    if (selected === 'reaction' && reactionUI?.canLeave && !reactionUI.canLeave()) return;
     const oldKind = selected;
     if (isTimer()) timers[selected].pause();
     stopAudio(); releaseClassicScene(); advancedUI?.destroy(); advancedUI = null;
     presetsUI?.destroy(); presetsUI = null; bulletinTicket++; bulletinUI?.destroy(); bulletinUI = null;
     cognitiveTicket++; cognitiveUI?.destroy(); cognitiveUI = null;
-    reactionTicket++; reactionUI?.destroy(); reactionUI = null;
+    timerSession?.destroy(); timerSession = null;
     selected = kind; counterActive = false;
     closeFullscreen(); syncWake(); notice('');
     $('toolsMenu').hidden = Boolean(kind); $('toolDetail').hidden = !kind;
     if (!kind) { root.querySelector(`[data-tool="${oldKind}"]`)?.focus({ preventScroll: true }); return; }
     $('toolTitle').textContent = titles[kind];
-    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else if (kind === 'reaction') mountReaction(); else mountSteps();
+    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else mountSteps();
     $('toolTitle').focus({ preventScroll: true });
   }
   root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => select(button.dataset.tool)));
@@ -437,7 +432,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       destroyed = true; audioTicket++; view.clearInterval(interval); syncWake(); audio.destroy(); releaseClassicScene(); advancedUI?.destroy(); closeFullscreen();
       presetsUI?.destroy(); bulletinTicket++; bulletinUI?.destroy();
       cognitiveTicket++; cognitiveUI?.destroy();
-      reactionTicket++; reactionUI?.destroy();
+      timerSession?.destroy(); timerSession = null;
       doc.removeEventListener('fullscreenchange', updateFullscreen); doc.removeEventListener('keydown', onKey); doc.removeEventListener('visibilitychange', onVisibility); view.removeEventListener('pagehide', onPageHide);
       root.replaceChildren();
     },

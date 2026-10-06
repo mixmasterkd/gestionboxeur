@@ -15,7 +15,7 @@ const configs = {
 function fixture({ request, available = true } = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
   const doc = window.document;
-  doc.write(html);
+  doc.write(html); window.confirm = () => true;
   window.localStorage.setItem('gestionboxeur:tools:v1', JSON.stringify({ sound: false, ...configs }));
   let time = 0, visibility = 'visible', closed = false;
   Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => visibility });

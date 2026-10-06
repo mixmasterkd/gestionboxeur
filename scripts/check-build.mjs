@@ -84,14 +84,14 @@ for (const page of pages) {
         assert.equal(window.getComputedStyle(controls.querySelector('#timerAdvancedPanel')).display,'none','the inactive mode never leaks into the base panel');
         assert.equal(window.getComputedStyle(controls.querySelector('.interval-mode-tabs')).gridTemplateColumns,'repeat(2,minmax(0,1fr))','Base and Advanced stay side by side');
         const cognitive=window.document.createElement('section');cognitive.className='cognitive';
-        cognitive.innerHTML='<div class="cognitive-tabs"><button aria-selected="true">Tuiles</button><button>Sac</button></div><div class="cognitive-tiles" data-count="8"><button class="cognitive-tile"></button></div><div class="cognitive-bag-fallback" hidden></div>';
+        cognitive.innerHTML='<h2 class="cognitive-game-title">Tuiles</h2><div class="cognitive-tiles" data-count="8"><button class="cognitive-tile"></button></div><div class="cognitive-bag-fallback" hidden></div>';
         window.document.getElementById('toolStage').append(cognitive);
-        assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-tabs')).gridTemplateColumns,'repeat(2,minmax(0,1fr))','cognitive tabs remain side by side');
+        assert.ok(parseFloat(window.getComputedStyle(cognitive.querySelector('.cognitive-game-title')).fontSize)>=20,'the separate game title stays readable');
         assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-tiles')).gridTemplateColumns,width<620?'repeat(2,minmax(0,1fr))':'repeat(4,minmax(0,1fr))','eight tiles adapt to portrait width');
         assert.ok(parseFloat(window.getComputedStyle(cognitive.querySelector('.cognitive-tile')).minHeight)>=44,'tiles keep accessible touch targets');
         assert.equal(window.getComputedStyle(cognitive.querySelector('.cognitive-bag-fallback')).display,'none','inactive bag fallback stays hidden');
-        const tabStyle=window.getComputedStyle(cognitive.querySelector('[aria-selected="true"]'));
-        assert.notEqual(tabStyle.color,tabStyle.backgroundColor,'cognitive selected tab remains readable in both themes');
+        const titleStyle=window.getComputedStyle(cognitive.querySelector('.cognitive-game-title'));
+        assert.notEqual(titleStyle.color,window.getComputedStyle(window.document.body).backgroundColor,'the separate game title remains readable in both themes');
         const reaction=window.document.createElement('section');reaction.className='reaction';reaction.dataset.mode='choice';
         reaction.innerHTML='<div class="reaction-arena"><button class="reaction-pad"></button><button class="reaction-pad"></button><button class="reaction-pad"></button><button class="reaction-pad"></button></div><div class="reaction-actions"><button class="button secondary" hidden>Arrêter</button></div>';
         window.document.getElementById('toolStage').append(reaction);

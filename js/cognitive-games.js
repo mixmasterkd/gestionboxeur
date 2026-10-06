@@ -1,7 +1,7 @@
 import { CognitiveGame, cognitiveModeKey } from './cognitive-engine.js';
 import { createCognitiveAudio } from './cognitive-audio.js';
 
-export function mountCognitiveGames(host, { store = null, ownerId = 'local', storage, now = () => performance.now(), random = Math.random, autoTick = true, loadBag = () => import('./cognitive-bag-scene.js'), onActivity = () => {} } = {}) {
+export function mountCognitiveGames(host, { store = null, ownerId = 'local', storage, initialVariant, now = () => performance.now(), random = Math.random, autoTick = true, loadBag = () => import('./cognitive-bag-scene.js'), onActivity = () => {} } = {}) {
   const doc = host.ownerDocument, view = doc.defaultView;
   if (storage === undefined) { try { storage = view.localStorage; } catch { storage = null; } }
   const preferenceKey = `gestionboxeur:cognitive:v1:${ownerId}`;
@@ -14,6 +14,7 @@ export function mountCognitiveGames(host, { store = null, ownerId = 'local', sto
     if (value?.numbers === false) config.numbers = false;
     if (value?.sound === false) config.sound = false;
   } catch { /* Preferences are optional; records never use localStorage. */ }
+  if (['tiles', 'bag'].includes(initialVariant)) config.variant = initialVariant;
   let game = new CognitiveGame({ ...config, now, random }), scene = null, sceneTicket = 0;
   let destroyed = false, interval = null, lastCue = null, recorded = false, activity = false;
   let records = new Map(), loaded = false, loading = false, loadTicket = 0, saving = false, resetPending = false;
@@ -21,8 +22,8 @@ export function mountCognitiveGames(host, { store = null, ownerId = 'local', sto
   const pendingScores = new Map();
   const $ = id => host.querySelector(`#${id}`);
   host.innerHTML = `<section class="cognitive" data-variant="${config.variant}" aria-label="Jeux cognitifs">
-    <div class="cognitive-tabs" role="tablist" aria-label="Version du jeu"><button id="cognitiveTabTiles" type="button" role="tab" data-variant="tiles" aria-controls="cognitivePanel">Tuiles</button><button id="cognitiveTabBag" type="button" role="tab" data-variant="bag" aria-controls="cognitivePanel">Sac</button></div>
-    <div id="cognitivePanel" role="tabpanel">
+    <h2 id="cognitiveGameTitle" class="cognitive-game-title">${config.variant === 'tiles' ? 'Tuiles' : 'Sac'}</h2>
+    <div id="cognitivePanel" role="region" aria-labelledby="cognitiveGameTitle">
       <div class="cognitive-settings">
         <div id="cognitiveTileSettings" class="cognitive-choice" role="group" aria-label="Nombre de tuiles"><span>Tuiles</span>${[4,6,8].map(n=>`<button type="button" data-count="${n}" aria-label="${n} tuiles">${n}</button>`).join('')}</div>
         <div id="cognitiveBagSettings" class="cognitive-bag-settings"><div class="cognitive-choice" role="group" aria-label="Mode du sac"><button type="button" data-mode="sequence">Séquence</button><button type="button" data-mode="targets">Cibles</button></div><label><input id="cognitiveNumbers" type="checkbox">Numéros</label></div>
@@ -91,7 +92,7 @@ export function mountCognitiveGames(host, { store = null, ownerId = 'local', sto
     if (destroyed) return;
     root.dataset.status = state.status;
     if (activity !== state.active) { activity = state.active; onActivity(activity); }
-    for (const button of host.querySelectorAll('button[data-variant],button[data-count],button[data-mode]')) button.disabled = state.active || resetPending;
+    for (const button of host.querySelectorAll('button[data-count],button[data-mode]')) button.disabled = state.active || resetPending;
     $('cognitiveNumbers').disabled = state.active || resetPending;
     $('cognitiveStart').hidden = state.active; $('cognitiveStop').hidden = !state.active;
     $('cognitiveStart').textContent = state.status === 'idle' ? 'Démarrer' : 'Recommencer';
@@ -135,8 +136,6 @@ export function mountCognitiveGames(host, { store = null, ownerId = 'local', sto
   function releaseScene() { sceneTicket++; scene?.destroy(); scene = null; }
   function board() {
     releaseScene(); root.dataset.variant = config.variant;
-    for (const button of root.querySelectorAll('button[data-variant]')) { const selected = button.dataset.variant === config.variant; button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1; }
-    $('cognitivePanel').setAttribute('aria-labelledby', config.variant === 'tiles' ? 'cognitiveTabTiles' : 'cognitiveTabBag');
     for (const button of root.querySelectorAll('[data-count]')) button.setAttribute('aria-pressed', String(Number(button.dataset.count) === config.count));
     for (const button of root.querySelectorAll('[data-mode]')) button.setAttribute('aria-pressed', String(button.dataset.mode === config.mode));
     $('cognitiveTileSettings').hidden = config.variant !== 'tiles'; $('cognitiveBagSettings').hidden = config.variant !== 'bag';
@@ -166,10 +165,6 @@ export function mountCognitiveGames(host, { store = null, ownerId = 'local', sto
   function change(values) {
     if (game.active || resetPending || destroyed) return;
     stopSound(); Object.assign(config, values); game = new CognitiveGame({ ...config, now, random }); recorded = false; lastCue = null; interruption = false; savePreferences(); board();
-  }
-  for (const button of root.querySelectorAll('button[data-variant]')) {
-    button.addEventListener('click', () => change({ variant: button.dataset.variant }));
-    button.addEventListener('keydown', event => { if (!game.active && ['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 'tiles' : event.key === 'End' ? 'bag' : config.variant === 'tiles' ? 'bag' : 'tiles'; change({variant:next}); root.querySelector(`button[data-variant="${next}"]`).focus(); } });
   }
   for (const button of root.querySelectorAll('[data-count]')) button.addEventListener('click', () => change({count:Number(button.dataset.count)}));
   for (const button of root.querySelectorAll('[data-mode]')) button.addEventListener('click', () => change({mode:button.dataset.mode}));

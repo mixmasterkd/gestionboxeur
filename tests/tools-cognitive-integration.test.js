@@ -10,14 +10,14 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve;const promise=new Promise(yes=>resolve=yes);return {promise,resolve};};
 function fixture(options={}) {
   const window=new Window({url:'https://example.test/tools.html',settings:{disableJavaScriptEvaluation:true,disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});
-  window.document.write(html);window.localStorage.setItem('gestionboxeur:cognitive:v1:owner-a',JSON.stringify({sound:false}));
+  window.document.write(html); window.confirm = () => true;window.localStorage.setItem('gestionboxeur:cognitive:v1:owner-a',JSON.stringify({sound:false}));
   let time=0;const store=createDemoCognitiveRecordStore();
   const ui=mountTools(window.document.getElementById('toolsApp'),{now:()=>time,autoTick:false,ownerId:'owner-a',cognitiveStore:store,loadCognitive:async()=>({mountCognitiveGames:(host,settings)=>mountCognitiveGames(host,{...settings,random:()=>0})}),...options});
   return {window,ui,store,$:id=>window.document.getElementById(id),advance(ms){time+=ms;ui.tick();},async close(){ui.destroy();await window.happyDOM.abort();}};
 }
 test('games open from actual tools, save a personal best and leave existing boxing tools operational',async()=>{
   const f=fixture();try{
-    f.window.document.querySelector('button[data-tool=cognitive]').click();await settle();
+    f.window.document.querySelector('button[data-tool=cognitive]').click();await settle();f.window.document.querySelector('[data-game=tiles]').click();await settle();
     assert.equal(f.$('toolTitle').textContent,'Jeux cognitifs');assert.equal(f.$('cognitiveSound').checked,false);
     f.$('cognitiveStart').click();for(let i=0;i<16;i++)f.advance(100);
     f.window.document.querySelector('.cognitive-tile[data-index="0"]').click();
@@ -27,13 +27,13 @@ test('games open from actual tools, save a personal best and leave existing boxi
     f.$('toolsBack').click();assert.equal(f.$('toolsMenu').hidden,false);
     f.ui.select('boxing');assert.ok(f.$('timerStart'));f.$('timerStart').click();f.advance(500);
     assert.equal(f.$('timerBoard').dataset.status,'running');f.$('timerReset').click();
-    f.ui.select('cognitive');await settle();assert.equal(f.$('cognitiveRecord').textContent,'1');
+    f.ui.select('cognitive');f.window.document.querySelector('[data-game=tiles]').click();await settle();assert.equal(f.$('cognitiveRecord').textContent,'1');
   }finally{await f.close();}
 });
 test('active game respects leave confirmation and releases its screen lock when stopped',async()=>{
   let requests=0,releases=0;const f=fixture();try{
     Object.defineProperty(f.window.navigator,'wakeLock',{value:{async request(){requests++;return {addEventListener(){},async release(){releases++;}};}}});
-    f.ui.select('cognitive');await settle();f.$('cognitiveStart').click();await settle();assert.equal(requests,1);
+    f.ui.select('cognitive');f.window.document.querySelector('[data-game=tiles]').click();await settle();f.$('cognitiveStart').click();await settle();assert.equal(requests,1);
     f.window.confirm=()=>false;f.$('toolsBack').click();assert.ok(f.$('cognitiveStart'));assert.equal(releases,0);
     f.window.confirm=()=>true;f.$('toolsBack').click();await settle();assert.equal(releases,1);assert.equal(f.$('cognitiveStart'),null);
   }finally{await f.close();}

@@ -71,12 +71,13 @@ test('cognitive UI starts with six empty accessible tiles and loads the matching
     assert.equal(app.$('cognitiveRecord').textContent, '7'); assert.equal(app.$('cognitiveRecordStatus').hidden, true);
     assert.equal(app.$('cognitiveScore').textContent, '0'); assert.equal(app.$('cognitiveMetric').textContent, '—');
     assert.equal(app.$('cognitiveTileSettings').hidden, false); assert.equal(app.$('cognitiveBagSettings').hidden, true);
-    assert.equal(app.$('cognitiveTabTiles').getAttribute('aria-selected'), 'true'); assert.equal(app.$('cognitiveTabBag').tabIndex, -1);
+    assert.equal(app.$('cognitiveGameTitle').textContent, 'Tuiles'); assert.equal(app.all('button[data-variant]').length, 0);
+    assert.equal(app.$('cognitivePanel').getAttribute('aria-labelledby'), 'cognitiveGameTitle');
     assert.equal(app.$('cognitiveSound').checked, true); assert.equal(app.calls.list, 1); assert.equal(app.calls.save.length, 0);
   } finally { await app.close(); }
 });
 
-test('four/six/eight tile controls select separate records and keyboard tabs preserve preferences', async () => {
+test('four/six/eight tile controls select separate records and preserve preferences', async () => {
   const app = await fixture({ rows: [{ mode: 'tiles-4', score: 3 }, { mode: 'tiles-6', score: 5 }, { mode: 'tiles-8', score: 9 }] });
   try {
     for (const [count, record] of [[4, 3], [8, 9], [6, 5]]) {
@@ -85,10 +86,6 @@ test('four/six/eight tile controls select separate records and keyboard tabs pre
       assert.equal(app.query(`button[data-count="${count}"]`).getAttribute('aria-pressed'), 'true');
       assert.equal(JSON.parse(app.storage.getItem(preferenceKey('coach-a'))).count, count);
     }
-    app.$('cognitiveTabTiles').dispatchEvent(new app.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
-    assert.equal(app.query('.cognitive').dataset.variant, 'bag'); assert.equal(app.window.document.activeElement, app.$('cognitiveTabBag'));
-    assert.equal(app.$('cognitivePanel').getAttribute('aria-labelledby'), 'cognitiveTabBag');
-    app.$('cognitiveTabBag').dispatchEvent(new app.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
     assert.equal(app.query('.cognitive').dataset.variant, 'tiles'); assert.equal(app.$('cognitiveRecord').textContent, '5');
     assert.equal(app.calls.save.length, 0);
   } finally { await app.close(); }
@@ -100,7 +97,7 @@ test('sequence demo flashes, ignores early input, grows and saves only a complet
     app.$('cognitiveStart').click();
     assert.equal(app.status(), 'showing'); assert.equal(app.$('cognitiveStatus').textContent, 'Regarde');
     assert.equal(app.$('cognitiveStop').hidden, false); assert.equal(app.$('cognitiveStart').hidden, true);
-    assert.ok(app.all('button[data-count],button[data-variant],button[data-mode]').every(button => button.disabled));
+    assert.ok(app.all('button[data-count],button[data-mode]').every(button => button.disabled));
     target(app, 0).click(); assert.equal(app.$('cognitiveScore').textContent, '0');
     app.advance(550); assert.equal(target(app, 0).classList.contains('is-lit'), true);
     app.advance(620); assert.equal(target(app, 0).classList.contains('is-lit'), false);
@@ -120,11 +117,11 @@ test('sequence demo flashes, ignores early input, grows and saves only a complet
 });
 
 test('bag fallback has six numbered zones and hidden-number variants keep independent records', async () => {
-  const app = await fixture({ preferences: { sound: false }, rows: [
+  const app = await fixture({ preferences: { variant: 'bag', sound: false }, rows: [
     { mode: 'bag-sequence-visible', score: 4 }, { mode: 'bag-sequence-hidden', score: 8 }, { mode: 'bag-targets-hidden', score: 17 },
   ] });
   try {
-    app.$('cognitiveTabBag').click();
+    assert.equal(app.$('cognitiveGameTitle').textContent, 'Sac'); assert.equal(app.all('button[data-variant]').length, 0);
     assert.equal(app.$('cognitiveBagViewport').dataset.render, 'fallback'); assert.match(app.$('cognitiveRenderStatus').textContent, /simplifiée/);
     assert.equal(app.$('cognitiveTileSettings').hidden, true); assert.equal(app.$('cognitiveBagSettings').hidden, false);
     assert.equal(app.all('.cognitive-fallback-zone').length, 6); assert.equal(app.$('cognitiveRecord').textContent, '4');
@@ -210,20 +207,23 @@ test('failed record saving preserves the score, guards departure and retries und
   } finally { await app.close(); }
 });
 
-test('visibility and pagehide interrupt instead of awarding a record or resuming a hidden run', async () => {
-  const app = await fixture({ preferences: { sound: false } });
-  try {
-    app.$('cognitiveStart').click(); showSequence(app); target(app, 0).click(); assert.equal(app.$('cognitiveScore').textContent, '1');
-    Object.defineProperty(app.window.document, 'visibilityState', { configurable: true, value: 'hidden' });
-    app.window.document.dispatchEvent(new app.window.Event('visibilitychange'));
-    assert.equal(app.status(), 'interrupted'); assert.match(app.$('cognitiveStatus').textContent, /quitté la page/);
-    Object.defineProperty(app.window.document, 'visibilityState', { configurable: true, value: 'visible' });
-    app.window.document.dispatchEvent(new app.window.Event('visibilitychange')); app.advance(60000);
-    assert.equal(app.status(), 'interrupted'); assert.equal(app.calls.save.length, 0); assert.equal(app.ui.canLeave(), true);
-    app.$('cognitiveTabBag').click(); app.query('button[data-mode="targets"]').click(); app.$('cognitiveStart').click(); target(app, 0).click();
-    app.window.dispatchEvent(new app.window.Event('pagehide')); app.advance(30000);
-    assert.equal(app.status(), 'interrupted'); assert.equal(app.calls.save.length, 0);
-  } finally { await app.close(); }
+test('visibility and pagehide interrupt both separate games without awarding unfinished records', async () => {
+  for (const variant of ['tiles', 'bag']) {
+    const app = await fixture({ preferences: { variant, mode: 'targets', sound: false } });
+    try {
+      app.$('cognitiveStart').click(); if (variant === 'tiles') showSequence(app); target(app, 0).click();
+      assert.equal(app.$('cognitiveScore').textContent, '1');
+      Object.defineProperty(app.window.document, 'visibilityState', { configurable: true, value: 'hidden' });
+      app.window.document.dispatchEvent(new app.window.Event('visibilitychange'));
+      assert.equal(app.status(), 'interrupted'); assert.match(app.$('cognitiveStatus').textContent, /quitté la page/);
+      Object.defineProperty(app.window.document, 'visibilityState', { configurable: true, value: 'visible' });
+      app.window.document.dispatchEvent(new app.window.Event('visibilitychange')); app.advance(60000);
+      assert.equal(app.status(), 'interrupted'); assert.equal(app.calls.save.length, 0); assert.equal(app.ui.canLeave(), true);
+      app.$('cognitiveStart').click(); if (variant === 'tiles') showSequence(app); target(app, 0).click();
+      app.window.dispatchEvent(new app.window.Event('pagehide')); app.advance(30000);
+      assert.equal(app.status(), 'interrupted'); assert.equal(app.calls.save.length, 0);
+    } finally { await app.close(); }
+  }
 });
 
 test('manual stop and declined leave confirmation keep active scores out of records', async () => {
@@ -291,7 +291,7 @@ test('a higher score earned during a pending save is serialized and unload prote
   } finally { await app.close(); }
 });
 
-test('3D bag lifecycle updates, forwards hits and tears down when returning to tiles', async () => {
+test('3D bag lifecycle updates, forwards hits and tears down when leaving the game', async () => {
   const sceneCalls = { update: [], hits: [], destroy: 0 }; let handlers;
   const app = await fixture({ webgl: true, preferences: { variant: 'bag', mode: 'targets', sound: false }, loadBag: async () => ({
     createCognitiveBagScene(_host, options) {
@@ -304,20 +304,20 @@ test('3D bag lifecycle updates, forwards hits and tears down when returning to t
     assert.equal(sceneCalls.update.at(-1).enabled, false);
     app.$('cognitiveStart').click(); assert.equal(sceneCalls.update.at(-1).enabled, true); assert.equal(sceneCalls.update.at(-1).target, 0);
     handlers.onHit(0); assert.equal(app.$('cognitiveScore').textContent, '1'); assert.deepEqual(sceneCalls.hits, [0]);
-    app.$('cognitiveStop').click(); app.$('cognitiveTabTiles').click(); assert.equal(sceneCalls.destroy, 1);
-    assert.equal(app.all('.cognitive-tile').length, 6);
+    app.$('cognitiveStop').click(); app.ui.destroy(); assert.equal(sceneCalls.destroy, 1);
+    assert.equal(app.host.childElementCount, 0);
   } finally { await app.close(); }
 });
 
-test('3D loader rejection falls back, and a stale successful loader cannot replace newer tiles', async () => {
+test('3D loader rejection falls back, and a stale successful loader cannot mount after leaving the game', async () => {
   const first = await fixture({ webgl: true, preferences: { variant: 'bag', sound: false }, loadBag: () => Promise.reject(new Error('WebGL failure')) });
   try { assert.equal(first.$('cognitiveBagViewport').dataset.render, 'fallback'); assert.equal(first.all('.cognitive-fallback-zone').length, 6); } finally { await first.close(); }
   const loading = defer(); let created = 0;
   const second = await fixture({ webgl: true, preferences: { variant: 'bag', sound: false }, loadBag: () => loading.promise });
   try {
-    second.$('cognitiveTabTiles').click();
+    second.ui.destroy();
     loading.resolve({ createCognitiveBagScene: () => { created++; return { update() {}, destroy() {} }; } }); await flush();
-    assert.equal(created, 0); assert.equal(second.all('.cognitive-tile').length, 6); assert.equal(second.$('cognitiveBagViewport'), null);
+    assert.equal(created, 0); assert.equal(second.host.childElementCount, 0); assert.equal(second.$('cognitiveBagViewport'), null);
   } finally { await second.close(); }
 });
 

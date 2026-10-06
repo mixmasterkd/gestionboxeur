@@ -16,7 +16,7 @@ const storageWith = (saved = {}) => {
 };
 function fixture({ storage = storageWith(), ownerId } = {}) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html);
+  window.document.write(html); window.confirm = () => true;
   let time = 0;
   const root = window.document.getElementById('toolsApp');
   const ui = mountTools(root, { now: () => time, autoTick: false, storage, ...(ownerId ? { ownerId } : {}) });

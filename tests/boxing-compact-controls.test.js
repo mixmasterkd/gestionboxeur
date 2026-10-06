@@ -13,7 +13,7 @@ function storageWith(boxing) {
 }
 function fixture(storage = storageWith(legacyBoxing)) {
   const window = new Window({ url: 'https://example.test/tools.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-  window.document.write(html);
+  window.document.write(html); window.confirm = () => true;
   let time = 0;
   const ui = mountTools(window.document.getElementById('toolsApp'), { now: () => time, autoTick: false, storage });
   ui.select('boxing');
