@@ -6,6 +6,8 @@ La migration locale `20261006024812_cognitive_memory_dual_task.sql` est appliqu�
 
 Les tests PGlite et les essais distants vérifient les deux jeux, le meilleur et le dernier résultat, les validations, l’isolation des comptes et le refus anonyme. Les écritures d’essai distantes sont annulées par transaction. Les 196 lignes des 30 tables préexistantes sont identiques après migration, hors ajout des deux colonnes nulles. Aucun nouvel avis de sécurité Supabase; les trois catégories d’avis historiques restent inchangées. Une sauvegarde applicative privée (tables publiques, schéma des records cognitifs et historique des migrations) est conservée hors dépôt dans `/home/mixmasterkd/.local/share/gestionboxeur-backups/`, sans Auth/Storage.
 
+L’interface est publiée depuis le commit `d727ad943e428ef947fc984233d6b03d91716cfa` ([workflow vérifié](https://github.com/mixmasterkd/gestionboxeur/actions/runs/37409770321)) : 746 tests réussis, contrôles et compilation réussis, 42 fichiers publics identiques à l’artefact. La fonction `admin-users` reste active en version 4, avec `verify_jwt=true`.
+
 
 ### Records de réactivité privés — 5 octobre 2026
 
