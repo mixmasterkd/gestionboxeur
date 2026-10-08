@@ -1,6 +1,6 @@
 # Corrections et QA — 7 octobre 2026
 
-État : publication autorisée le 7 octobre 2026. La migration est appliquée et vérifiée; publication du frontend en cours. Une sauvegarde applicative privée précède la migration. Les 204 lignes des 30 tables sont conservées; les écritures d’essai ont été annulées par transaction. Aucun compte réel créé ni paramètre Auth modifié.
+État : publication autorisée le 7 octobre 2026. La migration et le frontend sont publiés et vérifiés. Application `7da502e8682ed387342fad3ed24b54c616e4ee14`, [workflow réussi](https://github.com/mixmasterkd/gestionboxeur/actions/runs/37714307895). Une sauvegarde applicative privée précède la migration. Les 204 lignes des 30 tables sont conservées; les écritures d’essai ont été annulées par transaction. Aucun compte réel créé ni paramètre Auth modifié.
 
 ## Corrections
 
@@ -12,9 +12,10 @@
 | `source-map-js` 1.2.1 signalé vulnérable dans la chaîne de compilation | Dépendance transitive mise à jour en 1.2.2 dans le verrou npm. `npm audit` : 0 vulnérabilité signalée. |
 | Mots de passe nouvellement créés ou réinitialisés limités à six caractères minimum | Minimum de douze caractères dans l’interface et la validation JavaScript. Les connexions existantes à six caractères restent acceptées. Le réglage Auth serveur reste à traiter séparément. |
 | Quinze horodatages de migrations différaient de ceux du serveur | Renommage local d’après l’historique du projet et correction des références. Vérification binaire : les 26 contenus SQL historiques sont identiques à ceux de HEAD. Aucun historique distant modifié. Le test d’évolution de base applique maintenant les migrations réellement dans l’ordre chronologique. |
+| La transition animée entre pages levait `AbortError: Transition was skipped` dans Chrome lors d’une redirection rapide vers la connexion | Retrait de la transition CSS entre documents et de ses animations inutilisées. La redirection conserve son fonctionnement; contrôle de la version publiée sur téléphone et ordinateur. |
 | Vue mensuelle illisible et commandes trop petites sur téléphone | Chaque journée ouvre la vue Jour au toucher ou au clavier. Aperçu compact avec nombres de séances et de notes, y compris les notes couvrant plusieurs jours. Poignées tactiles de 36 × 44 px minimum, ouvertures de cartes de 44 px minimum, annonce du changement de période et retour de focus au bouton Jour. |
 
-La nouvelle migration `supabase/migrations/20261008013313_guarded_profile_and_roster_updates.sql` est appliquée et vérifiée sur le projet distant, avant publication du frontend. Les nouveaux endpoints publics sont SECURITY INVOKER; la fonction privilégiée de contrôle de l’effectif est dans `coaching_private`, vérifie l’identité et les droits, et refuse l’accès anonyme. Les fonctions historiques restent disponibles pour la version actuellement publiée.
+La nouvelle migration `supabase/migrations/20261008013313_guarded_profile_and_roster_updates.sql` est appliquée et vérifiée sur le projet distant, avant publication du frontend. Les nouveaux endpoints publics sont SECURITY INVOKER; la fonction privilégiée de contrôle de l’effectif est dans `coaching_private`, vérifie l’identité et les droits, et refuse l’accès anonyme. Les fonctions historiques restent disponibles pour les anciennes versions de l’interface.
 
 ## Code devenu inutile
 
@@ -46,9 +47,9 @@ La suite est conservée dans `e2e/calendar.spec.js` et `playwright.config.js`; l
 
 ## Mise en ligne et limites
 
-La migration nouvelle est déployée; la publication du frontend est en cours. La protection Supabase contre les mots de passe compromis reste désactivée; aucun outil disponible ne l’a modifiée. Elle est proposée avec le forfait Pro ou supérieur, selon la [documentation Supabase](https://supabase.com/docs/guides/auth/password-security). Le contrôle de longueur ajouté dans l’interface ne remplace pas une politique Auth côté serveur.
+La migration et le frontend sont déployés. Les 718 tests isolés et 47 parcours navigateur ont également réussi dans GitHub Actions. Les 42 fichiers publics répondent en HTTP 200 et leurs SHA-256 sont identiques à l’artefact publié. Les nouvelles fonctions refusent les appels HTTP anonymes (401 / 42501). Les vérifications du site public à 320, 390 et 1440 px confirment la redirection vers la connexion, l’absence de mode de démonstration en production, d’erreur JavaScript et de débordement horizontal. La protection Supabase contre les mots de passe compromis reste désactivée; aucun outil disponible ne l’a modifiée. Elle est proposée avec le forfait Pro ou supérieur, selon la [documentation Supabase](https://supabase.com/docs/guides/auth/password-security). Le contrôle de longueur ajouté dans l’interface ne remplace pas une politique Auth côté serveur.
 
-La QA navigateur utilise les données de démonstration en mémoire et l’émulation Chrome. Elle ne constitue pas un essai sur appareil iPhone/Android physique, Safari ou une session utilisateur de production. Les protections SQL sont testées dans une base isolée reconstruite depuis les migrations. La pagination des très gros effectifs et les optimisations d’index signalées lors de la revue restent des améliorations distinctes de cette série de corrections.
+La QA navigateur utilise les données de démonstration en mémoire et l’émulation Chrome. Elle ne constitue pas un essai sur appareil iPhone/Android physique, Safari ou une session utilisateur de production. Les protections SQL sont testées dans une base isolée reconstruite depuis les migrations, puis sur le serveur avec toutes les écritures d’essai annulées. La pagination des très gros effectifs et les optimisations d’index signalées lors de la revue restent des améliorations distinctes de cette série de corrections.
 
 ---
 
