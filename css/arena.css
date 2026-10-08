@@ -179,11 +179,6 @@ body.space-is-open { overflow: hidden; }
 @media (hover: hover) and (pointer: fine) {
   .space-card:hover { transform: translateY(-6px) translateZ(18px); border-color: #d1d2d4; }
 }
-@view-transition { navigation: auto; }
-::view-transition-old(root) { animation: .16s ease-out both page-out; }
-::view-transition-new(root) { animation: .22s ease-out both page-in; }
-@keyframes page-out { to { opacity: 0; } }
-@keyframes page-in { from { opacity: 0; transform: translateY(7px); } }
 @media (min-width: 1600px) { :root { --nav-width: 220px; } .content { max-width: 1550px; margin-left: auto; margin-right: auto; padding: 0 35px; } }
 @media (min-width: 801px) and (max-width: 1100px) { :root { --nav-width: 172px; } .primary-navigation { padding-left: 10px; padding-right: 10px; } .nav-links a { font-size: 12px; gap: 8px; } }
 @media (max-width: 800px) {
@@ -253,7 +248,6 @@ body.space-is-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .space-grid, .space-card:hover, .nav-links a:hover, .nav-explore:hover .explore-symbol { transform: none; }
-  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
 @media print {
   .space-navigation { display: none !important; }
