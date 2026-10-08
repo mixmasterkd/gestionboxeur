@@ -22,7 +22,7 @@ import { mountNavigation } from './navigation.js';
     let toastTimer;
     let loadGeneration = 0;
     let attachmentRequest = 0;
-    let athleteFormSnapshot = "";
+    let athleteFormSnapshot = "", athleteVersionSnapshot = null;
     const formSnapshot = () => JSON.stringify([...document.querySelectorAll("#athleteForm input, #athleteForm select, #athleteForm textarea")].map(field => [field.id, field.value, field.checked]));
 
     const $ = id => document.getElementById(id);
@@ -222,11 +222,13 @@ import { mountNavigation } from './navigation.js';
           const selected = check.checked;
           check.disabled = true;
           try {
-            await rosterStore.saveAthlete(a.id, { selected });
+            const versions = await rosterStore.saveAthlete(a.id, { selected }, a);
+            if (versions?.updated_at && versions?.relation_updated_at) Object.assign(a, { updatedAt: versions.updated_at, relationUpdatedAt: versions.relation_updated_at });
             a.selected = selected;
           } catch (error) {
             a.selected = previous;
             showToast(`Sélection non enregistrée : ${error.message}`);
+            if (error.code === '40001') await loadState().catch(pageError);
           } finally { renderAthletes(); }
         });
         checkTd.append(check); tr.append(checkTd);
@@ -302,6 +304,7 @@ import { mountNavigation } from './navigation.js';
       } else { $("sex").value = ""; $("status").value = "available"; $("weightUnit").value = "kg"; $("fights").value = 0; }
       $('attachAthleteButton').hidden = !id || registered || rosterStore.mode !== 'modern';
       athleteFormSnapshot = formSnapshot();
+      athleteVersionSnapshot = id ? { ...state.athletes.find(a => a.id === id) } : null;
       updateWeightConversion(); els.athleteDialog.showModal(); setTimeout(() => $(registered?'weight':'firstName').focus(), 0);
     }
     async function openRosterAttachment(id, button) {
@@ -341,7 +344,7 @@ import { mountNavigation } from './navigation.js';
       const button = event.submitter || $('athleteForm').querySelector('[type="submit"]');
       if (button.disabled) return;
       const id = $('athleteId').value;
-      const old = state.athletes.find(a => a.id === id);
+      const old = athleteVersionSnapshot?.id === id ? athleteVersionSnapshot : null;
       const birthDate = $('birthDate').value;
       const age = ageFromBirthDate(birthDate);
       const hasWeight = $('weight').value.trim() !== '';
@@ -356,12 +359,7 @@ import { mountNavigation } from './navigation.js';
       if (!old?.userId && birthDate && (!Number.isFinite(age) || age < 0 || age > 120 || birthDate > todayLocal())) return athleteError('Inscris une date de naissance valide, ou laisse le champ vide.');
       if (hasWeight && (!Number.isFinite(weightKg) || weightKg <= 0 || weightKg > 600)) return athleteError('Inscris un poids valide, ou laisse le champ vide.');
       if (!Number.isInteger(fights) || fights < 0 || fights > 999) return athleteError('Le nombre de combats doit être un entier entre 0 et 999.');
-      if (old?.userId) {
-        if ([wins,losses].some(n=>n!==null&&(!Number.isInteger(n)||n<0)) || (wins??0)+(losses??0)>fights) return athleteError('Les victoires et les défaites ne peuvent pas dépasser le nombre de combats.');
-      } else {
-        if (hasWins !== hasLosses) return athleteError('Inscris les victoires et les défaites ensemble, ou laisse les deux champs vides.');
-        if (hasWins && (!Number.isInteger(wins) || !Number.isInteger(losses) || wins < 0 || losses < 0 || wins + losses !== fights)) return athleteError('Les victoires et les défaites doivent totaliser le nombre de combats.');
-      }
+      if ([wins,losses].some(n=>n!==null&&(!Number.isInteger(n)||n<0)) || (wins??0)+(losses??0)>fights) return athleteError('Les victoires et les défaites ne peuvent pas dépasser le nombre de combats.');
       const athlete = { firstName: $('firstName').value.trim(), lastName: $('lastName').value.trim(), birthDate, sex: $('sex').value,
         weightKg: weightKg === null ? null : Math.round(weightKg * 10) / 10, fights, wins, losses, status: $('status').value, note: $('athleteNote').value,
         selected: $('status').value === 'available' ? Boolean(old?.selected) : false };
@@ -371,13 +369,16 @@ import { mountNavigation } from './navigation.js';
         const p_data = athleteToDb(athlete);
         if(old && athlete.note === old.note)delete p_data.private_notes;
         if(old?.userId)for(const key of ['first_name','last_name','birth_date','sex','status'])delete p_data[key];
-        await rosterStore.saveAthlete(id, p_data);
+        await rosterStore.saveAthlete(id, p_data, old);
         saved = true;
         els.athleteDialog.close();
         await loadState();
         showToast(id ? 'Fiche mise à jour.' : 'Athlète ajouté.');
       } catch (error) {
-        if (saved) pageError(error); else athleteError(error.message);
+        if (saved) pageError(error); else {
+          athleteError(error.message);
+          if (error.code === '40001') await loadState().catch(pageError);
+        }
       } finally { button.disabled = false; }
     }
     function updateWeightConversion() {
@@ -546,6 +547,7 @@ import { mountNavigation } from './navigation.js';
       attachmentRequest++;
       attachmentUI.invalidate();
       loadGeneration++; rosterStore.reset();
+      athleteVersionSnapshot = null;
       state = { athletes: [], coaches: [] }; currentUser = null; profileData = null; gymSettings = null;
       document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
       document.querySelectorAll('form').forEach(form => form.reset());

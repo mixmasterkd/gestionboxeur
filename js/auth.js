@@ -54,7 +54,7 @@ function updatePasswordFeedback() {
     strength = password.length >= 16 || password.length >= 12 && variety >= 3 ? 3 : password.length >= 10 && variety >= 2 ? 2 : 1;
     if (/^(.)\1+$/.test(password) || /password|motdepasse|123456|qwerty|azerty/i.test(password)) strength = 1;
   }
-  $('passwordStrengthText').textContent = strength ? 'Force estimée : ' + ['','Faible','Moyenne','Forte'][strength] : 'Au moins 6 caractères.';
+  $('passwordStrengthText').textContent = strength ? 'Force estimée : ' + ['','Faible','Moyenne','Forte'][strength] : 'Au moins 12 caractères.';
   $('passwordStrength').dataset.strength = String(strength);
   $('passwordStrengthBar').style.width = `${strength / 3 * 100}%`;
   const match = password === confirmation;
@@ -79,6 +79,7 @@ function setMode(next) {
   $('emailLabel').textContent = signup ? 'Courriel (identifiant de connexion)' : 'Courriel';
   $('passwordField').classList.toggle('hidden', forgot);
   $('password').required = !forgot;
+  $('password').minLength = signup || recovery ? 12 : 6;
   $('password').autocomplete = signup || recovery ? 'new-password' : 'current-password';
   $('passwordLabel').textContent = recovery ? 'Nouveau mot de passe' : 'Mot de passe';
   $('confirmPasswordField').classList.toggle('hidden', !(signup || recovery));
@@ -86,7 +87,7 @@ function setMode(next) {
   $('confirmPassword').disabled = !(signup || recovery);
   $('confirmPasswordLabel').textContent = recovery ? 'Confirmer le nouveau mot de passe' : 'Confirmer le mot de passe';
   $('authTitle').textContent = signup ? 'Créer un compte' : recovery ? 'Nouveau mot de passe' : forgot ? 'Mot de passe oublié' : 'Connexion';
-  $('authIntro').textContent = signup ? 'Crée ton compte. Les fonctions coach s’activent ensuite dans ton profil.' : recovery ? 'Choisis un mot de passe d’au moins 6 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : '';
+  $('authIntro').textContent = signup ? 'Crée ton compte. Les fonctions coach s’activent ensuite dans ton profil.' : recovery ? 'Choisis un mot de passe d’au moins 12 caractères.' : forgot ? 'Reçois un lien sécurisé pour choisir un nouveau mot de passe.' : '';
   $('authIntro').hidden = !$('authIntro').textContent;
   $('authSubmit').textContent = signup ? 'Créer mon compte' : recovery ? 'Enregistrer le mot de passe' : forgot ? 'Envoyer le lien' : 'Se connecter';
   $('authSubmit').disabled = recovery && !recoveryReady;
@@ -151,6 +152,7 @@ $('authForm').addEventListener('submit', async event => {
       message('Si un compte existe pour ce courriel, un lien de réinitialisation a été envoyé. Vérifie aussi tes indésirables.', 'success');
     } else if (mode === 'recovery') {
       if (!recoveryReady) throw new Error('Ouvre un lien de réinitialisation valide avant de continuer.');
+      if (password.length < 12) throw new Error('Choisis un mot de passe d’au moins 12 caractères.');
       if (password !== $('confirmPassword').value) throw new Error('Les deux mots de passe ne correspondent pas.');
       const { error } = await client.auth.updateUser({ password });
       if (error) throw error;
@@ -162,7 +164,7 @@ $('authForm').addEventListener('submit', async event => {
       history.replaceState(null, '', location.pathname);
     } else if (mode === 'signup') {
       updatePasswordFeedback();
-      if (password.length < 6) throw new Error('Choisis un mot de passe d’au moins 6 caractères.');
+      if (password.length < 12) throw new Error('Choisis un mot de passe d’au moins 12 caractères.');
       if (password !== $('confirmPassword').value) throw new Error('Les deux mots de passe ne correspondent pas.');
       const accountType = 'athlete';
       const athlete = accountType === 'athlete';

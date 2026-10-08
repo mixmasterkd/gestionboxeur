@@ -63,7 +63,7 @@ async function initialize() {
 $('enableCoachingButton').addEventListener('click',async()=>{
   if(!currentUser || $('enableCoachingButton').disabled)return;
   const ticket=generation; $('enableCoachingButton').disabled=true; clearMessages();
-  try{ await result(client.rpc('enable_coaching',{})); if(ticket!==generation)return; await initialize(); }
+  try{ await result(client.rpc('enable_coaching_checked',{p_expected_user_id:currentUser.id})); if(ticket!==generation)return; await initialize(); }
   catch(error){if(ticket===generation)failure(error);}
   finally{$('enableCoachingButton').disabled=false;}
 });
@@ -77,7 +77,7 @@ function notice(id,text,error=false) {const element=$(id);element.textContent=te
 async function saveProfilePart(event,buttonId,statusId,makePayload,message) {
   event.preventDefault();if(!currentUser||!athlete||$(buttonId).disabled||!event.currentTarget.reportValidity())return;
   const ticket=generation;$(buttonId).disabled=true;$(statusId).classList.add('hidden');
-  try {const data=makePayload();await result(client.rpc('save_athlete_profile',{p_data:data}));
+  try {const data=makePayload();await result(client.rpc('save_athlete_profile_checked',{p_expected_user_id:currentUser.id,p_data:data}));
     if(ticket!==generation)return;Object.assign(athlete,data);notice(statusId,message);
   } catch(error){if(ticket===generation)notice(statusId,error.message||'Impossible d’enregistrer. Réessaie.',true);}
   finally{if(ticket===generation)$(buttonId).disabled=false;}
@@ -108,11 +108,21 @@ $('coachGymForm').addEventListener('submit',async event=>{
   event.preventDefault();if(!currentUser||role!=='coach'||$('saveGymButton').disabled)return;
   const ticket=generation;$('saveGymButton').disabled=true;clearMessages();
   try{
-    await result(client.rpc('save_gym',{p_name:$('coachGymName').value.trim(),p_address:$('coachGymAddress').value.trim()}));
+    await result(client.rpc('save_gym_checked',{p_expected_user_id:currentUser.id,p_name:$('coachGymName').value.trim(),p_address:$('coachGymAddress').value.trim()}));
     if(ticket!==generation)return;
     setBrand({name:$('coachGymName').value.trim(),address:$('coachGymAddress').value.trim()});$('profileSuccess').textContent='Les coordonnées de ton gym sont enregistrées.';$('profileSuccess').classList.remove('hidden');
   }catch(error){if(ticket===generation)failure(error);}finally{if(ticket===generation)$('saveGymButton').disabled=false;}
 });
 $('logoutButton').addEventListener('click',async()=>{const {error}=await client.auth.signOut({scope:'local'});if(error)failure(error);});
-client.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT'){generation++;currentUser=null;athlete=null;role=null;document.querySelectorAll('form').forEach(form=>form.reset());['athletePanel','sportsPanel','coachPanel','securityPanel'].forEach(id=>$(id).classList.add('hidden'));['personalStatus','sportsStatus','passwordStatus','accountEmail'].forEach(id=>{$(id).textContent='';});location.replace('login.html');}});
+client.auth.onAuthStateChange((event,session)=>{
+  const changed=event==='SIGNED_IN'&&currentUser&&session?.user?.id&&session.user.id!==currentUser.id;
+  if(event!=='SIGNED_OUT'&&!changed)return;
+  // Invalidate synchronously; never call another Auth method inside its callback.
+  generation++;currentUser=null;athlete=null;role=null;
+  document.querySelectorAll('form').forEach(form=>form.reset());
+  ['athletePanel','sportsPanel','coachPanel','securityPanel'].forEach(id=>$(id).classList.add('hidden'));
+  ['personalStatus','sportsStatus','passwordStatus','accountEmail'].forEach(id=>{$(id).textContent='';});
+  setBrand(null);
+  location.replace(changed?'profile.html':'login.html');
+});
 initialize();

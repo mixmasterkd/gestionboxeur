@@ -68,14 +68,14 @@ test('legacy mutations keep owner filter, original notes/selection and do not co
   const store = createRosterStore(mock.client);
   await store.loadProfile('coach-id');
   await store.saveAthlete('athlete-one', { first_name: 'Martin', status: 'unavailable', private_notes: 'Pour moi', selected: false });
-  await store.saveAthlete('athlete-one', { selected: true });
+  await store.saveAthlete('athlete-one', { selected: true }, { updatedAt:'2026-10-07T12:00:00Z', relationUpdatedAt:'2026-10-07T12:01:00Z' });
   await store.saveAthlete('', { first_name: 'Alex', last_name: '', birth_date: null, sex: null, weight_kg: null, private_notes: '', selected: false });
   await store.removeAthlete('athlete-one');
   const mutations = mock.calls.filter(call => call.action !== 'select');
   assert.deepEqual(mutations.map(call => call.action), ['update', 'update', 'insert', 'delete']);
   assert.deepEqual(mutations[0].filters, [['id', 'athlete-one'], ['coach_id', 'coach-id']]);
   assert.deepEqual(mutations[0].payload, { first_name: 'Martin', status: 'unavailable', notes: 'Pour moi', selected: false });
-  assert.deepEqual(mutations[1].payload, { selected: true });
+  assert.deepEqual(mutations[1].payload, { selected: true }, { updatedAt:'2026-10-07T12:00:00Z', relationUpdatedAt:'2026-10-07T12:01:00Z' });
   assert.equal(mutations[2].payload.coach_id, 'coach-id');
   assert.equal(mutations[2].payload.notes, null);
   assert.equal(mutations[2].payload.weight_kg, null);
@@ -90,13 +90,13 @@ test('modern mode never reads legacy private columns and writes only through rel
   const rows = await store.loadAthletes();
   assert.equal(store.mode, 'modern');
   assert.equal(rows[0].relation.private_notes, 'Private relation note');
-  await store.saveAthlete('athlete-one', { selected: true });
+  await store.saveAthlete('athlete-one', { selected: true }, { updatedAt:'2026-10-07T12:00:00Z', relationUpdatedAt:'2026-10-07T12:01:00Z' });
   await store.saveAthlete('', { first_name: 'Martin' });
   await store.removeAthlete('athlete-one');
   const athleteQueries = mock.calls.filter(call => call.table === 'athletes');
   assert.ok(athleteQueries.every(call => !/(notes|selected|\*)/.test(call.fields)));
   assert.ok(athleteQueries.every(call => call.action === 'select'));
-  assert.deepEqual(mock.calls.filter(call => call.rpc).map(call => call.rpc), ['update_roster_athlete', 'create_roster_athlete', 'archive_roster_athlete']);
+  assert.deepEqual(mock.calls.filter(call => call.rpc).map(call => call.rpc), ['update_roster_athlete_checked', 'create_roster_athlete', 'archive_roster_athlete']);
 });
 
 test('permission, network and unrelated missing-column errors never trigger compatibility fallback', async () => {
@@ -111,7 +111,7 @@ test('permission, network and unrelated missing-column errors never trigger comp
     await assert.rejects(store.loadProfile('coach-id'), error => error === profileError);
     assert.equal(store.mode, 'unknown');
     assert.equal(mock.calls.length, 1);
-    await assert.rejects(store.saveAthlete('athlete-one', { selected: true }), /Charge ton compte/);
+    await assert.rejects(store.saveAthlete('athlete-one', { selected: true }, { updatedAt:'2026-10-07T12:00:00Z', relationUpdatedAt:'2026-10-07T12:01:00Z' }), /Charge ton compte/);
   }
 });
 
@@ -140,7 +140,7 @@ test('modern missing relation or RPC error does not switch to legacy operations'
   const rpcError = { code: 'PGRST202', message: 'Could not find function public.update_roster_athlete' };
   const writeMock = backend({ rpcError }); const writeStore = createRosterStore(writeMock.client);
   await writeStore.loadProfile('coach-id');
-  await assert.rejects(writeStore.saveAthlete('athlete-one', { selected: true }), error => error === rpcError);
+  await assert.rejects(writeStore.saveAthlete('athlete-one', { selected: true }, { updatedAt:'2026-10-07T12:00:00Z', relationUpdatedAt:'2026-10-07T12:01:00Z' }), error => error === rpcError);
   assert.equal(writeStore.mode, 'modern');
   assert.equal(writeMock.calls.some(call => call.table === 'athletes'), false);
 });
@@ -167,7 +167,7 @@ test('a late profile response cannot restore store access after session reset', 
   resolveProfile({ data: { id: 'old-coach', account_type: 'coach' }, error: null });
   await assert.rejects(loading, /session a changé/);
   assert.equal(store.mode, 'unknown');
-  await assert.rejects(store.saveAthlete('athlete-id', { selected: true }), /Charge ton compte/);
+  await assert.rejects(store.saveAthlete('athlete-id', { selected: true }, { updatedAt:'2026-10-07T12:00:00Z', relationUpdatedAt:'2026-10-07T12:01:00Z' }), /Charge ton compte/);
 });
 
 const attachment = () => ({
@@ -280,4 +280,12 @@ test('modern roster keeps free sheets and registered accounts without calendar p
   const athleteQuery = mock.calls.find(call => call.table === 'athletes');
   assert.deepEqual(athleteQuery.filters, [['id', [source.id, target.id]]]);
   assert.ok(athleteQuery.fields.split(',').includes('updated_at'));
+});
+
+
+test('modern roster refuses a mutation without a complete form version and never retries an old RPC',async()=>{
+  const mock=backend(),store=createRosterStore(mock.client);await store.loadProfile('coach-id');
+  await assert.rejects(()=>store.saveAthlete('athlete-one',{weight_kg:72}),/Recharge la fiche/);
+  await assert.rejects(()=>store.saveAthlete('athlete-one',{weight_kg:72},{updatedAt:'2026-10-07'}),/Recharge la fiche/);
+  assert.equal(mock.calls.some(c=>c.rpc),false);
 });

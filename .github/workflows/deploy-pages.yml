@@ -55,6 +55,12 @@ jobs:
       - name: Exécuter les tests isolés
         run: npm test
 
+      - name: Installer Chromium pour la QA du calendrier
+        run: npx playwright install --with-deps chromium
+
+      - name: Vérifier les parcours mobile et ordinateur
+        run: npm run test:e2e
+
       - name: Construire le site
         env:
           # Public browser configuration only. Never use a service_role key here.

@@ -43,12 +43,12 @@ test('migration, data preservation and cross-account PostgreSQL security', async
     `);
     const directory = new URL('../supabase/migrations/',import.meta.url);
     const files = (await readdir(directory)).filter(x=>x.endsWith('.sql')).sort();
-    for (const file of files.filter(x=>!x.startsWith('202609'))) await db.exec(await readFile(new URL(file,directory),'utf8'));
+    for (const file of files.filter(x=>x.startsWith('202608'))) await db.exec(await readFile(new URL(file,directory),'utf8'));
     await signup(coach1,'coach','Coach historique','mixmasterkd@gmail.com');
     await db.query('insert into public.athletes(id,coach_id,first_name,last_name,notes,selected) values($1,$2,$3,$4,$5,true)',[legacyAthlete,coach1,'Martin','Historique','Note confidentielle']);
     await db.query("update public.athletes set birth_date='1999-01-01',sex='F',weight_kg=68.5,fights=4,wins=3,losses=1 where id=$1",[legacyAthlete]);
     for (let n=2;n<=8;n++) await db.query('insert into public.athletes(coach_id,first_name,last_name) values($1,$2,$3)',[coach1,`Athlète ${n}`,'Historique']);
-    for (const file of files.filter(x=>x.startsWith('202609'))) {
+    for (const file of files.filter(x=>!x.startsWith('202608'))) {
       await db.exec(await readFile(new URL(file,directory),'utf8'));
       if(file.includes('secure_profile_roles')) await t.test('standalone security patch revokes inherited PUBLIC admin updates while preserving the legacy roster',async()=>{
         await login(coach1);
@@ -166,6 +166,37 @@ test('migration, data preservation and cross-account PostgreSQL security', async
     await signup(coach2,'coach','Coach secondaire');
     await signup(athleteUser,'athlete','Martin connecté');
     await signup(outsider,'athlete','Autre athlète');
+
+    await t.test('guarded writes reject switched accounts and stale athlete or relation versions',async()=>{
+      await login(coach1);
+      const snapshot=async()=> (await db.query('select a.updated_at::text as a,c.updated_at::text as c from public.athletes a join public.coach_athletes c on c.athlete_id=a.id where a.id=$1 and c.coach_id=$2',[legacyAthlete,coach1])).rows[0];
+      const save=(version,patch,owner=coach1)=>scalar('select public.update_roster_athlete_checked($1,$2,$3,$4,$5)',[legacyAthlete,JSON.stringify(patch),owner,version.a,version.c]);
+      let version=await snapshot();
+      await save(version,{weight_kg:72,fights:10,wins:8,losses:1});
+      await assert.rejects(()=>save(version,{weight_kg:70}),/fiche a changé/);
+      assert.equal(await scalar('select weight_kg from public.athletes where id=$1',[legacyAthlete]),'72.0');
+      version=await snapshot();
+      await db.query('update public.coach_athletes set selected=not selected where athlete_id=$1',[legacyAthlete]);
+      await assert.rejects(()=>save(version,{weight_kg:71}),/fiche a changé/);
+      version=await snapshot();
+      await assert.rejects(()=>save({...version,a:null},{weight_kg:71}),/fiche a changé/);
+      await assert.rejects(()=>save(version,{weight_kg:71},coach2),/Accès/);
+      const saved=await save(version,{weight_kg:73});
+      assert.ok(saved.updated_at&&saved.relation_updated_at);
+      await save({a:saved.updated_at,c:saved.relation_updated_at},{selected:true});
+      await login(coach2);
+      await assert.rejects(()=>save(version,{weight_kg:74},coach2),/Accès/);
+      await assert.rejects(()=>scalar('select public.save_athlete_profile_checked($1,$2)',[coach1,JSON.stringify({first_name:'Ancien compte'})]),/session a changé/);
+      await assert.rejects(()=>scalar('select public.save_gym_checked($1,$2,$3)',[coach1,'Ancien gym','Adresse']),/session a changé/);
+      await assert.rejects(()=>scalar('select public.enable_coaching_checked($1)',[coach1]),/session a changé/);
+      await scalar('select public.save_athlete_profile_checked($1,$2)',[coach2,JSON.stringify({first_name:'Coach secondaire'})]);
+      await admin();await db.exec('set role anon');
+      await assert.rejects(()=>save(version,{weight_kg:74}),/permission denied/);
+      await assert.rejects(()=>scalar('select public.save_athlete_profile_checked($1,$2)',[coach2,'{}']),/permission denied/);
+      await admin();
+      // Restore the historical fixture used by the remaining migration tests.
+      await db.query('update public.athletes set weight_kg=68.5,fights=4,wins=3,losses=1 where id=$1',[legacyAthlete]);
+    });
 
     await t.test('signup metadata cannot grant admin; account type and admin flags are protected',async()=>{
       await login(coach2);

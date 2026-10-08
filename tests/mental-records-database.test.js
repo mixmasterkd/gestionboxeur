@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 const owner = '12000000-0000-4000-8000-000000000001', other = '12000000-0000-4000-8000-000000000002';
-const base = await readFile(new URL('../supabase/migrations/20261001230552_cognitive_personal_records.sql', import.meta.url), 'utf8');
-const upgrade = await readFile(new URL('../supabase/migrations/20261006024812_cognitive_memory_dual_task.sql', import.meta.url), 'utf8');
+const base = await readFile(new URL('../supabase/migrations/20261001232704_cognitive_personal_records.sql', import.meta.url), 'utf8');
+const upgrade = await readFile(new URL('../supabase/migrations/20261006033329_cognitive_memory_dual_task.sql', import.meta.url), 'utf8');
 test('prepared upgrade preserves existing records and stores atomic best plus last with private account access', async () => {
   const db = new PGlite();
   try {

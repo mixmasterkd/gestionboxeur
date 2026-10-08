@@ -61,7 +61,7 @@ async function profileSurface(role='athlete',{contactEmail=null,resetError=null,
   window.__navigation=args=>nav.push(args);window.__navigate=()=>{};
   const script=await readFile(new URL('../js/profile.js',import.meta.url),'utf8');
   window.eval(script.replace(/^import \{ client \}.*$/m,'const client=window.__client;').replace(/^import \{ mountNavigation \}.*$/m,'const mountNavigation=window.__navigation;').replaceAll('location.replace(','window.__navigate('));await settle();
-  return {window,calls,nav,$:id=>window.document.getElementById(id),close:()=>window.happyDOM.abort()};
+  return {window,calls,nav,emit:(...args)=>authCallback(...args),$:id=>window.document.getElementById(id),close:()=>window.happyDOM.abort()};
 }
 test('athlete profile reads own identity and saves normalized sports data without privilege fields',async()=>{
   const ui=await profileSurface();try{
@@ -70,7 +70,7 @@ test('athlete profile reads own identity and saves normalized sports data withou
     assert.equal(ui.$('profileWeight').value,'154.3');ui.$('profileWeight').value='165.3';ui.$('profileWeight').step='any'; // Happy DOM miscomputes decimal step validity.
     ui.$('profileStatus').value='unavailable';
     ui.$('sportsProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
-    const data=ui.calls.find(c=>c[0]==='save_athlete_profile')[1].p_data;
+    const data=ui.calls.find(c=>c[0]==='save_athlete_profile_checked')[1].p_data;
     assert.ok(Math.abs(data.weight_kg-75)<0.1);assert.equal(data.birth_date,undefined);assert.equal(data.email,undefined);assert.equal(data.weight_unit,'lb');assert.equal(data.user_id,undefined);assert.equal(data.is_admin,undefined);assert.equal(data.coach_id,undefined);
     assert.equal(data.status,'unavailable');assert.equal(data.gym_id,undefined);assert.equal(ui.$('profileGym'),null);
     assert.equal(ui.$('sportsStatus').classList.contains('hidden'),false);
@@ -80,7 +80,7 @@ test('coach profile exposes own sports profile and saves gym separately',async()
   const ui=await profileSurface('coach');try{
     assert.equal(ui.$('coachPanel').classList.contains('hidden'),false);assert.equal(ui.$('athletePanel').classList.contains('hidden'),false);
     assert.equal(ui.$('existingGym'),null);ui.$('coachGymName').value='Autre gym';ui.$('coachGymAddress').value='45 rue Test';ui.$('coachGymForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
-    assert.deepEqual(ui.calls.find(c=>c[0]==='save_gym'),['save_gym',{p_name:'Autre gym',p_address:'45 rue Test'}]);assert.equal(ui.$('gymBrand').textContent,'Autre gym');
+    assert.deepEqual(ui.calls.find(c=>c[0]==='save_gym_checked'),['save_gym_checked',{p_expected_user_id:'current-user',p_name:'Autre gym',p_address:'45 rue Test'}]);assert.equal(ui.$('gymBrand').textContent,'Autre gym');
   }finally{await ui.close();}
 });
 
@@ -89,7 +89,7 @@ test('personal account can request coaching activation only for itself',async()=
  const ui=await profileSurface();try{
   assert.equal(ui.$('enableCoachingButton').hidden,false);
   ui.$('enableCoachingButton').click();await settle();
-  assert.deepEqual(ui.calls.find(call=>call[0]==='enable_coaching'),['enable_coaching',{}]);
+  assert.deepEqual(ui.calls.find(call=>call[0]==='enable_coaching_checked'),['enable_coaching_checked',{p_expected_user_id:'current-user'}]);
  }finally{await ui.close();}
 });
 
@@ -100,7 +100,7 @@ test('coach personal contact saves independently of unused sports fields and def
   assert.equal(ui.$('sportsProfileForm').hidden,true);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'false');
   ui.$('profileWins').value='900';ui.$('profileWeight').value='-1';
   ui.$('profileEmail').value='contact@example.test';ui.$('athleteProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
-  const patch=ui.calls.find(c=>c[0]==='save_athlete_profile')[1].p_data;
+  const patch=ui.calls.find(c=>c[0]==='save_athlete_profile_checked')[1].p_data;
   assert.equal(patch.email,'contact@example.test');assert.equal(patch.birth_date,null);
   assert.deepEqual(Object.keys(patch).sort(),['birth_date','email','first_name','last_name','phone','sex']);
   assert.equal(ui.$('personalStatus').className,'success');
@@ -115,7 +115,7 @@ test('saved contact email is displayed but password recovery always uses the acc
   ui.$('profileEmail').value='unsaved@example.test';ui.$('resetPasswordButton').click();ui.$('resetPasswordButton').click();await settle();
   assert.deepEqual(ui.calls.filter(c=>c[0]==='resetPasswordForEmail'),[['resetPasswordForEmail','account@example.test',{redirectTo:'https://example.test/team/login.html?mode=recovery'}]]);
   assert.equal(ui.$('passwordStatus').className,'success');assert.equal(ui.$('resetPasswordButton').disabled,true);
-  assert.equal(ui.calls.some(c=>c[0]==='save_athlete_profile'),false);
+  assert.equal(ui.calls.some(c=>c[0]==='save_athlete_profile_checked'),false);
  }finally{await ui.close();}
 });
 
@@ -125,4 +125,21 @@ test('failed password email can be retried and signout clears profile details',a
   ui.$('logoutButton').click();await settle();for(const id of ['athletePanel','sportsPanel','securityPanel'])assert.equal(ui.$(id).classList.contains('hidden'),true);
   assert.equal(ui.$('accountEmail').textContent,'');assert.equal(ui.$('profileEmail').value,'');
  }finally{await ui.close();}
+});
+
+
+test('a different signed-in account immediately invalidates the open profile form',async()=>{
+  const ui=await profileSurface('coach');try {
+    ui.$('profileFirstName').value='Ancien compte';
+    ui.emit('SIGNED_IN',{user:{id:'current-user'}});
+    assert.equal(ui.$('athletePanel').classList.contains('hidden'),false);
+    ui.emit('SIGNED_IN',{user:{id:'different-user'}});
+    assert.equal(ui.$('athletePanel').classList.contains('hidden'),true);
+    assert.equal(ui.$('accountEmail').textContent,'');
+    assert.notEqual(ui.$('profileFirstName').value,'Ancien compte');
+    ui.$('athleteProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));
+    ui.$('coachGymForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));
+    ui.$('enableCoachingButton').click();await settle();
+    assert.equal(ui.calls.some(c=>c[0].endsWith('_checked')),false);
+  }finally{await ui.close();}
 });

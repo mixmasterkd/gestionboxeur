@@ -20,26 +20,22 @@
   .nav-explore { background: #22262d; border-color: #505a69; box-shadow: none; }
   .nav-explore:hover { background: #303a48; }
   .button, .pe-button, .be-button { box-shadow: none; }
-  .button-dark, .button.primary, .button-accent, .pe-primary, .be-interval-fields > .be-button, .test-session-banner button {
+  .button-dark, .button.primary, .button-accent, .pe-primary, .test-session-banner button {
     background: #d7dfe9; color: #18202b; border-color: #d7dfe9; box-shadow: none;
   }
-  .button-dark:hover:not(:disabled), .button.primary:hover:not(:disabled), .button-accent:hover:not(:disabled), .pe-primary:hover, .be-interval-fields > .be-button:hover { background: #f0f3f7; color: #18202b; border-color: #f0f3f7; box-shadow: none; }
+  .button-dark:hover:not(:disabled), .button.primary:hover:not(:disabled), .button-accent:hover:not(:disabled), .pe-primary:hover { background: #f0f3f7; color: #18202b; border-color: #f0f3f7; box-shadow: none; }
   .button.secondary, .button:not(.button-dark):not(.primary):not(.button-accent):not(.danger-button), .pe-button:not(.pe-primary), .be-button { background: var(--white); color: var(--ink); border-color: var(--line); }
   .button.secondary:hover:not(:disabled), .pe-button:hover:not(.pe-primary), .be-button:hover { background: var(--soft); border-color: #697482; }
   .button.danger-button { background: #612f37; border-color: #a96873; color: #fff0f0; }
   .danger, .pe-row-more [data-action="delete"] { color: var(--danger); }
   .count { color: var(--ink); background: var(--soft); }
-  input:not([type="checkbox"]):not([type="radio"]), select, textarea,
-  .field input, .field select, .form-field input, .form-field select, .form-field textarea,
-  .be-field input, .be-field select, .be-field textarea, .pe-mini input, .pe-mini select, .pe-mini textarea {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea, .field input, .field select, .form-field input, .form-field select, .form-field textarea, .pe-mini input, .pe-mini select, .pe-mini textarea {
     color: var(--ink); background: #1c2026; border-color: #535d6c;
   }
   input:disabled, select:disabled, textarea:disabled { background: #2d333c; color: #afb6c0; }
   input[type="checkbox"], input[type="radio"] { accent-color: #bdcadd; }
-  .be-title input:focus { background: #1c2026 !important; }
-  .auth-card, .panel, .coach-card, .app-dialog, .dialog-box, .connection-card, .feeling-choice span, .template-card, .template-card[data-source="starter"], .pe-row, .be-card { background: var(--white); color: var(--ink); border-color: var(--line); }
-  .dialog-head, .dialog-heading, .dialog-head.dark, .dialog-foot, .dialog-actions, .panel-foot, .filters,
-  .roster-summary.stats, .stats, .be-card-head, .be-repeat > .be-card-head { background: #252a32; color: var(--ink); border-color: var(--line); }
+  .auth-card, .panel, .coach-card, .app-dialog, .dialog-box, .connection-card, .feeling-choice span, .template-card, .template-card[data-source="starter"], .pe-row { background: var(--white); color: var(--ink); border-color: var(--line); }
+  .dialog-head, .dialog-heading, .dialog-head.dark, .dialog-foot, .dialog-actions, .panel-foot, .filters, .roster-summary.stats, .stats { background: #252a32; color: var(--ink); border-color: var(--line); }
   .dialog-head.dark .dialog-title { color: var(--ink); }
   .dark .close { color: var(--ink); background: var(--soft); border-color: var(--line); }
   .roster-summary .stat strong, .week-overview strong, .pe-line strong { color: var(--ink); }
@@ -50,20 +46,9 @@
   tbody tr.selected, .roster tbody tr.selected { background: #303a48; border-color: #65768d; box-shadow: inset 3px 0 #bdcadd; }
   .roster tbody td, .field-inline, .stat + .stat { border-color: var(--line); }
   .status, .chip, .status.available, .account-badge.registered { background: #303641; border-color: #525d6b; color: var(--ink); }
-  .brand-location, .gym-address, .topbar .text-button, .quiet-button, .auth-links .link-button, .roster-shortcut, .pe-list:empty::before,
-  .auth-card .muted, .page-heading p, .session-author, .session-meta, .week-overview span, .running-week-total small,
-  .running-week-total #distanceTotal, .empty-day, .roster tbody td::before, .template-source,
-  .session-intro, .feedback-read, .lock-control small, .completion-status, .completion-status.pending,
-  .library-notice, .template-status, .pe-heading p, .pe-hint, .pe-text-hint, .pe-instructions, .pe-dose, .pe-summary, .pe-text-status,
-  .pe-help p, .pe-help dd, .pe-help dt, .pe-help > summary, .pe-help-advanced summary, .pe-mini-advanced > summary,
-  .pe-mini .form-field > span, .pe-row-more > summary, .be-field > span, .be-muted, .be-advanced summary,
-  .be-interval-builder h4, .be-interval-builder > .be-muted, .workout-dose, .workout-instructions,
-  .workout-chart-note, .workout-legend span, .session-chart figcaption, .session-chart-note, .session-chart-legend span,
-  .roster-link-candidates small, .roster-link-comparison h3, .roster-link-comparison dt, .roster-link-choices label > span { color: var(--muted); }
+  .brand-location, .gym-address, .topbar .text-button, .quiet-button, .auth-links .link-button, .roster-shortcut, .pe-list:empty::before, .auth-card .muted, .page-heading p, .session-author, .session-meta, .week-overview span, .running-week-total small, .running-week-total #distanceTotal, .empty-day, .roster tbody td::before, .template-source, .session-intro, .feedback-read, .lock-control small, .completion-status, .completion-status.pending, .library-notice, .template-status, .pe-heading p, .pe-hint, .pe-text-hint, .pe-instructions, .pe-dose, .pe-summary, .pe-text-status, .pe-help p, .pe-help dd, .pe-help dt, .pe-help > summary, .pe-help-advanced summary, .pe-mini-advanced > summary, .pe-mini .form-field > span, .pe-row-more > summary, .be-muted, .workout-dose, .workout-instructions, .workout-chart-note, .workout-legend span, .session-chart figcaption, .session-chart-note, .session-chart-legend span, .roster-link-candidates small, .roster-link-comparison h3, .roster-link-comparison dt, .roster-link-choices label > span { color: var(--muted); }
   .topbar .text-button:hover, .pe-line strong { color: var(--ink); }
-  .athlete-sidebar, .search-box, .week-overview, .day, .month .day, .pe-help, .pe-mini, .pe-repeat, .workout-step,
-  .be-interval-builder, .workout-repeat, .lock-control, .session-completion, .session-chart, .workout-chart,
-  .roster-link-dialog .check-label, .pe-help pre { background: var(--white); border-color: var(--line); color: var(--ink); }
+  .athlete-sidebar, .search-box, .week-overview, .day, .month .day, .pe-help, .pe-mini, .pe-repeat, .workout-step, .workout-repeat, .lock-control, .session-completion, .session-chart, .workout-chart, .roster-link-dialog .check-label, .pe-help pre { background: var(--white); border-color: var(--line); color: var(--ink); }
   .athlete-item:hover, .athlete-item.active { background: var(--soft); border-color: var(--line); }
   .athlete-avatar, .active .athlete-avatar { background: #39414d; color: var(--ink); }
   .athlete-item .dot { background: #aebed3; }
@@ -82,9 +67,7 @@
   .add-day { color: var(--muted); border-color: #535d6c; }
   .add-day:hover { background: var(--soft); color: var(--ink); }
   .today-button { color: var(--muted); }
-  .segmented, .pe-modes, .chart-axis, .detail-meta span, .feedback-pill, .feedback-score, .code-box, .connection-status,
-  .completion-pill, .completion-pill.pending, .workout-totals, .workout-notes, .be-summary, .chart-tooltip, .pe-row-more[open],
-  .pe-addbar .pe-button, .be-addbar .be-button { background: var(--soft); color: var(--ink); border-color: var(--line); }
+  .segmented, .pe-modes, .chart-axis, .detail-meta span, .feedback-pill, .feedback-score, .code-box, .connection-status, .completion-pill, .completion-pill.pending, .workout-totals, .workout-notes, .chart-tooltip, .pe-row-more[open], .pe-addbar .pe-button { background: var(--soft); color: var(--ink); border-color: var(--line); }
   .segmented button, .chart-axis button { color: var(--muted); }
   .segmented [aria-pressed="true"], .pe-modes .pe-button[aria-pressed="true"], .library-sources [aria-pressed="true"], .chart-axis button[aria-pressed="true"] { background: #485465; color: #f3f5f8; border-color: #7e8da3; }
   .button.completion-button[aria-pressed="true"], .button.completion-button[aria-pressed="true"]:hover { background: #32443e; color: #d8ece1; border-color: #739181; }

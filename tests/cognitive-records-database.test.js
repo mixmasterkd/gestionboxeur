@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 
 const owner = '12000000-0000-4000-8000-000000000001', other = '12000000-0000-4000-8000-000000000002';
 const modes = ['tiles-4', 'tiles-6', 'tiles-8', 'bag-sequence-visible', 'bag-sequence-hidden', 'bag-targets-visible', 'bag-targets-hidden'];
-const migration = await readFile(new URL('../supabase/migrations/20261001230552_cognitive_personal_records.sql', import.meta.url), 'utf8');
+const migration = await readFile(new URL('../supabase/migrations/20261001232704_cognitive_personal_records.sql', import.meta.url), 'utf8');
 async function fixture() {
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create schema auth;

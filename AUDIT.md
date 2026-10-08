@@ -1,3 +1,57 @@
+# Corrections et QA — 7 octobre 2026
+
+État : publication autorisée le 7 octobre 2026. La migration est appliquée et vérifiée; publication du frontend en cours. Une sauvegarde applicative privée précède la migration. Les 204 lignes des 30 tables sont conservées; les écritures d’essai ont été annulées par transaction. Aucun compte réel créé ni paramètre Auth modifié.
+
+## Corrections
+
+| Problème | Résultat |
+| --- | --- |
+| Ancien profil ou calendrier conservé lors d’un changement de compte dans un autre onglet | Invalidation immédiate des données et lectures en attente, fermeture des dialogues, rechargement vers le bon compte. Les nouvelles sauvegardes de profil, gym et activation coach transmettent aussi le compte attendu au serveur. |
+| Une fiche d’effectif périmée pouvait écraser des données plus récentes | Capture des versions au moment d’ouvrir le formulaire; vérification des versions de la fiche et de la relation sous verrou PostgreSQL. Le conflit conserve les saisies et affiche une erreur, puis recharge les données pour la prochaine ouverture. Les cases de sélection récupèrent les nouvelles versions après chaque sauvegarde. |
+| Les fiches sans compte refusaient un bilan comprenant un match nul | Même règle que les profils liés : victoires + défaites ≤ combats. Cas 10 combats, 8 victoires, 1 défaite testé. |
+| `source-map-js` 1.2.1 signalé vulnérable dans la chaîne de compilation | Dépendance transitive mise à jour en 1.2.2 dans le verrou npm. `npm audit` : 0 vulnérabilité signalée. |
+| Mots de passe nouvellement créés ou réinitialisés limités à six caractères minimum | Minimum de douze caractères dans l’interface et la validation JavaScript. Les connexions existantes à six caractères restent acceptées. Le réglage Auth serveur reste à traiter séparément. |
+| Quinze horodatages de migrations différaient de ceux du serveur | Renommage local d’après l’historique du projet et correction des références. Vérification binaire : les 26 contenus SQL historiques sont identiques à ceux de HEAD. Aucun historique distant modifié. Le test d’évolution de base applique maintenant les migrations réellement dans l’ordre chronologique. |
+| Vue mensuelle illisible et commandes trop petites sur téléphone | Chaque journée ouvre la vue Jour au toucher ou au clavier. Aperçu compact avec nombres de séances et de notes, y compris les notes couvrant plusieurs jours. Poignées tactiles de 36 × 44 px minimum, ouvertures de cartes de 44 px minimum, annonce du changement de période et retour de focus au bouton Jour. |
+
+La nouvelle migration `supabase/migrations/20261008013313_guarded_profile_and_roster_updates.sql` est appliquée et vérifiée sur le projet distant, avant publication du frontend. Les nouveaux endpoints publics sont SECURITY INVOKER; la fonction privilégiée de contrôle de l’effectif est dans `coaching_private`, vérifie l’identité et les droits, et refuse l’accès anonyme. Les fonctions historiques restent disponibles pour la version actuellement publiée.
+
+## Code devenu inutile
+
+Le graphe des imports des sept pages de l’application confirme le retrait de trois composants abandonnés : la classe `BlockEditor` et ses helpers dans `js/editor.js`, le module `js/timer-calendar.js` et l’ancien parseur `js/workout-text.js`. Leurs seuls consommateurs étaient des tests d’anciennes interfaces. Les tests correspondants ont été retirés avec ces fonctionnalités mortes; les tests du lecteur historique ont été conservés et adaptés.
+
+Les styles exclusivement associés à l’ancien éditeur ont été retirés de cinq feuilles CSS, en conservant les sélecteurs partagés encore utilisés. `renderWorkout`, `renderChart`, le lecteur des anciens blocs et l’éditeur courant `program-editor.js` / `workout-document.js` restent présents. Les copies de pages dans le dossier parent ne font pas partie du build et n’ont pas été supprimées.
+
+## Vérifications réalisées
+
+- `npm run check` : syntaxe et structure des pages valides.
+- `npm test` : **718 tests réussis**, zéro échec, incluant PostgreSQL isolé avec PGlite, droits entre comptes, versions périmées, UI et données historiques.
+- `npm run build` : réussi; chemins GitHub Pages, manifeste, icônes et CSS compilé vérifiés. L’avertissement préexistant sur le module 3D chargé à la demande reste présent.
+- `npm audit` : **0 vulnérabilité signalée** au 7 octobre 2026.
+- `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` : **47 parcours réussis**, zéro échec. Sept combinaisons sont volontairement ignorées : geste de souris sur les profils tactiles et geste tactile sur les profils ordinateur/paysage.
+- `git diff --check` : réussi.
+
+| Format simulé dans Chrome | Taille |
+| --- | --- |
+| Petit téléphone tactile | 320 × 720 |
+| Téléphone tactile | 390 × 844 |
+| Téléphone en paysage | 844 × 390 |
+| Tablette tactile | 768 × 1024 |
+| Portable | 1024 × 768 |
+| Ordinateur | 1440 × 900 |
+
+Parcours couverts : navigation Jour/Semaine/Mois, thèmes clair et sombre, changement de période, préférence de vue conservée, ouverture d’une journée au clavier, absence de débordement horizontal des pages et dialogues, ajout/modification/déplacement/suppression d’une note sur plusieurs jours, rédaction d’un entraînement puis déplacement de sa séance, bibliothèque et recherche de modèle avec conservation du jour choisi, réalisation d’une séance verrouillée par l’athlète, sauvegarde et relecture du bilan, note privée absente du calendrier athlète, séparation des groupes et des calendriers individuels, déplacement à la souris et réorganisation par appui prolongé sur téléphone/tablette. Les parcours vérifient aussi l’absence d’erreur JavaScript et de mutation réseau Supabase inattendue.
+
+La suite est conservée dans `e2e/calendar.spec.js` et `playwright.config.js`; le workflow manuel de publication l’exécute avant compilation. Les captures de la vue mensuelle et les traces d’échec sont produites dans `test-results/`, ignoré par Git.
+
+## Mise en ligne et limites
+
+La migration nouvelle est déployée; la publication du frontend est en cours. La protection Supabase contre les mots de passe compromis reste désactivée; aucun outil disponible ne l’a modifiée. Elle est proposée avec le forfait Pro ou supérieur, selon la [documentation Supabase](https://supabase.com/docs/guides/auth/password-security). Le contrôle de longueur ajouté dans l’interface ne remplace pas une politique Auth côté serveur.
+
+La QA navigateur utilise les données de démonstration en mémoire et l’émulation Chrome. Elle ne constitue pas un essai sur appareil iPhone/Android physique, Safari ou une session utilisateur de production. Les protections SQL sont testées dans une base isolée reconstruite depuis les migrations. La pagination des très gros effectifs et les optimisations d’index signalées lors de la revue restent des améliorations distinctes de cette série de corrections.
+
+---
+
 # Audit ciblé — 23 septembre 2026
 
 Périmètre : création du compte athlète de test, boutons sur ordinateur et téléphone. Les corrections et la refonte Arena sont publiées depuis le 23 septembre 2026 (Toronto), avec l'autorisation de l'utilisateur.

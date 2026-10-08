@@ -14,7 +14,7 @@ test('personal tools PostgreSQL isolation, privileges, payload constraints and r
       grant execute on function auth.uid() to anon,authenticated;
       alter default privileges in schema public grant all on tables to public,anon,authenticated;
       insert into auth.users values ('${owner}'),('${other}');`);
-    await db.exec(await readFile(new URL('../supabase/migrations/20261001203022_personal_tool_saves.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../supabase/migrations/20261001203531_personal_tool_saves.sql', import.meta.url), 'utf8'));
     const login = async id => db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${id}';`);
     await login(owner);
     const payload = JSON.stringify({ mode: 'advanced', text: '- 1m' });

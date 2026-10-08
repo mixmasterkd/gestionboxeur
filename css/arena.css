@@ -112,11 +112,11 @@ tbody tr.selected { background: #eaeaeb; }
 .dialog-title, .dialog-heading h2 { overflow-wrap: anywhere; }
 .dialog-head > div, .dialog-heading > div { min-width: 0; }
 .close, .close-button { flex-shrink: 0; }
-.pe-primary, .be-interval-fields > .be-button { background: var(--accent-dark); border-color: var(--accent-dark); }
-.pe-primary:hover, .be-interval-fields > .be-button:hover { background: #2d2e31; border-color: #2d2e31; }
+.pe-primary { background: var(--accent-dark); border-color: var(--accent-dark); }
+.pe-primary:hover { background: #2d2e31; border-color: #2d2e31; }
 .pe-modes { background: #e5e6e7; }
 .pe-modes .pe-button[aria-pressed="true"], .library-sources [aria-pressed="true"] { color: #3e4043; border-color: #b8babd; background: #f4f4f5; }
-.pe-help, .pe-mini, .be-interval-builder { background: #efefef; border-color: #bfc1c4; }
+.pe-help, .pe-mini { background: #efefef; border-color: #bfc1c4; }
 .pe-help > summary, .pe-help dt, .pe-mini-advanced > summary { color: #45474a; }
 .pe-help p, .pe-help dd, .pe-mini .form-field > span { color: #55585d; }
 .pe-repeat { background: #f2f2f3; border-color: #bdbfc2; }

@@ -54,7 +54,7 @@ test('athlete signup preserves invitation across confirmation and omits coach gy
     assert.equal(ui.window.sessionStorage.getItem('pendingInvite'), 'opaque-token');
     ui.$('authToggle').click();
     assert.equal(ui.$('accountType'), null);
-    ui.$('fullName').value = 'Martin'; ui.$('birthDate').value = '2000-05-12'; ui.$('email').value = 'martin@example.test'; ui.$('password').value = 'motdepasse';ui.$('confirmPassword').value='motdepasse';
+    ui.$('fullName').value = 'Martin'; ui.$('birthDate').value = '2000-05-12'; ui.$('email').value = 'martin@example.test'; ui.$('password').value = 'motdepasse-long';ui.$('confirmPassword').value='motdepasse-long';
     submit(ui, 'authForm'); await settle();
     const payload = mock.calls[0][1];
     assert.equal(payload.options.data.account_type, 'athlete');
@@ -84,7 +84,7 @@ test('signup defaults to athlete and rejects missing date of birth before contac
   try{
     ui.$('authToggle').click();
     assert.equal(ui.$('accountType'),null);assert.equal(ui.$('birthDate').required,true);
-    ui.$('fullName').value='Alex Test';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';
+    ui.$('fullName').value='Alex Test';ui.$('email').value='alex@example.test';ui.$('password').value='secret123456789';ui.$('confirmPassword').value='secret123456789';
     submit(ui,'authForm');await settle();assert.equal(mock.calls.length,0);assert.match(ui.$('authError').textContent,/naissance/);
     ui.$('birthDate').value='2000-03-12';
     submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.account_type,'athlete');
@@ -96,7 +96,7 @@ test('athlete signup has no gym directory and stores pounds as normalized kilogr
   const ui=await surface('login.html','auth.js',mock.client);
   try{
     ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2001-02-03';ui.$('weight').value='154.3';ui.$('weightUnit').value='lb';ui.$('fights').value='4';ui.$('wins').value='3';ui.$('losses').value='1';
-    ui.$('email').value='alex@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';submit(ui,'authForm');await settle();
+    ui.$('email').value='alex@example.test';ui.$('password').value='secret123456789';ui.$('confirmPassword').value='secret123456789';submit(ui,'authForm');await settle();
     const payload=mock.calls[0][1].options.data;assert.equal(payload.gym_id,null);assert.equal(payload.weight_unit,'lb');assert.ok(Math.abs(payload.weight_kg-70)<0.1);assert.equal(payload.first_name,'Alex');assert.equal(payload.last_name,'Test');
     assert.equal(payload.fights,4);assert.equal(payload.wins,3);assert.equal(payload.losses,1);assert.equal(payload.is_admin,undefined);
   }finally{await ui.close();}
@@ -107,7 +107,7 @@ test('athlete signup no longer depends on gym directory availability',async()=>{
     const mock=authMock();mock.client.from=()=>({select(){return this;},async order(){return {data:null,error};}});
     const ui=await surface('login.html','auth.js',mock.client);
     try{
-      ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-02-03';ui.$('email').value='alex@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';
+      ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-02-03';ui.$('email').value='alex@example.test';ui.$('password').value='secret123456789';ui.$('confirmPassword').value='secret123456789';
       submit(ui,'authForm');await settle();assert.equal(mock.calls.length,1);assert.equal(mock.calls[0][1].options.data.account_type,'athlete');assert.equal(mock.calls[0][1].options.data.gym_id,null);assert.equal(ui.$('athleteGym'),null);
     }finally{await ui.close();}
   }
@@ -120,11 +120,11 @@ test('password recovery requires an established session and matching passwords',
     assert.equal(ui.$('authSubmit').disabled, true);
     mock.emit('PASSWORD_RECOVERY', { user: { id: 'athlete-user' } });
     assert.equal(ui.$('authSubmit').disabled, false);
-    ui.$('password').value = 'secret123'; ui.$('confirmPassword').value = 'different';
+    ui.$('password').value = 'secret123456789'; ui.$('confirmPassword').value = 'different';
     submit(ui, 'authForm'); await settle();
     assert.equal(mock.calls.length, 0);
     assert.match(ui.$('authError').textContent, /ne correspondent pas/);
-    ui.$('confirmPassword').value = 'secret123';
+    ui.$('confirmPassword').value = 'secret123456789';
     submit(ui, 'authForm'); await settle();
     assert.deepEqual(mock.calls.map(call => call[0]), ['update']);
     assert.equal(ui.$('continueButton').classList.contains('hidden'), false);
@@ -235,7 +235,7 @@ test('registered roster protects identity fields, uses one table and sends only 
     for(const id of ['firstName','lastName','birthDate','sex','status'])assert.equal(ui.$(id).disabled,true);
     ui.$('weight').value='160';ui.$('weightUnit').value='lb';ui.$('firstName').value='Untrusted change';
     submit(ui,'athleteForm');await settle();
-    const payload=mock.calls.find(call=>call[0]==='rpc'&&call[1]==='update_roster_athlete')[2].p_data;
+    const payload=mock.calls.find(call=>call[0]==='rpc'&&call[1]==='update_roster_athlete_checked')[2].p_data;
     assert.deepEqual(Object.keys(payload).sort(),['fights','losses','selected','weight_kg','wins']);
     assert.equal(payload.weight_kg,72.6);
     ui.$('addAthleteButton').click(); ui.window.document.querySelector('[aria-label="Créer une fiche"]').click();assert.equal(ui.$('firstName').disabled,false);
@@ -312,12 +312,12 @@ test('long merged notes survive an unrelated roster edit without trimming or res
     assert.equal(ui.$('athleteNote').value, notes);
     ui.$('weight').value = '70';
     submit(ui, 'athleteForm'); await settle();
-    const payload = mock.calls.find(call => call[1] === 'update_roster_athlete')[2].p_data;
+    const payload = mock.calls.find(call => call[1] === 'update_roster_athlete_checked')[2].p_data;
     assert.equal(Object.hasOwn(payload, 'private_notes'), false);
     ui.$('athleteRows').querySelector('.athlete-edit').click();
     ui.$('athleteNote').value = `  ${'z'.repeat(21000)}  `;
     submit(ui, 'athleteForm'); await settle();
-    const edit = mock.calls.filter(call => call[1] === 'update_roster_athlete').at(-1)[2].p_data;
+    const edit = mock.calls.filter(call => call[1] === 'update_roster_athlete_checked').at(-1)[2].p_data;
     assert.equal(edit.private_notes, `  ${'z'.repeat(21000)}  `);
   } finally { await ui.close(); }
 });
@@ -523,7 +523,7 @@ test('signing in continues to the personal calendar by default',async()=>{
 test('signup uses the account email for contact without asking for it twice', async () => {
  const mock=authMock(),ui=await surface('login.html','auth.js',mock.client);
  try {
-  ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='account@example.test';ui.$('password').value='secret123';ui.$('confirmPassword').value='secret123';ui.$('phone').value='514 555 0100';
+  ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='account@example.test';ui.$('password').value='secret123456789';ui.$('confirmPassword').value='secret123456789';ui.$('phone').value='514 555 0100';
   assert.equal(ui.$('signupSports').open,false);
   submit(ui,'authForm');await settle();assert.equal(mock.calls[0][1].options.data.contact_email,'account@example.test');assert.equal(mock.calls[0][1].options.data.phone,'514 555 0100');
   assert.equal(ui.$('contactEmail'),null);
@@ -546,4 +546,34 @@ test('signup blocks mismatched passwords and updates strength and match feedback
   type('confirmPassword','UnePhrase!42Longue2');submit(ui,'authForm');await settle();assert.equal(mock.calls.length,1);assert.equal('confirmPassword' in mock.calls[0][1],false);
   ui.$('authToggle').click();assert.equal(ui.$('confirmPassword').disabled,true);assert.equal(ui.$('passwordStrength').classList.contains('hidden'),true);
  } finally {await ui.close();}
+});
+
+
+test('free roster accepts draws and sends the versions captured when the form opened',async()=>{
+  const mock=rosterMock(),ui=await surface('roster.html','roster.js',mock.client);
+  try {
+    ui.$('athleteRows').querySelector('.athlete-edit').click();
+    mock.tables.athletes[0].updated_at='2026-10-07T15:00:00Z';
+    ui.$('fights').value='10';ui.$('wins').value='8';ui.$('losses').value='1';
+    submit(ui,'athleteForm');await settle();
+    const call=mock.calls.find(c=>c[1]==='update_roster_athlete_checked');
+    assert.ok(call);
+    assert.equal(call[2].p_data.fights,10);assert.equal(call[2].p_data.wins,8);assert.equal(call[2].p_data.losses,1);
+    assert.equal(call[2].p_updated_at,'2026-09-22T12:00:00Z');
+    assert.equal(call[2].p_relation_updated_at,'2026-09-22T12:01:00Z');
+    assert.equal(call[2].p_expected_user_id,'coach-id');
+  }finally{await ui.close();}
+});
+
+test('new passwords require twelve characters while existing six-character logins still work',async()=>{
+  const mock=authMock(),ui=await surface('login.html','auth.js',mock.client);
+  try {
+    ui.$('authToggle').click();ui.$('fullName').value='Alex Test';ui.$('birthDate').value='2000-03-12';ui.$('email').value='alex@example.test';
+    ui.$('password').value='shortpass';ui.$('confirmPassword').value='shortpass';
+    assert.equal(ui.$('password').minLength,12);submit(ui,'authForm');await settle();
+    assert.equal(mock.calls.length,0);
+    ui.$('authToggle').click();ui.$('password').value='ancien';
+    assert.equal(ui.$('password').minLength,6);submit(ui,'authForm');await settle();
+    assert.equal(mock.calls[0][0],'login');
+  }finally{await ui.close();}
 });

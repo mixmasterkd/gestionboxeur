@@ -288,7 +288,15 @@ function renderCalendar() {
     for(const [index,date] of weekDates.entries()) {
       const day=el('section',{class:`day${date===todayLocal()?' today':''}${date.slice(0,7)!==state.anchor.slice(0,7)?' outside-month':''}`,dataset:{date},'aria-label':dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})});
       day.style.gridColumn=String(index+1);
-      day.append(el('header',{class:'day-heading'},el('span',{class:'weekday'},dateLabel(date,{weekday:'short'})),el('span',{class:'date-number','aria-label':date===todayLocal()?'Aujourd’hui':undefined},String(Number(date.slice(8))))));
+      const dateNumber=el('span',{class:'date-number','aria-label':date===todayLocal()?'Aujourd’hui':undefined},String(Number(date.slice(8))));
+      const heading=el('header',{class:'day-heading'},el('span',{class:'weekday'},dateLabel(date,{weekday:'short'})));
+      if(state.view==='month') {
+        const sessionCount=state.sessions.filter(s=>s.date===date).length,noteCount=events.filter(e=>eventOnDate(e,date)).length;
+        const open=button('',async()=>{state.anchor=date;state.view='today';rememberView('today');await refreshCalendar();if(!destroyed&&state.view==='today'&&state.anchor===date)$('todayViewButton').focus();},'month-day-button',{'aria-label':`Ouvrir le ${dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})} : ${sessionCount} séance(s), ${noteCount} note(s)`});
+        open.append(dateNumber,el('span',{class:'month-day-summary','aria-hidden':'true'},sessionCount?`${sessionCount} S`:'',el('span',{},noteCount?`${noteCount} N`:'')));
+        heading.append(open);
+      } else heading.append(dateNumber);
+      day.append(heading);
       const content=el('div',{class:'day-content',dataset:{date}});
       for(const event of events.filter(event=>eventOnDate(event,date)&&(state.view==='today'||!event.end_date||event.end_date===event.date)))content.append(eventCard(event));
       for(const span of layout.spans.filter(span=>span.start===date))content.append(eventCard(span.event,{span,mobile:true}));
@@ -366,7 +374,18 @@ async function init() {
   const {data,error}=await client.auth.getSession();if(error)throw error;
   if(!data.session){location.replace(`login.html${invitation?'?invite='+encodeURIComponent(invitation):''}`);return;}
   state.user=data.session.user;
-  client.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){destroyed=true;journalUI.invalidate();calendarTicket++;accountTicket++;clearCalendar();state.user=null;state.gym=null;state.sessions=[];state.events=[];state.feedback=[];state.athletes=[];state.groups=[];state.selectedGroup=null;state.selectedAthlete=null;$('athleteList').replaceChildren();$('gymBrand').textContent='Mon espace';$('gymAddress').textContent='';$('gymAddress').hidden=true;$('accountName').textContent='';document.title='Planification';document.querySelectorAll('dialog[open]').forEach(d=>d.close());$('workspace').hidden=true;$('planningUnavailable').hidden=true;location.replace('login.html');}});
+  client.auth.onAuthStateChange((event,session)=>{
+    const changed=event==='SIGNED_IN'&&state.user&&session?.user?.id&&session.user.id!==state.user.id;
+    if(event!=='SIGNED_OUT'&&!changed)return;
+    destroyed=true;journalUI.invalidate();calendarTicket++;accountTicket++;clearCalendar();
+    Object.assign(state,{user:null,profile:null,gym:null,coach:null,relation:null,relations:[],sessions:[],events:[],feedback:[],athletes:[],groups:[],selectedGroup:null,selectedAthlete:null,runningWeekSessions:null});
+    $('athleteList').replaceChildren();$('gymBrand').textContent='Mon espace';
+    $('gymAddress').textContent='';$('gymAddress').hidden=true;$('accountName').textContent='';
+    document.title='Planification';
+    document.querySelectorAll('dialog[open]').forEach(d=>d.close());
+    $('workspace').hidden=true;$('planningUnavailable').hidden=true;
+    location.replace(changed?'planning.html':'login.html');
+  });
   if(invitation){
     try{await rpc('accept_invitation',{p_token:invitation});sessionStorage.removeItem('pendingInvite');const clean=new URL(location.href);clean.searchParams.delete('invite');history.replaceState({},'',clean);$('connectionBanner').textContent='Invitation acceptée. Ton calendrier est maintenant partagé avec ton coach.';$('connectionBanner').hidden=false;}
     catch(error){$('connectionBanner').textContent=error.message||'Impossible d’accepter cette invitation.';$('connectionBanner').hidden=false;}

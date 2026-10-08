@@ -73,11 +73,12 @@ export function createRosterStore(client) {
       const athletes = await checked(client.from('athletes').select(`${ROSTER_FIELDS},user_id`).in('id', [...relations.keys()]).order('last_name'));
       return athletes.filter(row => relations.has(row.id)).map(row => ({ row, relation: relations.get(row.id) }));
     },
-    async saveAthlete(id, payload) {
+    async saveAthlete(id, payload, snapshot) {
       requireCoach();
       if (mode === 'modern') {
+        if (id && (!snapshot?.updatedAt || !snapshot?.relationUpdatedAt)) throw new Error('Recharge la fiche avant de l’enregistrer.');
         return checked(id
-          ? client.rpc('update_roster_athlete', { p_athlete_id: id, p_data: payload })
+          ? client.rpc('update_roster_athlete_checked', { p_athlete_id: id, p_data: payload, p_expected_user_id: owner, p_updated_at: snapshot.updatedAt, p_relation_updated_at: snapshot.relationUpdatedAt })
           : client.rpc('create_roster_athlete', { p_data: payload }));
       }
       const data = legacyPayload(payload);

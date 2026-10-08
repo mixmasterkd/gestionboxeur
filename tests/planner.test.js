@@ -607,3 +607,20 @@ test('shared note copies are author-only and cannot move separately from the com
   await page.app.handleEventDrop({item:card,from,to,oldDraggableIndex:0,newDraggableIndex:0});assert.equal(page.calls.some(call=>call[0]==='saveEvent'),false);
  }finally{await page.close();}
 });
+
+
+test('switching accounts clears calendar details and invalidates a pending read',async()=>{
+  const page=await surface({sessions:[makeSession('private')]});try {
+    page.emit('SIGNED_IN',{user:{id:'coach'}});
+    assert.equal(page.$('workspace').hidden,false);
+    let finish;
+    page.controls.calendar=()=>new Promise(resolve=>{finish=resolve;});
+    page.$('nextButton').click();await settle();
+    page.emit('SIGNED_IN',{user:{id:'other-account'}});
+    assert.equal(page.$('workspace').hidden,true);
+    assert.equal(page.$('calendar').textContent,'');
+    assert.equal(page.$('athleteList').textContent,'');
+    finish({sessions:[makeSession('late-private')],events:[],feedback:[]});await settle();
+    assert.equal(page.$('calendar').textContent,'');
+  }finally{await page.close();}
+});

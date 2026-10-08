@@ -5,7 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 
 const owner = '13000000-0000-4000-8000-000000000001', other = '13000000-0000-4000-8000-000000000002';
 const modes = ['simple', 'locate', 'choice'], inputs = ['touch', 'mouse', 'keyboard'];
-const migration = await readFile(new URL('../supabase/migrations/20261005131442_reaction_personal_records.sql', import.meta.url), 'utf8');
+const migration = await readFile(new URL('../supabase/migrations/20261005132435_reaction_personal_records.sql', import.meta.url), 'utf8');
 async function fixture() {
   const db = new PGlite();
   await db.exec(`create role anon; create role authenticated; create role outsider; create schema auth;

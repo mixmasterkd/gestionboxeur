@@ -102,3 +102,31 @@
 :root .day-add-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 10px 12px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--ink); text-align: left; font-size: 14px; }
 .day-add-option svg { width: 21px; height: 21px; flex: 0 0 21px; }
 :root .day-add-option:hover, :root .day-add-option:focus-visible { background: var(--soft); border-color: var(--line); }
+
+/* A month is an overview on phones. Open a day for full-size editing. */
+.month-day-button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: 3px; color: inherit; background: transparent; border: 0; border-radius: 8px; cursor: pointer; font: inherit; }
+.month-day-button:hover { background: var(--line); }
+.month-day-button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.month-day-summary { display: none; }
+@media(max-width:800px) {
+  :root .calendar-spanning.month .calendar-week { grid-template-rows: auto; }
+  :root .calendar-spanning.month .calendar-week > .day { min-height: 0; padding: 0; grid-template-rows: auto; }
+  :root .calendar-spanning.month .day-heading { display: flex; flex-direction: column; gap: 0; padding: 4px 0 0; }
+  :root .calendar-spanning.month .weekday { display: block; font-size: 9px; line-height: 14px; }
+  :root .calendar-spanning.month .month-day-button { width: 100%; min-width: 0; min-height: 70px; flex-direction: column; gap: 3px; padding: 3px 0; }
+  :root .calendar-spanning.month .date-number { font-size: 18px; line-height: 24px; }
+  :root .calendar-spanning.month .month-day-summary { display: flex; flex-direction: column; min-height: 28px; font-size: 11px; line-height: 14px; font-weight: 600; }
+  :root .calendar-spanning.month .day-content,
+  :root .calendar-spanning.month .day-actions,
+  :root .calendar-spanning.month .calendar-event-lanes { display: none; }
+  .calendar-spanning.month::before { content: 'Choisis un jour pour l’ouvrir · S : séances · N : notes'; grid-column: 1 / -1; padding: 10px 8px; font-size: 12px; line-height: 1.5; }
+  :root .calendar-spanning.month .outside-month { opacity: .65; }
+  :root .today-button { min-height: 44px; padding: 8px 12px; }
+}
+
+@media (pointer: coarse), (max-width: 800px) {
+  :root .calendar-spanning:not(.month) .session-title,
+  :root .calendar-spanning:not(.month) .event-open { min-height: 44px; }
+  :root .calendar-spanning:not(.month) .drag-handle,
+  :root .calendar-spanning:not(.month) .event-drag-handle { min-width: 36px; width: 36px; min-height: 44px; flex-basis: 36px; }
+}

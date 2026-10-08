@@ -113,41 +113,20 @@ test('calendar dates remain stable across timezones and daylight-saving boundari
   }
 });
 
-test('block editor creates nested blocks, keeps accessible ordering, edits doses and renders safe previews', async () => {
+test('legacy workouts keep safe previews and accessible time/distance charts', async () => {
   const { Window } = await import('happy-dom');
   const window = new Window();
   const names = ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'CustomEvent', 'getComputedStyle'];
   const previous = new Map(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   for (const name of names) Object.defineProperty(globalThis, name, { configurable: true, value: name === 'getComputedStyle' ? window.getComputedStyle.bind(window) : name === 'window' ? window : window[name] });
   try {
-    const { BlockEditor, renderWorkout } = await import('../js/editor.js');
-    const mount = document.createElement('div'); document.body.append(mount);
+    const { renderWorkout } = await import('../js/editor.js');
     const suspiciousTitle = '<img src=x onerror=alert(1)>';
-    let changes = 0;
-    const editor = new BlockEditor(mount, { blocks: [step({ type: 'other', title: suspiciousTitle, duration_seconds: 600, zone: 1 })], onChange() { changes++; } });
-    assert.equal(mount.querySelectorAll('.be-card').length, 1);
-    assert.equal(mount.querySelector('img'), null);
-    mount.querySelector('[data-action="duplicate"]').click();
-    assert.equal(editor.getValue().length, 2);
-    assert.notEqual(editor.getValue()[0].id, editor.getValue()[1].id);
-    mount.querySelector(':scope > .be-addbar [data-action="add-repeat"]').click();
-    assert.equal(editor.getValue()[2].children.length, 1);
-    const input = mount.querySelector('[data-field="duration_seconds"]'); input.value = '1.5';
-    input.dispatchEvent(new window.Event('input', { bubbles: true }));
-    assert.equal(editor.getValue()[0].duration_seconds, 90);
-    mount.querySelector('[data-action="down"]').click();
-    assert.equal(editor.getValue()[1].duration_seconds, 90);
-    assert.equal(document.activeElement.getAttribute('aria-label'), 'Descendre ce bloc');
-    mount.querySelector('[data-action="delete"]').click();
-    assert.equal(editor.getValue().length, 2);
-    const preview = document.createElement('div'); renderWorkout(preview, editor.getValue(), { sport: 'running' });
+    const preview = document.createElement('div');
+    renderWorkout(preview, [step({type:'other',title:suspiciousTitle,duration_seconds:600,zone:1})], {sport:'running'});
     assert.ok(preview.querySelector('svg[role="group"]'));
     assert.equal(preview.querySelector('img'), null);
     assert.ok(preview.textContent.includes(suspiciousTitle));
-    assert.ok(changes >= 5);
-    const independentCopy = editor.getValue(); independentCopy[0].title = 'Changed outside';
-    assert.equal(editor.getValue()[0].title, suspiciousTitle);
-    editor.destroy(); assert.equal(mount.childElementCount, 0);
     renderWorkout(preview, [step({ title:'400 m',distance_m:400,zone:4 }),step({title:'200 m récupération',distance_m:200,zone:1})], {sport:'running'});
     assert.equal(preview.querySelectorAll('svg rect').length,2);
     preview.querySelector('svg rect').dispatchEvent(new window.Event('click'));
