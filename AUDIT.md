@@ -1,6 +1,6 @@
 # Mois mobile et timer de séance — 8 octobre 2026
 
-État : modifications locales réalisées après le go de l’utilisateur. Pas de nouvelle publication, de migration ni d’écriture dans la base de production.
+État : publié le 8 octobre 2026, après autorisation de l’utilisateur, depuis le commit `e7389136c369d1f4faa1bb78baf398f104ab8276`. [Workflow réussi](https://github.com/mixmasterkd/gestionboxeur/actions/runs/37820923843), construction `113461459742`, déploiement `113462930810`. Aucune migration ni écriture dans la base de production.
 
 ## Comportement livré
 
@@ -19,12 +19,13 @@
 - Choix pour les séances sans durée : **68 tests ciblés** réussis; **12 nouveaux parcours navigateur** sur six formats, ainsi que les 12 parcours existants des timers mixtes et libres, validés. Ordre, rounds, repos explicites, saisies invalides, pause/réouverture, réinitialisation et intégrité du programme vérifiés. Contrôle du lien réseau et des deux thèmes en 320, 390, 844 et 1440 px; compilation et contrôles statiques réussis.
 - Simplification du timer : **60 tests ciblés** et **12 parcours navigateur** réussis, incluant les étapes libres, le verrouillage et la conservation des consignes dans la fiche. Aperçu réseau contrôlé en 320, 390, 844 et 1440 px; compilation et vérifications statiques réussies.
 - `npm run check` : réussi.
-- `npm test` : **736 tests réussis**, zéro échec, dont les permissions et migrations PostgreSQL isolées, le moteur hybride, les anciens rounds, le texte source, les pauses, les appuis longs et les changements de compte.
-- `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` : **65 parcours réussis**, **7 combinaisons volontairement ignorées**, zéro échec. Formats 320×720, 390×844, 844×390, 768×1024, 1024×768 et 1440×900.
+- `npm test` dans le workflow de publication : **744 tests réussis**, zéro échec, dont les permissions et migrations PostgreSQL isolées, le moteur hybride, les anciens rounds, le texte source, les pauses, les appuis longs et les changements de compte.
+- `npm run test:e2e` avec Chromium dans le workflow de publication : **77 parcours réussis**, **7 combinaisons volontairement ignorées**, zéro échec. Formats 320×720, 390×844, 844×390, 768×1024, 1024×768 et 1440×900.
 - Les parcours navigateur couvrent les aperçus et l’ouverture directe, les notes, la navigation existante, la bibliothèque, le glisser-déposer, le bilan athlète, les entraînements chronométrés/mixtes/libres, les couleurs, les pauses et les maintiens par toucher réel émulé ou souris. Aucun appel d’écriture Supabase inattendu ni erreur JavaScript.
 - Contrôle supplémentaire du timer à intervalles existant à 390 et 1440 px : plein écran verrouillé, aucune erreur JavaScript ni débordement.
 - `npm run build` : réussi; chemins GitHub Pages, manifeste, icônes et CSS compilé vérifiés. L’avertissement préexistant du module 3D reste présent.
 - Captures inspectées pour le mois mobile et les timers portrait/paysage. `git diff --check` réussi.
+- Après publication : les **44 fichiers** servis publiquement sont identiques, par SHA-256, à l’artefact GitHub Pages. Contrôle à 390 et 1440 px : accès à la connexion, aperçu de développement inaccessible en production, module public du timer exercé avec des données uniquement en mémoire, configuration d’intervalles et plein écran verrouillé fonctionnels. Aucune erreur JavaScript, ressource manquante ou écriture distante pendant ce contrôle.
 
 La QA utilise Chrome avec émulation des formats et données de démonstration en mémoire; elle ne remplace pas un essai sur téléphone physique ou Safari. Les bips et le maintien d’écran reposent sur les possibilités du navigateur; le plein écran possède un repli CSS. Aucun fonctionnement sonore en arrière-plan ou téléphone verrouillé n’est promis.
 
