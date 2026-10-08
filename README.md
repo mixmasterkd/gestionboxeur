@@ -4,6 +4,18 @@ Gestion des boxeurs, listes combat/sparring, calendrier partagé et journal entr
 
 Le nom de l’application est **GBoxeur**; le nom technique du dépôt reste **gestionboxeur**. Le nom du gym demeure une donnée personnalisable. Le projet de référence est ce dossier `gestionboxeur/`; les anciennes pages et copies de scripts dans le dossier parent ne font pas partie de la construction Vite.
 
+## Aperçus du mois mobile et timer de séance — 8 octobre 2026
+
+Version locale, en attente de publication. Les vues Jour/Semaine et la grille ordinateur conservent leur présentation. Le mois jusqu’à 800 px affiche les cartes compactes des entraînements et des notes dans les couleurs existantes, avec un petit profil d’effort lorsqu’il est représentable. Toucher une carte ouvre directement son détail; le numéro du jour et « +N » ouvrent la journée complète. Deux aperçus au maximum par journée, bandeau de note sur plusieurs jours compris. Les autres notes et entraînements restent accessibles par « +N ».
+
+Le bouton **Timer** des tuiles et du détail prépare une lecture propre à la séance. Il est absent des petites cartes du mois mobile. **Démarrer** ouvre le plein écran avec les couleurs du timer à intervalles et verrouille les commandes. Maintenir le cadenas **3 secondes** les déverrouille. L’affichage se limite au temps, à la phase effort/repos et à la progression. Les noms d’exercices, objectifs et consignes restent dans la fiche de la séance. Chaque étape chronométrée s’enchaîne automatiquement; une étape en répétitions, distance ou sans mesure affiche le temps écoulé et attend **Terminer l’étape**, à maintenir **2 secondes**. Une séance entièrement libre utilise aussi ce chronomètre. Aucune durée n’est estimée et aucun bloc non chronométré n’est ignoré. Les groupes et repos explicitement écrits sont conservés; les anciens rounds gardent leur règle historique de dernier repos.
+
+Lorsqu’aucune durée n’est programmée, **Chrono libre** est sélectionné par défaut. **Configurer des intervalles** permet de choisir l’effort (1 à 3 600 secondes) et le repos (0 à 3 600 secondes). Les exercices et les rounds conservent leur ordre; les repos sont ajoutés entre les efforts sans doubler ceux déjà prévus ni ajouter un repos final. Un repos réglé à zéro supprime les pauses de cette copie. Pour une séance entièrement en texte libre, le nombre d’intervalles est réglable de 1 à 100. Les séances déjà chronométrées ou mixtes conservent leur fonctionnement. Les réglages se verrouillent au démarrage; réinitialiser permet de les changer.
+
+La programmation enregistrée et les réglages du timer libre restent intacts. Fermer le lecteur met le timer en pause; rouvrir la même séance dans la page reprend cette copie et les temps choisis. Recharger ou quitter la page ne conserve ni cette progression ni ces choix. Une nouvelle programmation remplace la copie en cours après confirmation. Finir le timer ne marque pas automatiquement la séance comme faite. Déconnexion ou changement de compte détruisent le lecteur et annulent son chargement en attente.
+
+Validation et limites : voir [AUDIT.md](AUDIT.md). Aucune migration ni modification de données de production.
+
 ## Corrections et QA du 7 octobre 2026 — publication vérifiée
 
 Le calendrier mensuel sur téléphone affiche des journées tactiles avec les nombres de séances (S) et de notes (N), puis ouvre la vue Jour au toucher ou au clavier. Les notes couvrant plusieurs jours sont comptées chaque jour. Les poignées de déplacement et les ouvertures de cartes ont été agrandies sur écran tactile. Les parcours coach, athlète et groupe disposent de tests navigateur reproductibles.

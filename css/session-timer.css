@@ -1,0 +1,52 @@
+:root .session-timer-dialog { width: min(760px,calc(100vw - 24px)); max-width: calc(100vw - 24px); }
+.session-timer-content { padding: 0 18px 18px; }
+.session-timer-measure { font-size: 12px; }
+.session-timer-actions { display: flex; gap: 10px; margin-top: 14px; }
+.session-timer-actions .button { flex: 1; min-width: 0; min-height: 48px; }
+.session-timer-summary,.session-timer-notice { font-size: 12px; line-height: 1.5; }
+.session-timer-notice:empty { display: none; }
+.session-timer-sound { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; }
+.session-timer-sound input { width: 18px; height: 18px; min-height: 18px; }
+.session-timer-setup { min-width: 0; margin: 0 0 14px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.session-timer-setup legend { padding: 0 5px; font-size: 13px; font-weight: 650; }
+.session-timer-modes { display: flex; gap: 8px; }
+.session-timer-modes button { flex: 1; min-width: 0; min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); font: inherit; font-size: 12px; }
+.session-timer-modes button[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-soft); font-weight: 700; }
+.session-timer-settings { margin-top: 14px; }
+.session-timer-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.session-timer-fields label { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 12px; }
+.session-timer-fields input { width: 100%; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); font: inherit; font-size: 16px; }
+.session-timer-fields input[aria-invalid="true"] { border-color: var(--danger); }
+.session-timer-rounds { grid-column: 1 / -1; }
+.session-timer-settings-note,.session-timer-settings-locked,.session-timer-config-error { font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
+.session-timer-settings-locked { margin: 0 0 12px; }
+.session-timer-config-error { color: var(--danger); }
+.session-timer-config-error:empty { display: none; }
+.session-timer-dialog:has(.session-timer-setup) .session-timer-board:not(.is-session) { min-height: 220px; padding: 24px 16px; }
+:root .session-timer-dialog:has(.is-session) { width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; border-radius: 0; overflow: hidden; }
+.session-timer-dialog:has(.is-session) > .dialog-heading,
+.session-timer-dialog:has(.is-session) .session-timer-content > :not(.timer-board) { display: none; }
+.session-timer-board.is-session { display: flex; gap: 10px; justify-content: space-between; }
+.session-timer-board.is-session .timer-readout { flex: 1; min-height: 0; margin: 0; justify-content: center; }
+.session-timer-board.is-session .timer-session-controls { position: static; flex: 0 0 auto; padding: 0; }
+.session-timer-board.is-session .timer-digits { margin: 10px 0; }
+.session-timer-board[data-long-time="true"] .timer-digits { font-size: clamp(40px,14vw,165px)!important; }
+.session-timer-advance { --hold-progress: 0%; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 190px; min-height: 54px; border: 1px solid currentColor; border-radius: 12px; background: linear-gradient(90deg,#ffffff60 var(--hold-progress),#0001 var(--hold-progress)); padding: 8px 16px; color: inherit; font: inherit; touch-action: none; -webkit-user-select: none; user-select: none; }
+.session-timer-advance span { font-size: 14px; font-weight: 650; }
+.session-timer-advance small { font-size: 11px; }
+.session-timer-advance:disabled { opacity: .5; }
+:root .session-timer-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 32px; padding: 5px 9px; margin-top: 6px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); color: var(--ink); font: inherit; font-size: 11px; }
+.session-timer-button svg { width: 15px; height: 15px; }
+@media(pointer:coarse), (max-width:800px) { :root .session-timer-button { min-height: 44px; } }
+@media(max-width:600px) { .session-timer-content { padding: 0 10px 12px; } .session-timer-board { min-height: 300px; padding: 28px 12px 24px; } .session-timer-board .timer-digits { font-size: clamp(60px,20vw,120px); } }
+@media(orientation:landscape) and (max-height:550px) {
+  .session-timer-board.is-session { display: grid; grid-template-columns: minmax(0,1fr) minmax(190px,30%); gap: 12px; align-items: center; padding: 12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left)); }
+  .session-timer-board.is-session .timer-readout { margin: 0!important; }
+  .session-timer-board.is-session .timer-digits { font-size: min(19vw,32dvh)!important; margin: 5px 0; }
+  .session-timer-board.is-session .timer-session-actions { flex-direction: column; width: 100%; gap: 4px; }
+  .session-timer-board.is-session .timer-session-actions .button { min-height: 38px; }
+}
+
+.session-timer-board .timer-round { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-timer-board:not(.is-session) .timer-round { width: 100%; padding-inline: 44px; white-space: normal; text-wrap: balance; font-size: 12px; line-height: 1.5; }
+.session-timer-board.is-session .timer-phase { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

@@ -31,7 +31,7 @@ function blocksError(blocks) {
 function show(dialog, preferredFocus) { openDialog(dialog, preferredFocus); }
 
 /** Shared session/event dialogs with explicit persistence dependency. */
-export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAdd, api }) {
+export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAdd, api, onTimer = null }) {
   if (!api) throw new Error('Le service de sauvegarde des séances est requis.');
   const getApi = () => Promise.resolve(api);
   let activeEditor = null, detailGeneration = 0, editRequest = 0;
@@ -396,6 +396,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     }
     body.append(error, session.is_group_session ? el('p',{class:'session-shared-note'},'Séance commune du groupe. Chaque athlète indique sa réalisation et son bilan dans son propre calendrier.') : completionSection(session, dialog, version));
     const actions = el('footer', { class: 'dialog-actions' });
+    if (onTimer) actions.append(button('Timer', () => onTimer(session), 'button primary', { 'aria-label': `Ouvrir le timer de ${session.title}` }));
     if (canDelete(session)) actions.append(deleteButton(session,'session',dialog,error,version));
       if (canEdit(session)) actions.append(button(session.shared_session_id?'Modifier la séance commune':'Modifier / déplacer', () => { dialog.close(); editSession(session); }));
       if (canAdd()) actions.append(button('Dupliquer', () => { dialog.close(); editSession(session, session.date, true); }));

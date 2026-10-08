@@ -51,6 +51,19 @@
 .session-card-header .session-top { min-width: 0; }
 .session-card-header .session-title { color: var(--ink); padding: 7px 0 1px; }
 
+/* Keep the actions together at the bottom, including cards with longer titles or feedback. */
+:root .calendar-spanning:not(.month) .day-content > .session-card { display: flex; flex-direction: column; container: training-card / inline-size; }
+:root .calendar-spanning:not(.month) .session-card-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: auto; padding-top: 8px; }
+:root .session-card-footer > :is(.session-timer-button,.completion-button) { flex: 1 1 56px; min-width: 0; min-height: 36px; margin: 0; padding: 6px 8px; border-radius: 9px; gap: 5px; font-size: 11px; font-weight: 650; line-height: 1.35; }
+.session-card-footer > .completion-pill { flex: 1 1 56px; margin-top: 0; justify-content: center; text-align: center; }
+@container training-card (width < 62px) {
+  .session-card-footer > button > [aria-hidden="true"] { display: none; }
+  :root .session-card-footer > :is(.session-timer-button,.completion-button) { padding-inline: 3px; }
+}
+@media(pointer:coarse), (max-width:800px) {
+  :root .session-card-footer > :is(.session-timer-button,.completion-button) { min-height: 44px; }
+}
+
 @media(min-width:801px) {
   :root .calendar-spanning.today-view .day-content:has(> .session-card + .session-card) { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .calendar-event-lanes .event-open strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -103,23 +116,39 @@
 .day-add-option svg { width: 21px; height: 21px; flex: 0 0 21px; }
 :root .day-add-option:hover, :root .day-add-option:focus-visible { background: var(--soft); border-color: var(--line); }
 
-/* A month is an overview on phones. Open a day for full-size editing. */
+/* Preserve desktop cards; only the mobile month uses compact, directly clickable previews. */
 .month-day-button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: 3px; color: inherit; background: transparent; border: 0; border-radius: 8px; cursor: pointer; font: inherit; }
 .month-day-button:hover { background: var(--line); }
 .month-day-button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
-.month-day-summary { display: none; }
+.month-day-summary,.month-mobile-content { display: none; }
 @media(max-width:800px) {
-  :root .calendar-spanning.month .calendar-week { grid-template-rows: auto; }
-  :root .calendar-spanning.month .calendar-week > .day { min-height: 0; padding: 0; grid-template-rows: auto; }
+  :root .calendar-spanning.month .calendar-week { grid-template-rows: auto auto minmax(0,1fr) auto; }
+  :root .calendar-spanning.month .calendar-week > .day { min-height: 120px; padding: 0; grid-template-rows: subgrid; }
   :root .calendar-spanning.month .day-heading { display: flex; flex-direction: column; gap: 0; padding: 4px 0 0; }
-  :root .calendar-spanning.month .weekday { display: block; font-size: 9px; line-height: 14px; }
-  :root .calendar-spanning.month .month-day-button { width: 100%; min-width: 0; min-height: 70px; flex-direction: column; gap: 3px; padding: 3px 0; }
-  :root .calendar-spanning.month .date-number { font-size: 18px; line-height: 24px; }
-  :root .calendar-spanning.month .month-day-summary { display: flex; flex-direction: column; min-height: 28px; font-size: 11px; line-height: 14px; font-weight: 600; }
+  :root .calendar-spanning.month .weekday { display: block; font-size: 11px; line-height: 14px; }
+  :root .calendar-spanning.month .month-day-button { width: 100%; min-width: 0; min-height: 36px; padding: 3px 0; }
+  :root .calendar-spanning.month .date-number { font-size: 17px; line-height: 24px; }
   :root .calendar-spanning.month .day-content,
-  :root .calendar-spanning.month .day-actions,
-  :root .calendar-spanning.month .calendar-event-lanes { display: none; }
-  .calendar-spanning.month::before { content: 'Choisis un jour pour l’ouvrir · S : séances · N : notes'; grid-column: 1 / -1; padding: 10px 8px; font-size: 12px; line-height: 1.5; }
+  :root .calendar-spanning.month .day-actions { display: none; }
+  :root .calendar-spanning.month .month-mobile-content { grid-row: 3; display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 2px 1px 5px; }
+  :root .calendar-spanning.month .month-preview { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 2px; min-height: 44px; min-width: 0; width: 100%; padding: 3px 2px; border: 1px solid var(--line); border-top: 3px solid var(--event-border); border-radius: 4px; background: var(--white); color: var(--ink); text-align: left; font: inherit; font-size: 11px; line-height: 1.25; }
+  .month-preview strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .month-preview-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .month-preview-chart { display: flex; align-items: end; gap: 1px; height: 12px; width: 100%; overflow: hidden; }
+  .month-preview-chart i { flex-basis: 0; min-width: 0; }
+  :root .calendar-spanning.month .month-note-preview { border: 1px solid var(--event-border); background: var(--event-bg); color: var(--event-ink); }
+  :root .calendar-spanning.month .month-session-preview.is-completed { border-bottom: 2px solid #8fb59b; }
+  :root .calendar-spanning.month .month-more { min-height: 36px; min-width: 0; padding: 3px 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12px; }
+  :root .calendar-spanning.month .calendar-event-lanes { display: grid; padding: 1px 1px 3px; gap: 2px 1px; }
+  :root .calendar-spanning.month .calendar-event-lanes[hidden],
+  :root .calendar-spanning.month .calendar-event-lanes .month-overflow-span { display: none; }
+  :root .calendar-spanning.month .calendar-event-lanes .event-card { padding: 2px 3px; border-radius: 4px; }
+  :root .calendar-spanning.month .calendar-event-lanes .event-open { min-height: 44px; font-size: 11px; }
+  :root .calendar-spanning.month .calendar-event-lanes .event-open strong { display: block; }
+  :root .calendar-spanning.month .calendar-event-lanes .event-date-range,
+  :root .calendar-spanning.month .calendar-event-lanes .event-preview,
+  :root .calendar-spanning.month .calendar-event-lanes .event-controls { display: none; }
+  .calendar-spanning.month::before { content: 'Touche un entraînement ou une note pour l’ouvrir'; display: block; padding: 8px; font-size: 12px; line-height: 1.5; }
   :root .calendar-spanning.month .outside-month { opacity: .65; }
   :root .today-button { min-height: 44px; padding: 8px 12px; }
 }

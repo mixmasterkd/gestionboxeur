@@ -180,3 +180,164 @@ test('library search plans a template on the day chosen from the calendar',async
   await expect(form).not.toBeVisible();
   await expect(page.locator('.day[data-date="2026-10-08"]')).toContainText('Jog 10 min');
 });
+
+test('month previews open the selected workout or note without changing the calendar view',async({page})=>{
+  await openCalendar(page);
+  await page.getByRole('button',{name:'Mois',exact:true}).click();
+  const mobile=page.viewportSize().width<=800;
+  const workout=mobile?page.locator('.month-session-preview[data-session-id="preview-box"]'):page.locator('.session-card[data-session-id="preview-box"] .session-title');
+  await workout.click();
+  await expect(page.locator('#detailTitle')).toHaveText('Précision & déplacements');
+  await expect(page.locator('#detailDialog').getByRole('button',{name:/Ouvrir le timer/})).toBeVisible();
+  await page.locator('#detailDialog .close-button').click();
+  await expect(page.getByRole('button',{name:'Mois',exact:true})).toHaveAttribute('aria-pressed','true');
+  const band=page.locator('.calendar-event-lanes .event-card').filter({hasText:'Suivi des déplacements'}).first();
+  await band.locator('.event-open').click();await expect(page.locator('#detailTitle')).toHaveText('Suivi des déplacements');
+  await page.locator('#detailDialog .close-button').click();
+  if(mobile){
+    await expect(page.locator('.month-mobile-content .session-timer-button')).toHaveCount(0);
+    await page.locator('.day[data-date="2026-10-07"] .month-more').click();
+    await expect(page.getByRole('button',{name:'Jour',exact:true})).toHaveAttribute('aria-pressed','true');
+    await expect(page.getByRole('button',{name:'Précision & déplacements',exact:true})).toBeVisible();
+  }else await expect(page.locator('.month-mobile-content').first()).toBeHidden();
+  await noOverflow(page);
+});
+
+async function addTimerWorkout(page,title,text) {
+  await page.locator('#addSessionButton').click();
+  const form=page.locator('#sessionDialog');
+  await form.getByLabel('Titre de la séance').fill(title);
+  await form.locator('[name="sport"]').selectOption('boxing');
+  await form.getByRole('textbox',{name:'Texte de l’entraînement'}).fill(text);
+  await form.getByRole('button',{name:'Planifier la séance',exact:true}).click();
+  await expect(form).not.toBeVisible();
+}
+async function deliberateHold(page,control,milliseconds,touch) {
+  const box=await control.boundingBox(),point={x:box.x+box.width/2,y:box.y+box.height/2};
+  if(touch){
+    const cdp=await page.context().newCDPSession(page);
+    try{await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});await page.clock.runFor(milliseconds);await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});}
+    finally{await cdp.detach();}
+  }else{await page.mouse.move(point.x,point.y);await page.mouse.down();await page.clock.runFor(milliseconds);await page.mouse.up();}
+}
+
+test('workout timer plays timed and manual steps fullscreen with deliberate locked controls',async({page},info)=>{
+  await page.clock.install({time:new Date('2026-10-07T16:00:00Z')});
+  await openCalendar(page);
+  await addTimerWorkout(page,'QA timer mixte','- Sac 2s @ Z4 - Garder les mains hautes\n- Push-up 10x\n- Repos 1s\n- Course 400mtr\n- Sac 1s');
+  await page.getByRole('button',{name:'Ouvrir le timer de QA timer mixte',exact:true}).click();
+  const dialog=page.locator('#sessionTimerDialog'),board=page.locator('#sessionTimerBoard');
+  await noOverflow(page,dialog);await expect(dialog.locator('.session-timer-summary')).toContainText('2 étapes libres');
+  await expect(dialog.locator('.session-timer-setup')).toHaveCount(0);
+  await expect(dialog).not.toContainText(/Garder les mains hautes|Push-up|10 répétitions|400 m|Programmation et consignes/);
+  await expect(board.locator('.timer-phase')).toHaveText('Effort');
+  await expect(board.locator('.timer-next')).toHaveText('Ensuite : Effort · Sans durée');
+  await dialog.locator('.session-timer-sound input').uncheck();
+  await dialog.locator('.session-timer-start').click();
+  await expect(board).toHaveAttribute('data-session-locked','true');await expect(board).toHaveClass(/is-session/);
+  await expect(board).toHaveCSS('background-color','rgb(237, 148, 39)');
+  await expect(board.locator('.timer-digits')).toHaveText('00:02');
+  const readout=await board.locator('.timer-readout').boundingBox(),controls=await board.locator('.timer-session-controls').boundingBox();
+  expect(readout.y+readout.height<=controls.y+1 || readout.x+readout.width<=controls.x+1).toBe(true);
+  await page.clock.runFor(2000);
+  await expect(board.locator('.timer-round')).toHaveText('Étape 2 / 5');
+  await expect(board.locator('.session-timer-measure')).toHaveText('Temps écoulé · passage manuel');
+  await expect(board.locator('.timer-next')).toHaveText('Ensuite : Repos · 00:01');
+  const advance=board.locator('.session-timer-advance');
+  await advance.click();await expect(board.locator('.timer-round')).toHaveText('Étape 2 / 5');
+  await deliberateHold(page,advance,1000,info.project.use.hasTouch);await expect(board.locator('.timer-round')).toHaveText('Étape 2 / 5');
+  await deliberateHold(page,advance,2100,info.project.use.hasTouch);await expect(board.locator('.timer-phase')).toHaveText('Repos');
+  await expect(board).toHaveAttribute('data-session-locked','true');
+  await page.clock.runFor(1000);await expect(board.locator('.timer-round')).toHaveText('Étape 4 / 5');
+  await expect(board.locator('.session-timer-measure')).toHaveText('Temps écoulé · passage manuel');
+  await expect(dialog).not.toContainText(/Garder les mains hautes|Push-up|10 répétitions|400 m/);
+  await page.screenshot({path:test.info().outputPath('session-timer-manual.png')});
+  await deliberateHold(page,board.locator('#timerSessionLock'),3100,info.project.use.hasTouch);
+  await expect(board).toHaveAttribute('data-status','running');await expect(board).toHaveAttribute('data-session-locked','false');
+  await board.locator('#timerSessionToggle').click();await expect(board).toHaveAttribute('data-status','paused');
+  const paused=await board.locator('.timer-digits').textContent();await page.clock.runFor(15000);await expect(board.locator('.timer-digits')).toHaveText(paused);
+  await board.locator('#timerSessionToggle').click();await expect(board).toHaveAttribute('data-session-locked','true');
+  await deliberateHold(page,advance,2100,info.project.use.hasTouch);await page.clock.runFor(1000);await expect(board).toHaveAttribute('data-status','done');
+  await deliberateHold(page,board.locator('#timerSessionLock'),3100,info.project.use.hasTouch);
+  await board.locator('#timerSessionClose').click();await dialog.getByRole('button',{name:'Fermer le timer',exact:true}).click();
+  await expect(dialog).not.toBeVisible();
+  await page.getByRole('button',{name:'QA timer mixte',exact:true}).click();
+  await expect(page.locator('#detailDialog')).toContainText('Push-up');
+  await expect(page.locator('#detailDialog')).toContainText('Garder les mains hautes');
+  await expect(page.locator('#detailDialog').getByRole('button',{name:'Modifier / déplacer',exact:true})).toBeVisible();
+});
+
+test('free workout shows only elapsed time in the timer and keeps instructions in its session details',async({page},info)=>{
+  await page.clock.install({time:new Date('2026-10-07T16:00:00Z')});await openCalendar(page);
+  await addTimerWorkout(page,'QA technique libre','Technique libre. Prévoir les gants et les bandages.');
+  await page.getByRole('button',{name:'Ouvrir le timer de QA technique libre',exact:true}).click();
+  const dialog=page.locator('#sessionTimerDialog');
+  await expect(dialog.getByRole('button',{name:'Chrono libre',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(dialog.locator('.session-timer-summary')).toContainText('1 étape libre');
+  await dialog.locator('.session-timer-sound input').uncheck();await dialog.locator('.session-timer-start').click();
+  await page.clock.runFor(5000);
+  await expect(dialog.locator('.timer-digits')).toHaveText('00:05');
+  await expect(dialog).not.toContainText('Prévoir les gants et les bandages.');
+  await expect(dialog.locator('.session-timer-measure')).toHaveText('Temps écoulé · passage manuel');
+  await expect(dialog.locator('.session-timer-advance')).toContainText('Terminer l’étape');
+  await expect(dialog.locator('#sessionTimerBoard')).toHaveAttribute('data-status','running');
+  await deliberateHold(page,dialog.locator('#timerSessionLock'),3100,info.project.use.hasTouch);
+  await dialog.locator('#timerSessionClose').click();await dialog.getByRole('button',{name:'Fermer le timer',exact:true}).click();
+  await page.getByRole('button',{name:'QA technique libre',exact:true}).click();
+  await expect(page.locator('#detailDialog')).toContainText('Technique libre. Prévoir les gants et les bandages.');
+});
+
+test('untimed structured workout can use chosen intervals while preserving its rounds and saved program',async({page},info)=>{
+  await page.clock.install({time:new Date('2026-10-07T16:00:00Z')});await openCalendar(page);
+  const text='2 rounds\n- Push-up 10x\n- Squats 12x';
+  await addTimerWorkout(page,'QA circuit sans durée',text);
+  const open=page.getByRole('button',{name:'Ouvrir le timer de QA circuit sans durée',exact:true});
+  await open.click();const dialog=page.locator('#sessionTimerDialog'),board=dialog.locator('#sessionTimerBoard');
+  await expect(dialog.getByRole('button',{name:'Chrono libre',exact:true})).toHaveAttribute('aria-pressed','true');
+  await dialog.getByRole('button',{name:'Configurer des intervalles',exact:true}).click();
+  await expect(dialog.getByLabel('Nombre d’intervalles',{exact:true})).toHaveCount(0);
+  await dialog.getByLabel('Effort (secondes)',{exact:true}).fill('0');
+  await expect(dialog.locator('.session-timer-start')).toBeDisabled();await expect(dialog.locator('.session-timer-config-error')).toContainText('Effort');
+  await dialog.getByLabel('Effort (secondes)',{exact:true}).fill('30');
+  await dialog.getByLabel('Repos (secondes)',{exact:true}).fill('10');
+  await expect(dialog.locator('.session-timer-summary')).toHaveText('7 étapes · 02:30');
+  await noOverflow(page,dialog);await dialog.locator('.session-timer-setup').screenshot({path:test.info().outputPath('untimed-interval-settings.png')});
+  await dialog.locator('.session-timer-sound input').uncheck();await dialog.locator('.session-timer-start').click();
+  await expect(board).toHaveAttribute('data-session-locked','true');await expect(board.locator('.timer-round')).toHaveText('Étape 1 / 7 · Round 1/2');
+  await expect(dialog.getByLabel('Effort (secondes)',{exact:true})).toBeDisabled();
+  await expect(board.locator('.session-timer-advance')).not.toBeVisible();
+  await page.clock.runFor(30000);await expect(board.locator('.timer-phase')).toHaveText('Repos');await expect(board.locator('.timer-digits')).toHaveText('00:10');
+  await page.clock.runFor(10000);await expect(board.locator('.timer-round')).toHaveText('Étape 3 / 7 · Round 1/2');
+  await deliberateHold(page,board.locator('#timerSessionLock'),3100,info.project.use.hasTouch);
+  await board.locator('#timerSessionClose').click();await dialog.getByRole('button',{name:'Fermer le timer',exact:true}).click();
+  await open.click();await expect(board).toHaveAttribute('data-status','paused');
+  await expect(dialog.getByLabel('Effort (secondes)',{exact:true})).toHaveValue('30');
+  await expect(dialog.getByRole('button',{name:'Chrono libre',exact:true})).toBeDisabled();
+  await dialog.locator('.session-timer-reset').click();await dialog.getByRole('button',{name:'Chrono libre',exact:true}).click();
+  await expect(dialog.locator('.session-timer-summary')).toHaveText('4 étapes libres · passage manuel');
+  await expect(board.locator('.timer-round')).toHaveText('Étape 1 / 4 · Round 1/2');
+  await dialog.getByRole('button',{name:'Fermer le timer',exact:true}).click();
+  await page.getByRole('button',{name:'QA circuit sans durée',exact:true}).click();
+  await page.locator('#detailDialog').getByRole('button',{name:'Modifier / déplacer',exact:true}).click();
+  await expect(page.locator('#sessionDialog').getByRole('textbox',{name:'Texte de l’entraînement'})).toHaveText(text,{useInnerText:true});
+});
+
+test('free prose can run a chosen number of intervals with no added final rest',async({page},info)=>{
+  await page.clock.install({time:new Date('2026-10-07T16:00:00Z')});await openCalendar(page);
+  await addTimerWorkout(page,'QA intervalles libres','Technique libre. Prévoir les gants.');
+  await page.getByRole('button',{name:'Ouvrir le timer de QA intervalles libres',exact:true}).click();
+  const dialog=page.locator('#sessionTimerDialog'),board=dialog.locator('#sessionTimerBoard');
+  await dialog.getByRole('button',{name:'Configurer des intervalles',exact:true}).click();
+  await dialog.getByLabel('Effort (secondes)',{exact:true}).fill('2');await dialog.getByLabel('Repos (secondes)',{exact:true}).fill('1');
+  await dialog.getByLabel('Nombre d’intervalles',{exact:true}).fill('0');await expect(dialog.locator('.session-timer-start')).toBeDisabled();
+  await dialog.getByLabel('Nombre d’intervalles',{exact:true}).fill('3');
+  await expect(dialog.locator('.session-timer-summary')).toHaveText('5 étapes · 00:08');await noOverflow(page,dialog);
+  await dialog.locator('.session-timer-setup').screenshot({path:test.info().outputPath('free-interval-settings.png')});
+  await dialog.locator('.session-timer-sound input').uncheck();await dialog.locator('.session-timer-start').click();
+  await expect(board.locator('.timer-round')).toHaveText('Étape 1 / 5 · Intervalle 1/3');
+  await expect(board).not.toContainText('Prévoir les gants');
+  await page.clock.runFor(8000);await expect(board).toHaveAttribute('data-status','done');await expect(board.locator('.timer-digits')).toHaveText('00:08');
+  await expect(board.locator('.timer-round')).toHaveText('Étape 5 / 5 · Intervalle 3/3');
+  await deliberateHold(page,board.locator('#timerSessionLock'),3100,info.project.use.hasTouch);
+  await board.locator('#timerSessionReset').click();await expect(board).toHaveAttribute('data-status','idle');await expect(board.locator('.timer-digits')).toHaveText('00:02');
+});

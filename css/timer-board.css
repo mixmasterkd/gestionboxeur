@@ -1,0 +1,11 @@
+/* Shared readout and interval colors, also used by the training-session timer. */
+.timer-main{min-width:0}.timer-board{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:var(--white);padding:36px 22px 28px;text-align:center;display:flex;align-items:center;flex-direction:column;justify-content:center;min-height:360px}.timer-round{font-size:15px;letter-spacing:.16em;font-weight:750;text-transform:uppercase}.timer-phase{font-size:22px;font-weight:800;letter-spacing:.07em;margin-top:15px}.timer-digits{display:block;font-size:clamp(65px,10vw,145px);font-variant-numeric:tabular-nums;font-weight:850;line-height:1.15;letter-spacing:-.075em;white-space:nowrap;margin:12px 0}.timer-state{color:var(--muted);font-size:13px;min-height:20px}.timer-progress{position:absolute;bottom:0;left:0;height:6px;width:100%;background:var(--soft)}.timer-progress span{display:block;height:100%;background:var(--accent);width:0}
+.timer-readout{display:flex;align-items:center;flex-direction:column;width:100%}
+.timer-board[data-design="intervals"]{background:radial-gradient(ellipse at top,#242931,#090c11 85%);color:#fff;border-color:#50555d}
+.timer-board[data-design="intervals"][data-colored="true"]{background:var(--interval-color,#408b5c);color:var(--interval-ink,#fff);border-color:color-mix(in srgb,var(--interval-color,#408b5c),currentColor 25%)}
+.timer-board[data-design="intervals"][data-colored="true"][data-range="true"]{background:linear-gradient(120deg,var(--interval-color) 15%,var(--interval-high-color) 100%)}
+.timer-board[data-design="intervals"] .timer-phase{font-size:18px;letter-spacing:.025em;max-width:100%;overflow-wrap:anywhere}
+.timer-board[data-design="intervals"] .timer-state{color:inherit;opacity:.85}
+.timer-board[data-design="intervals"] .timer-progress{background:#0002}.timer-board[data-design="intervals"] .timer-progress span{background:currentColor}
+.timer-series{font-size:12px;font-weight:650;line-height:1.5;margin-top:7px}
+.timer-next{font-size:12px;line-height:1.55;opacity:.85;margin-top:10px;max-width:100%;overflow-wrap:anywhere}

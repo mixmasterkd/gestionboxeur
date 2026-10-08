@@ -9,6 +9,8 @@ import {createJournalUI} from '../js/journal.js';
 import {applyEventColor} from '../js/event-colors.js';
 import {accessIcon} from '../js/access-icons.js';
 import {renderSessionChart} from '../js/session-chart.js';
+import * as monthPreviews from '../js/month-previews.js';
+import {mountSessionTimer} from '../js/session-timer.js';
 
 const settle=async()=>{for(let i=0;i<20;i++)await Promise.resolve();await new Promise(r=>setImmediate(r));};
 const makeSession=(id,created_by='coach',date=domain.todayLocal(),order=1024)=>({id,athlete_id:'athlete',created_by,author_name:'Camille',title:`Séance ${id}`,sport:'running',date,sort_order:order,updated_at:'2026-09-21T12:00:00Z',blocks:[{...domain.makeBlock('run'),duration_seconds:600,zone:2}]});
@@ -31,21 +33,22 @@ async function surface({role='coach',sessions=[],events=[],feedback=[],url='http
     saveSession:async(...args)=>{calls.push(['save',...args]);return args[0];},
     saveEvent:async(payload,existing)=>{calls.push(['saveEvent',payload,existing]);if(controls.saveEvent)return controls.saveEvent(payload,existing);const index=source.events.findIndex(item=>item.id===existing.id);source.events[index]={...source.events[index],...payload,updated_at:'saved-event'};return structuredClone(source.events[index]);}};
   const methods={editSession:(...args)=>calls.push(['edit',...args]),showSession:s=>calls.push(['show',s]),editEvent:(...args)=>calls.push(['event',...args]),showEvent:e=>calls.push(['showEvent',e]),setCompleted:async(s,completed)=>{calls.push(['complete',s.id,completed]);source.sessions.find(item=>item.id===s.id).completed_at=completed?'2026-09-22T12:00:00Z':null;await window.__app.refreshCalendar();}};
-  window.__bridge={createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
+  window.__bridge={loadSessionTimer:()=>controls.loadSessionTimer?controls.loadSessionTimer():Promise.resolve({mountSessionTimer}),monthPreviews,createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
     Sortable:class {constructor(node,options){this.node=node;this.options=options;instances.push(this);}destroy(){}},
     createSessionUI:()=>methods,createConnectionsUI:()=>({open:options=>calls.push(['connections',options]),inviteAthlete:()=>{}}),createLibraryUI:options=>({open:config=>calls.push(['library',config]),options})};
   const code=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
   window.eval(`const mountNavigation=()=>{};const {createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor,accessIcon}=window.__bridge;
+    const {chooseMonthPreviews,monthSessionPreview,monthNotePreview}=window.__bridge.monthPreviews;
     const dataApi=window.__bridge.api;
     const {client,loadAccount,loadCalendar,rpc,saveSession}=dataApi;
     const {SPORTS,summarizeBlocks,formatDuration}=window.__bridge.domain;
     const {todayLocal,datesForView,shiftPeriod,orderedSessions,positionBetween,eventOnDate,dateLabel,periodLabel,orderedEvents,eventSpans,moveEventDates}=window.__bridge.calendar;
-    const {$,el,button,displayName,initials,toast,showError,openDialog}=window.__bridge.ui;
-    ${code.replace(/^import .*;\n/gm,'')}
+    const {$,el,button,displayName,initials,toast,showError,openDialog,confirmAction}=window.__bridge.ui;
+    ${code.replace(/^import .*;\n/gm,'').replace("import('./session-timer.js')",'window.__bridge.loadSessionTimer()')}
     window.__app={state,refreshAccount,refreshCalendar,canEdit,canAdd,handleDrop,handleEventDrop,libraryUI};`);
   await settle();
   return {window,$:id=>window.document.getElementById(id),app:window.__app,api,account,source,calls,instances,controls,emit:authCallback,
-    close:async()=>{await window.happyDOM.abort();if(original.document===undefined)delete globalThis.document;else globalThis.document=original.document;if(original.window===undefined)delete globalThis.window;else globalThis.window=original.window;}};
+    close:async()=>{window.document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());await window.happyDOM.abort();if(original.document===undefined)delete globalThis.document;else globalThis.document=original.document;if(original.window===undefined)delete globalThis.window;else globalThis.window=original.window;}};
 }
 
 test('coach calendar renders seven days, own handles, known totals and personal events',async()=>{
@@ -622,5 +625,27 @@ test('switching accounts clears calendar details and invalidates a pending read'
     assert.equal(page.$('athleteList').textContent,'');
     finish({sessions:[makeSession('late-private')],events:[],feedback:[]});await settle();
     assert.equal(page.$('calendar').textContent,'');
+  }finally{await page.close();}
+});
+
+test('signing out destroys the session timer, its private instructions and fullscreen state',async()=>{
+  const page=await surface({sessions:[makeSession('timer-private')]});
+  try{
+    page.$('calendar').querySelector('.session-timer-button').click();await settle();
+    assert.equal(page.$('sessionTimerDialog').open,true);
+    page.$('sessionTimerDialog').querySelector('.session-timer-start').click();await settle();
+    assert.equal(page.$('sessionTimerBoard').dataset.status,'running');
+    page.emit('SIGNED_OUT');await settle();
+    assert.equal(page.$('sessionTimerDialog'),null);assert.equal(page.window.document.body.classList.contains('timer-session-open'),false);
+  }finally{await page.close();}
+});
+test('a delayed timer load cannot expose the former account after an account switch',async()=>{
+  const page=await surface({sessions:[makeSession('timer-pending')]});
+  try{
+    let resolve;page.controls.loadSessionTimer=()=>new Promise(r=>{resolve=r;});
+    page.$('calendar').querySelector('.session-timer-button').click();await settle();
+    page.emit('SIGNED_IN',{user:{id:'other-account'}});
+    resolve({mountSessionTimer});await settle();
+    assert.equal(page.$('sessionTimerDialog'),null);assert.equal(page.app.state.user,null);
   }finally{await page.close();}
 });

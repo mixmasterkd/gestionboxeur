@@ -16,3 +16,7 @@
 @import "./calendar-events.css";
 
 @import './groups.css';
+
+@import './timer-board.css';
+@import './timer-session.css';
+@import './session-timer.css';

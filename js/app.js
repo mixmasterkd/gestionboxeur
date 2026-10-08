@@ -1,12 +1,13 @@
 import { createJournalUI } from './journal.js';
 import { applyEventColor } from './event-colors.js';
 import { accessIcon } from './access-icons.js';
+import { chooseMonthPreviews, monthSessionPreview, monthNotePreview } from './month-previews.js';
 import Sortable from 'sortablejs';
 import { client, loadAccount, loadCalendar, rpc, saveSession } from './data.js';
 import * as dataApi from './data.js';
 import { SPORTS, summarizeBlocks, formatDuration } from './domain.js';
 import { todayLocal, datesForView, shiftPeriod, orderedSessions, positionBetween, eventOnDate, dateLabel, periodLabel, orderedEvents, eventSpans, moveEventDates } from './calendar.js';
-import { $, el, button, displayName, initials, toast, showError, openDialog } from './ui.js';
+import { $, el, button, displayName, initials, toast, showError, openDialog, confirmAction } from './ui.js';
 import { createSessionUI } from './session-dialogs.js';
 import { createConnectionsUI } from './connections.js';
 import { createLibraryUI } from './library.js';
@@ -22,10 +23,38 @@ const canAdd=()=>canView() && (!!state.selectedGroup || ownsCalendar() || !!stat
 const isCommon=item=>!!(item.is_group_session||item.is_group_event||item.shared_session_id||item.shared_event_id);
 const canEdit=session=>canView() && (session.is_group_session||session.is_group_event ? (!state.selectedGroup || session.group_ids?.includes(state.selectedGroup.id)) && session.created_by===state.user?.id : !state.selectedGroup && session.athlete_id===state.selectedAthlete?.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (!isCommon(session) || session.created_by===state.user?.id) && (!session.is_private || session.created_by===state.user?.id) && (session.created_by===state.user?.id || session.is_locked===false));
 const canDrag=session=>canEdit(session)&&(!isCommon(session)||session.is_group_session||session.is_group_event);
-const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi});
+const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi,onTimer:openSessionTimer});
 const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:options=>sessionUI.editTemplate(null,options),onEditTemplate:(template,options)=>sessionUI.editTemplate(template,options),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
 const connectionsUI=createConnectionsUI({getState:()=>state,refreshAccount,refreshCalendar});
 const journalUI=createJournalUI({getState:()=>state,api:dataApi});
+let activeSessionTimer=null, timerRequest=0;
+async function openSessionTimer(session) {
+  const request=++timerRequest, userId=state.user?.id, context=state.selectedGroup?.id||state.selectedAthlete?.id;
+  const current=()=>!destroyed&&request===timerRequest&&state.user?.id===userId&&(state.selectedGroup?.id||state.selectedAthlete?.id)===context&&canView();
+  const live=state.sessions.find(item=>item.id===session.id);
+  if(!current()||!live){toast('Cet entraînement n’est plus accessible dans ce calendrier.');return;}
+  const key=`${userId}:${context}:${live.id}`, revision=JSON.stringify([live.title,live.workout_document,live.blocks,live.description,live.notes]);
+  try {
+    if(activeSessionTimer?.key!==key||activeSessionTimer?.revision!==revision) {
+      const snapshot=activeSessionTimer?.ui.snapshot();
+      if(snapshot&&snapshot.elapsed>0&&snapshot.status!=='done'&&!await confirmAction('Changer le timer ?', 'Le timer précédent est en pause. Le remplacer par celui de cet entraînement ?', 'Changer'))return;
+      if(!current())return;
+      const { mountSessionTimer }=await import('./session-timer.js');
+      if(!current())return;
+      const dialog=el('dialog');
+      // Validate the new program before retiring the previous playback copy.
+      const ui=mountSessionTimer(dialog,live);
+      activeSessionTimer?.ui.destroy();document.body.append(dialog);
+      activeSessionTimer={key,revision,ui};
+    }
+    if($('detailDialog').open)$('detailDialog').close();
+    activeSessionTimer.ui.open();
+  }catch(error){if(current())toast(error.message||'Impossible d’ouvrir le timer.');}
+}
+function sessionTimerButton(session) {
+  const node=button('Timer',()=>openSessionTimer(session),'session-timer-button',{'aria-label':`Ouvrir le timer de ${session.title}`});
+  const icon=el('span',{'aria-hidden':'true'});icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="14" r="8"/><path d="M12 10v4l3 2M9 2h6M12 2v4M18 6l2-2"/></svg>';node.prepend(icon);return node;
+}
 const calendarViews=new Set(['today','week','month']);
 function viewPreferenceKey() {
   if(!state.user?.id)return null;
@@ -230,6 +259,8 @@ function sessionCard(session) {
   card.append(el('div',{class:'session-meta'},meta.join(' · ')));
   if(['running','boxing','sparring'].includes(session.sport))card.append(renderSessionChart(session,{summary}));
   card.append(el('p',{class:'session-author'},`Par ${session.author_name||'Coach'}`));
+  const footer=state.view==='month'?null:el('div',{class:'session-card-footer'},sessionTimerButton(session));
+  if(!footer)card.append(sessionTimerButton(session));
   if(ownsCalendar()&&state.view!=='month') {
     const toggle=button('',async()=>{
       if(toggle.disabled)return;
@@ -239,10 +270,11 @@ function sessionCard(session) {
     },'completion-button',{'aria-pressed':String(completed),'aria-label':`${completed?'Annuler la réalisation de':'Marquer comme faite :'} ${session.title}`});
     toggle.title=completed?'Annuler « faite »':'Marquer comme faite';
     toggle.append(el('span',{'aria-hidden':'true'},completed?'✓':'○'),el('span',{},'Fait'));
-    card.append(el('div',{class:'session-card-footer'},toggle));
-  }else if(!state.selectedGroup&&state.view!=='month')card.append(el('span',{class:`completion-pill ${completed?'completed':'pending'}`},completed?'✓ Faite':'À faire'));
+    footer.append(toggle);
+  }else if(!state.selectedGroup&&footer)footer.append(el('span',{class:`completion-pill ${completed?'completed':'pending'}`},completed?'✓ Faite':'À faire'));
   const feedback=state.feedback.find(f=>f.session_id===session.id);
   if(!state.selectedGroup&&completed&&feedback&&(!isCoach()||state.relation?.can_view_feedback!==false))card.append(el('div',{class:'feedback-pill'},`${feedback.feeling?feelings[feedback.feeling]+' ':''}${feedback.rpe?'RPE '+feedback.rpe+'/10':'Retour reçu'}${feedback.comment?' · commentaire':''}`));
+  if(footer)card.append(footer);
   return card;
 }
 function calendarAccessBadge(name,label) {
@@ -284,7 +316,7 @@ function renderCalendar() {
     const weekDates=dates.slice(offset,offset+7),week=el('div',{class:'calendar-week',dataset:{weekStart:weekDates[0]}});
     const layout=state.view==='today'?{spans:[],lanes:0}:eventSpans(events,weekDates);
     const lanes=el('div',{class:'calendar-event-lanes','aria-label':'Notes sur plusieurs jours'});lanes.hidden=!layout.spans.length;
-    for(const span of layout.spans)lanes.append(eventCard(span.event,{span}));
+    for(const span of layout.spans){const card=eventCard(span.event,{span});if(span.lane>0)card.classList.add('month-overflow-span');lanes.append(card);}
     for(const [index,date] of weekDates.entries()) {
       const day=el('section',{class:`day${date===todayLocal()?' today':''}${date.slice(0,7)!==state.anchor.slice(0,7)?' outside-month':''}`,dataset:{date},'aria-label':dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})});
       day.style.gridColumn=String(index+1);
@@ -292,7 +324,7 @@ function renderCalendar() {
       const heading=el('header',{class:'day-heading'},el('span',{class:'weekday'},dateLabel(date,{weekday:'short'})));
       if(state.view==='month') {
         const sessionCount=state.sessions.filter(s=>s.date===date).length,noteCount=events.filter(e=>eventOnDate(e,date)).length;
-        const open=button('',async()=>{state.anchor=date;state.view='today';rememberView('today');await refreshCalendar();if(!destroyed&&state.view==='today'&&state.anchor===date)$('todayViewButton').focus();},'month-day-button',{'aria-label':`Ouvrir le ${dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})} : ${sessionCount} séance(s), ${noteCount} note(s)`});
+        const open=button('',()=>openCalendarDay(date),'month-day-button',{'aria-label':`Ouvrir le ${dateLabel(date,{weekday:'long',day:'numeric',month:'long',year:'numeric'})} : ${sessionCount} séance(s), ${noteCount} note(s)`});
         open.append(dateNumber,el('span',{class:'month-day-summary','aria-hidden':'true'},sessionCount?`${sessionCount} S`:'',el('span',{},noteCount?`${noteCount} N`:'')));
         heading.append(open);
       } else heading.append(dateNumber);
@@ -301,6 +333,16 @@ function renderCalendar() {
       for(const event of events.filter(event=>eventOnDate(event,date)&&(state.view==='today'||!event.end_date||event.end_date===event.date)))content.append(eventCard(event));
       for(const span of layout.spans.filter(span=>span.start===date))content.append(eventCard(span.event,{span,mobile:true}));
       const sessions=orderedSessions(state.sessions.filter(s=>s.date===date));sessions.forEach(s=>content.append(sessionCard(s)));
+      if(state.view==='month') {
+        const dayNotes=events.filter(e=>eventOnDate(e,date));
+        const spans=layout.spans.filter(span=>span.lane===0&&index>=span.startIndex&&index<=span.endIndex);
+        const singleNotes=dayNotes.filter(e=>!e.end_date||e.end_date===e.date);
+        const previews=chooseMonthPreviews(sessions,singleNotes,spans.length),compact=el('div',{class:'month-mobile-content'});
+        for(const {kind,item} of previews)compact.append(kind==='session'?monthSessionPreview(item,()=>sessionUI.showSession(item)):monthNotePreview(item,()=>sessionUI.showEvent(item)));
+        const hidden=sessions.length+dayNotes.length-previews.length-spans.length;
+        if(hidden>0)compact.append(button(`+${hidden}`,()=>openCalendarDay(date),'month-more',{'aria-label':`Voir les ${hidden} autres éléments du ${dateLabel(date)}`}));
+        day.append(compact);
+      }
       content.append(el('div',{class:'empty-day'},'Aucune séance prévue'));day.append(content);
       const actions=el('footer',{class:'day-actions'});
       if(canAdd())actions.append(button('＋',event=>openDayAddMenu(date,event.currentTarget),'add-day',{'aria-label':`Ajouter le ${dateLabel(date)}`,'aria-haspopup':'dialog','aria-controls':'dayAddDialog'}));
@@ -309,6 +351,7 @@ function renderCalendar() {
     week.append(lanes);calendar.append(week);calendarSortable(lanes,{bands:true});
   }
 }
+async function openCalendarDay(date) { state.anchor=date;state.view='today';rememberView('today');await refreshCalendar();if(!destroyed&&state.view==='today'&&state.anchor===date)$('todayViewButton').focus(); }
 let dayAddTrigger=null;
 function openDayAddMenu(date,trigger) {
   if(!canAdd())return;
@@ -377,7 +420,7 @@ async function init() {
   client.auth.onAuthStateChange((event,session)=>{
     const changed=event==='SIGNED_IN'&&state.user&&session?.user?.id&&session.user.id!==state.user.id;
     if(event!=='SIGNED_OUT'&&!changed)return;
-    destroyed=true;journalUI.invalidate();calendarTicket++;accountTicket++;clearCalendar();
+    destroyed=true;timerRequest++;activeSessionTimer?.ui.destroy();activeSessionTimer=null;journalUI.invalidate();calendarTicket++;accountTicket++;clearCalendar();
     Object.assign(state,{user:null,profile:null,gym:null,coach:null,relation:null,relations:[],sessions:[],events:[],feedback:[],athletes:[],groups:[],selectedGroup:null,selectedAthlete:null,runningWeekSessions:null});
     $('athleteList').replaceChildren();$('gymBrand').textContent='Mon espace';
     $('gymAddress').textContent='';$('gymAddress').hidden=true;$('accountName').textContent='';

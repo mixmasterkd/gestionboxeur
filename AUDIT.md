@@ -1,3 +1,35 @@
+# Mois mobile et timer de séance — 8 octobre 2026
+
+État : modifications locales réalisées après le go de l’utilisateur. Pas de nouvelle publication, de migration ni d’écriture dans la base de production.
+
+## Comportement livré
+
+- Le mois jusqu’à 800 px affiche des miniatures cliquables avec les couleurs existantes : titre abrégé, durée ou distance connue et petit profil d’effort quand il reste représentable. Les notes sur plusieurs jours conservent un bandeau continu; au-delà de deux aperçus par journée, « +N » ouvre la journée complète. Le numéro ouvre aussi la journée. Un entraînement ou une note s’ouvre directement sans changer la vue mensuelle.
+- Les vues Jour/Semaine et la grille ordinateur gardent leur présentation. Le bouton Timer est ajouté aux cartes habituelles et au détail, hors des miniatures du mois mobile.
+- Le lecteur utilise une copie de la programmation de la séance. Le texte source prévaut sur les anciens blocs en cache. Les rounds, groupes et repos conservent leur ordre exact. Aucune étape en distance, répétitions ou sans mesure n’est supprimée ou convertie en durée estimée. Une programmation invalide empêche le démarrage plutôt que de lancer une partie de la séance.
+- Démarrer ouvre le plein écran avec les couleurs, les sons et le verrouillage du timer à intervalles existant. Maintien de trois secondes pour déverrouiller; maintien de deux secondes pour terminer une étape libre. Une étape libre affiche le temps écoulé, une étape chronométrée le temps restant. Le total connu est distingué des étapes libres.
+- Après le go de simplification, le timer affiche uniquement le temps, la phase effort/repos et la progression. Le détail des exercices et les consignes sont consultables dans la fiche de la séance. Le bouton manuel s’intitule « Terminer l’étape ».
+- Sans aucune durée programmée, le lecteur propose Chrono libre par défaut ou Configurer des intervalles. Les durées choisies s’appliquent à sa copie, en conservant exercices et rounds, avec un repos entre efforts sans doublon ni repos final ajouté. Le texte libre propose aussi un nombre d’intervalles. Les valeurs sont bornées, un réglage invalide empêche le démarrage et la réinitialisation permet de modifier les choix après démarrage. Aucun changement n’est enregistré dans la séance ou le timer des outils.
+- Les appuis courts, annulations tactiles et relâchements après déplacement des commandes n’avancent ni ne réinitialisent le timer. Un clic synthétique de relâchement pouvait atteindre Pause en paysage; il est désormais intercepté. La même protection couvre le verrouillage de l’outil existant.
+- Pause/reprise, réinitialisation, réduction et fermeture fonctionnent. Fermer met en pause et permet de rouvrir la copie dans la même page. Une actualisation de page perd cette progression locale. Les réglages du timer libre et la programmation sauvegardée restent intacts. La fin du timer ne marque pas automatiquement la séance comme faite.
+- Déconnexion ou changement de compte détruisent le lecteur, les sons et le maintien d’écran. Un chargement différé ne peut pas ouvrir le timer de l’ancien compte.
+
+## Vérifications
+
+- Choix pour les séances sans durée : **68 tests ciblés** réussis; **12 nouveaux parcours navigateur** sur six formats, ainsi que les 12 parcours existants des timers mixtes et libres, validés. Ordre, rounds, repos explicites, saisies invalides, pause/réouverture, réinitialisation et intégrité du programme vérifiés. Contrôle du lien réseau et des deux thèmes en 320, 390, 844 et 1440 px; compilation et contrôles statiques réussis.
+- Simplification du timer : **60 tests ciblés** et **12 parcours navigateur** réussis, incluant les étapes libres, le verrouillage et la conservation des consignes dans la fiche. Aperçu réseau contrôlé en 320, 390, 844 et 1440 px; compilation et vérifications statiques réussies.
+- `npm run check` : réussi.
+- `npm test` : **736 tests réussis**, zéro échec, dont les permissions et migrations PostgreSQL isolées, le moteur hybride, les anciens rounds, le texte source, les pauses, les appuis longs et les changements de compte.
+- `PLAYWRIGHT_CHANNEL=chrome npm run test:e2e` : **65 parcours réussis**, **7 combinaisons volontairement ignorées**, zéro échec. Formats 320×720, 390×844, 844×390, 768×1024, 1024×768 et 1440×900.
+- Les parcours navigateur couvrent les aperçus et l’ouverture directe, les notes, la navigation existante, la bibliothèque, le glisser-déposer, le bilan athlète, les entraînements chronométrés/mixtes/libres, les couleurs, les pauses et les maintiens par toucher réel émulé ou souris. Aucun appel d’écriture Supabase inattendu ni erreur JavaScript.
+- Contrôle supplémentaire du timer à intervalles existant à 390 et 1440 px : plein écran verrouillé, aucune erreur JavaScript ni débordement.
+- `npm run build` : réussi; chemins GitHub Pages, manifeste, icônes et CSS compilé vérifiés. L’avertissement préexistant du module 3D reste présent.
+- Captures inspectées pour le mois mobile et les timers portrait/paysage. `git diff --check` réussi.
+
+La QA utilise Chrome avec émulation des formats et données de démonstration en mémoire; elle ne remplace pas un essai sur téléphone physique ou Safari. Les bips et le maintien d’écran reposent sur les possibilités du navigateur; le plein écran possède un repli CSS. Aucun fonctionnement sonore en arrière-plan ou téléphone verrouillé n’est promis.
+
+---
+
 # Corrections et QA — 7 octobre 2026
 
 État : publication autorisée le 7 octobre 2026. La migration et le frontend sont publiés et vérifiés. Application `7da502e8682ed387342fad3ed24b54c616e4ee14`, [workflow réussi](https://github.com/mixmasterkd/gestionboxeur/actions/runs/37714307895). Une sauvegarde applicative privée précède la migration. Les 204 lignes des 30 tables sont conservées; les écritures d’essai ont été annulées par transaction. Aucun compte réel créé ni paramètre Auth modifié.

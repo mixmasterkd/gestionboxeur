@@ -36,6 +36,14 @@ export function mountTimerSession(board, { now = () => performance.now(), autoTi
     doc.body.classList.remove('timer-session-open'); if (doc.fullscreenElement === board) void doc.exitFullscreen?.().catch(() => {}); sync(); open.focus({ preventScroll: true });
   }
   open.addEventListener('click', enter);
+  // Touch browsers may retarget the synthetic click when unlocking changes layout.
+  // Swallow that release anywhere on the board, not only on the moving lock button.
+  const freshPointer = () => { suppressClick = false; };
+  const releaseClick = event => {
+    if (suppressClick && event.detail !== 0) { suppressClick = false; event.preventDefault(); event.stopImmediatePropagation(); }
+  };
+  board.addEventListener('pointerdown', freshPointer, true);
+  board.addEventListener('click', releaseClick, true);
   lock.addEventListener('pointerdown', event => {
     if (!active || !locked || press || event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault(); suppressClick = true; press = { id: event.pointerId, at: now() }; try { lock.setPointerCapture(event.pointerId); } catch {} schedule();
@@ -55,5 +63,5 @@ export function mountTimerSession(board, { now = () => performance.now(), autoTi
   controls.querySelector('#timerSessionClose').addEventListener('click', () => { if (!locked) close(); });
   const hidden = () => { if (doc.visibilityState === 'hidden') cancel(); };
   doc.addEventListener('visibilitychange', hidden); view.addEventListener('pagehide', cancel); sync();
-  return { sync, get locked() { return active && locked; }, destroy() { close(); destroyed = true; doc.removeEventListener('visibilitychange', hidden); view.removeEventListener('pagehide', cancel); open.remove(); controls.remove(); } };
+  return { sync, enter, close, get locked() { return active && locked; }, destroy() { close(); destroyed = true; board.removeEventListener('pointerdown', freshPointer, true); board.removeEventListener('click', releaseClick, true); doc.removeEventListener('visibilitychange', hidden); view.removeEventListener('pagehide', cancel); open.remove(); controls.remove(); } };
 }
