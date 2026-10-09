@@ -8,4 +8,6 @@ supabase/.branches/
 *.log
 coverage/
 test-results/
+test-results-*/
 playwright-report/
+.local-preview/

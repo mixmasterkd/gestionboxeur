@@ -9,23 +9,23 @@ async function settle() {
   for (let i = 0; i < 15; i++) await Promise.resolve();
   await new Promise(resolve => setImmediate(resolve));
 }
-async function surface(html, script, client, url = 'https://gestionboxeur.example/login.html', { pendingInvite } = {}) {
+async function surface(html, script, client, url = 'https://gestionboxeur.example/login.html', { pendingInvite, blockedSessionStorage = false } = {}) {
   const window = new Window({ url, settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
   if (pendingInvite) window.sessionStorage.setItem('pendingInvite', pendingInvite);
+  if (blockedSessionStorage) Object.defineProperty(window, 'sessionStorage', { get() { throw new Error('Storage blocked'); } });
   window.document.write(await readFile(new URL(`../${html}`, import.meta.url), 'utf8'));
   const navigations = [];
   window.__navigate = value => navigations.push(new URL(value, window.location.href).href);
   window.__client = client;
   window.__createRosterStore = createRosterStore;
-  if(script==='roster.js') {
-    const uiSource=(await readFile(new URL('../js/ui.js',import.meta.url),'utf8')).replace(/^export /gm,'');
-    const addSource=(await readFile(new URL('../js/roster-add.js',import.meta.url),'utf8')).replace(/^import .*;$/gm,'').replace(/^export /gm,'');
-    window.eval(`${uiSource}\n${addSource}\nwindow.__createAthleteAddUI=createAthleteAddUI;`);
-  }
   window.__createRosterAttachmentUI = createRosterAttachmentUI;
   window.confirm = () => true;
-  const source = (await readFile(new URL(`../js/${script}`, import.meta.url), 'utf8')).replace(/^import \{ createRosterStore \} from ['"].\/roster-store.js['"];?/m, 'const createRosterStore = window.__createRosterStore; const createAthleteAddUI = window.__createAthleteAddUI;').replace(/^import \{ mountNavigation \}.*$/m, 'const mountNavigation = () => {};').replace(/^import \{ beginTestSession \}.*$/m, 'const beginTestSession = async () => {};').replace(/^import \{ isTestSession \}.*$/m, 'const isTestSession = () => false;').replace(/^import \{ returnFromTestSession \}.*$/m, 'const returnFromTestSession = async () => {};').replaceAll('location.replace(', 'window.__navigate(');
-  window.eval(source.replace(/^import \{ createAthleteAddUI \}.*$/m, '').replace(/^import \{ createRosterAttachmentUI \}.*$/m, 'const createRosterAttachmentUI = window.__createRosterAttachmentUI;').replace(/^import \{ client(?: as supabase)? \} from ['"].\/config.js['"];?/m,
+  if (script === 'auth.js') {
+    const joinState = await readFile(new URL('../js/community-join-state.js', import.meta.url), 'utf8');
+    window.eval(joinState.replace(/^export /gm, '') + '\nwindow.__groupJoin={captureGroupJoinToken,validGroupJoinToken,groupJoinUrl};');
+  }
+  const source = (await readFile(new URL(`../js/${script}`, import.meta.url), 'utf8')).replace(/^import \{ createRosterStore \} from ['"].\/roster-store.js['"];?/m, 'const createRosterStore = window.__createRosterStore;').replace(/^import \{ mountNavigation \}.*$/m, 'const mountNavigation = () => {};').replace(/^import \{ beginTestSession \}.*$/m, 'const beginTestSession = async () => {};').replace(/^import \{ isTestSession \}.*$/m, 'const isTestSession = () => false;').replace(/^import \{ returnFromTestSession \}.*$/m, 'const returnFromTestSession = async () => {};').replaceAll('location.replace(', 'window.__navigate(');
+  window.eval(source.replace(/^import \{ captureGroupJoinToken.*$/m, 'const {captureGroupJoinToken,validGroupJoinToken,groupJoinUrl}=window.__groupJoin;').replace(/^import \{ createRosterAttachmentUI \}.*$/m, 'const createRosterAttachmentUI = window.__createRosterAttachmentUI;').replace(/^import \{ client(?: as supabase)? \} from ['"].\/config.js['"];?/m,
     script === 'roster.js' ? 'const supabase = window.__client;' : 'const client = window.__client;'));
   await settle();
   return { window, navigations, $: id => window.document.getElementById(id), close: () => window.happyDOM.abort() };
@@ -62,6 +62,69 @@ test('athlete signup preserves invitation across confirmation and omits coach gy
     assert.equal(payload.options.data.gym_name, null);
     assert.equal(payload.options.emailRedirectTo, 'https://gestionboxeur.example/sub/planning.html?invite=opaque-token');
     assert.equal(ui.$('authSuccess').classList.contains('hidden'), false);
+  } finally { await ui.close(); }
+});
+
+test('group invitation survives password login and an already authenticated visit without accepting automatically', async () => {
+  const token = 'a'.repeat(64);
+  for (const session of [null, { user: { id: 'member' } }]) {
+    const mock = authMock(session);
+    const ui = await surface('login.html', 'auth.js', mock.client, `https://gestionboxeur.example/sub/login.html?join=${token}&redirect=https://evil.example/`);
+    try {
+      assert.equal(new URL(ui.window.location.href).searchParams.has('join'), false);
+      assert.match(ui.$('inviteNotice').textContent, /choisir de rejoindre le groupe/);
+      assert.equal(ui.$('continueButton').href, `https://gestionboxeur.example/sub/groups.html?join=${token}`);
+      if (!session) {
+        ui.$('email').value = 'member@example.test'; ui.$('password').value = 'secret123456789';
+        submit(ui, 'authForm'); await settle();
+        assert.deepEqual(mock.calls.map(call => call[0]), ['login']);
+      } else assert.equal(mock.calls.length, 0);
+      assert.deepEqual(ui.navigations, [`https://gestionboxeur.example/sub/groups.html?join=${token}`]);
+    } finally { await ui.close(); }
+  }
+});
+
+test('group signup opens directly and preserves a fixed group destination for email confirmation', async () => {
+  const token = 'b'.repeat(64), mock = authMock();
+  const ui = await surface('login.html', 'auth.js', mock.client, `https://gestionboxeur.example/sub/login.html?join=${token}&mode=signup`);
+  try {
+    assert.equal(ui.$('authTitle').textContent, 'Créer un compte');
+    ui.$('fullName').value = 'Jo Nouveau'; ui.$('birthDate').value = '2000-05-12'; ui.$('email').value = 'jo@example.test';
+    ui.$('password').value = 'secret123456789'; ui.$('confirmPassword').value = 'secret123456789';
+    submit(ui, 'authForm'); await settle();
+    const signup = mock.calls.find(call => call[0] === 'signup')[1];
+    assert.equal(signup.options.emailRedirectTo, `https://gestionboxeur.example/sub/groups.html?join=${token}`);
+    assert.equal(signup.options.data.account_type, 'athlete'); assert.equal(signup.options.data.coach_id, undefined);
+    assert.equal(ui.navigations.length, 0); assert.match(ui.$('authSuccess').textContent, /invitation sera conservée/);
+  } finally { await ui.close(); }
+});
+
+test('blocked session storage preserves explicit group and coaching invitations through login', async () => {
+  const token = 'd'.repeat(64);
+  for (const [query, destination] of [[`join=${token}`, `groups.html?join=${token}`], ['invite=coach-token', 'planning.html?invite=coach-token']]) {
+    const mock = authMock();
+    const ui = await surface('login.html', 'auth.js', mock.client, `https://gestionboxeur.example/sub/login.html?${query}`, { blockedSessionStorage: true });
+    try {
+      assert.equal(ui.window.location.search, `?${query}`, 'the URL retains the invitation when per-tab storage is unavailable');
+      assert.equal(ui.$('continueButton').href, `https://gestionboxeur.example/sub/${destination}`);
+      ui.$('email').value = 'member@example.test'; ui.$('password').value = 'secret123456789';
+      submit(ui, 'authForm'); await settle();
+      assert.deepEqual(mock.calls.map(call => call[0]), ['login']);
+      assert.deepEqual(ui.navigations, [`https://gestionboxeur.example/sub/${destination}`]);
+    } finally { await ui.close(); }
+  }
+});
+
+test('group invitation remains available across forgot-password recovery without an arbitrary redirect', async () => {
+  const token = 'c'.repeat(64), mock = authMock();
+  const ui = await surface('login.html', 'auth.js', mock.client, `https://gestionboxeur.example/sub/login.html?join=${token}`);
+  try {
+    ui.$('forgotPassword').click(); ui.$('email').value = 'member@example.test'; submit(ui, 'authForm'); await settle();
+    assert.equal(mock.calls[0][2].redirectTo, `https://gestionboxeur.example/sub/login.html?mode=recovery&join=${token}`);
+    mock.emit('PASSWORD_RECOVERY', { user: { id: 'member' } });
+    ui.$('password').value = 'secret123456789'; ui.$('confirmPassword').value = 'secret123456789'; submit(ui, 'authForm'); await settle();
+    assert.equal(ui.$('continueButton').href, `https://gestionboxeur.example/sub/groups.html?join=${token}`);
+    assert.deepEqual(mock.calls.map(call => call[0]), ['reset', 'update']);
   } finally { await ui.close(); }
 });
 
@@ -154,7 +217,7 @@ function rosterMock({ legacy = false, role = "coach", authenticated = true, regi
         select(value) { fields = value; calls.push(['select', table, fields]); return this; },
         eq(...args) { calls.push(['eq', table, ...args]); return this; }, order() { return this; }, in() { return this; }, limit() { return this; },
         update(payload) { calls.push(['update', table, payload]); return this; }, insert(payload) { calls.push(['insert', table, payload]); return this; }, delete() { calls.push(['delete', table]); return this; },
-        single() { return this; },
+        single() { return this; }, maybeSingle() { return this; },
         then(resolve, reject) {
           const error = legacy && table === 'profiles' && fields.includes('account_type') ? { code: '42703', message: 'column profiles.account_type does not exist' }
             : legacy && table === 'coach_athletes' ? { code: '42P01', message: 'relation "public.coach_athletes" does not exist' } : null;
@@ -184,20 +247,22 @@ test('roster reads explicit shared fields and keeps private coach notes out of s
   } finally { await ui.close(); }
 });
 
-test('own coach contact uses contact email with account email only as fallback',async()=>{
-  const mock=rosterMock();const original=mock.client.from;
-  mock.client.from=table=>{const q=original(table),select=q.select,then=q.then;let fields; q.select=function(value){fields=value;return select.call(this,value);};q.then=function(resolve,reject){if(table==='athletes'&&fields==='email')return Promise.resolve({data:[{email:'contact@example.test'}],error:null}).then(resolve,reject);return then.call(this,resolve,reject);};return q;};
-  const ui=await surface('roster.html','roster.js',mock.client);try{
-    assert.match(ui.$('coachGrid').textContent,/contact@example.test/);assert.doesNotMatch(ui.$('coachGrid').textContent,/coach@example.test/);
-    assert.ok(mock.calls.some(c=>c[0]==='eq'&&c[1]==='athletes'&&c[2]==='user_id'&&c[3]==='coach-id'));
-  }finally{await ui.close();}
+test('lists include only manually saved contacts and never the account or coaching relationships',async()=>{
+ const mock=rosterMock();mock.tables.coach_contacts=[{id:'contact-a',first_name:'Jo',last_name:'Contact',email:'jo@example.test',phone:'514 555 0100'}];
+ const ui=await surface('roster.html','roster.js',mock.client);
+ try{
+  assert.match(ui.$('coachGrid').textContent,/Jo Contact/);assert.doesNotMatch(ui.$('coachGrid').textContent,/Coach Camille|coach@example.test/);
+  ui.$('shareButton').click();assert.match(ui.$('sharePreview').textContent,/COACHS DE CONTACT/);assert.match(ui.$('sharePreview').textContent,/Jo Contact/);assert.doesNotMatch(ui.$('sharePreview').textContent,/Coach Camille|coach@example.test/);
+  const include=ui.$('coachChoices').querySelector('.include-coach');include.checked=false;include.dispatchEvent(new ui.window.Event('change',{bubbles:true}));assert.doesNotMatch(ui.$('sharePreview').textContent,/Jo Contact|COACHS DE CONTACT/);
+  assert.ok(mock.calls.some(c=>c[0]==='eq'&&c[1]==='coach_contacts'&&c[2]==='coach_id'&&c[3]==='coach-id'));
+ }finally{await ui.close();}
 });
 
 test('roster accepts a first name alone and sends atomic nullable bio/private relation payload', async () => {
   const mock = rosterMock();
   const ui = await surface('roster.html', 'roster.js', mock.client, 'https://gestionboxeur.example/roster.html');
   try {
-    ui.$('addAthleteButton').click(); ui.window.document.querySelector('[aria-label="Créer une fiche"]').click(); ui.$('firstName').value = 'Alex';
+    ui.$('addAthleteButton').click(); ui.$('firstName').value = 'Alex';
     submit(ui, 'athleteForm'); await settle();
     const call = mock.calls.find(call => call[1] === 'create_roster_athlete');
     assert.equal(call[1], 'create_roster_athlete');
@@ -238,7 +303,7 @@ test('registered roster protects identity fields, uses one table and sends only 
     const payload=mock.calls.find(call=>call[0]==='rpc'&&call[1]==='update_roster_athlete_checked')[2].p_data;
     assert.deepEqual(Object.keys(payload).sort(),['fights','losses','selected','weight_kg','wins']);
     assert.equal(payload.weight_kg,72.6);
-    ui.$('addAthleteButton').click(); ui.window.document.querySelector('[aria-label="Créer une fiche"]').click();assert.equal(ui.$('firstName').disabled,false);
+    ui.$('addAthleteButton').click();assert.equal(ui.$('firstName').disabled,false);
   }finally{await ui.close();}
 });
 
@@ -358,7 +423,7 @@ test('legacy roster keeps eight existing athletes, unavailable statuses, gym add
     assert.equal(ui.$('statAvailable').textContent, '1');
     assert.equal(ui.$('gymBrand').textContent, 'Mon équipe');
     assert.equal(ui.$('gymAddress').textContent, '123, rue du Gym');
-    assert.equal(ui.window.document.title, 'Mon équipe — Athlètes et listes');
+    assert.equal(ui.window.document.title, 'Mon équipe — Liste d’athlètes');
     assert.equal(ui.$('shareDialog').open, false);
     assert.equal(ui.window.location.search, '?liste=1');
     ui.$('shareButton').click();
@@ -403,12 +468,18 @@ test('legacy roster selection and removal use original owner-scoped storage with
   } finally { await ui.close(); }
 });
 
-test('athlete and invitation route to planning while preserving query and hash', async () => {
+test('every account can open their personal list; explicit invitations still preserve their planning route', async () => {
   const athlete = rosterMock({ role: 'athlete' });
   const athleteUi = await surface('roster.html', 'roster.js', athlete.client, 'https://gestionboxeur.example/team/roster.html?date=2026-09-21#day');
   try {
-    assert.deepEqual(athleteUi.navigations, ['https://gestionboxeur.example/team/planning.html?date=2026-09-21#day']);
-    assert.equal(athlete.calls.some(call => call[1] === 'athletes'), false);
+    assert.deepEqual(athleteUi.navigations, []);
+    assert.equal(athleteUi.$('athleteRows').children.length,1);
+    assert.equal(athleteUi.$('rosterTitle').textContent,'Liste d’athlètes');
+    assert.equal(athleteUi.$('groupDirectory'),null);
+    assert.equal(athleteUi.window.document.querySelector('.directory-tabs'),null);
+    athleteUi.$('athleteRows').querySelector('.athlete-edit').click();assert.equal(athleteUi.$('attachAthleteButton').hidden,true);
+    athleteUi.$('athleteDialog').close();athleteUi.$('addAthleteButton').click();assert.equal(athleteUi.$('athleteDialog').open,true);
+    assert.equal(athlete.calls.some(call=>call[0]==='rpc'&&/enable_coaching|invite|search_athletes/.test(call[1])),false);
   } finally { await athleteUi.close(); }
   const coach = rosterMock();
   const inviteUi = await surface('roster.html', 'roster.js', coach.client, 'https://gestionboxeur.example/team/roster.html?invite=opaque%2Btoken&date=2026-09-21#invite');
@@ -576,4 +647,16 @@ test('new passwords require twelve characters while existing six-character login
     assert.equal(ui.$('password').minLength,6);submit(ui,'authForm');await settle();
     assert.equal(mock.calls[0][0],'login');
   }finally{await ui.close();}
+});
+
+
+test('personal lists do not require gym settings or existing coach contacts',async()=>{
+ const mock=rosterMock({role:'athlete'});mock.tables.gym_settings=null;mock.tables.coach_athletes=[];
+ const ui=await surface('roster.html','roster.js',mock.client,'https://gestionboxeur.example/roster.html');
+ try{
+  assert.deepEqual(ui.navigations,[]);assert.equal(ui.$('addAthleteButton').disabled,false);
+  assert.equal(ui.$('coachGrid').children.length,0);assert.equal(ui.$('coachEmpty').classList.contains('hidden'),false);
+  ui.$('shareButton').click();assert.equal(ui.$('coachChoices').children.length,0);assert.doesNotMatch(ui.$('sharePreview').textContent,/COACHS DE CONTACT|Coach Camille|coach@example.test/);
+  assert.equal(mock.calls.some(call=>call[1]==='coach_profiles'||call[0]==='rpc'),false);
+ }finally{await ui.close();}
 });

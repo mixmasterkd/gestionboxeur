@@ -8,11 +8,14 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:local": "VITE_LOCAL_SANDBOX=1 vite --host 192.168.50.123 --port 4173 --strictPort",
     "build": "vite build && node scripts/check-build.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test tests/*.test.js",
     "check": "node scripts/check.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:local": "playwright test --config playwright.local.config.js",
+    "test:preprod": "playwright test --config playwright.preprod.config.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.116.0",

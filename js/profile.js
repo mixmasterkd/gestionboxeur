@@ -43,8 +43,8 @@ async function initialize() {
       if(ticket!==generation)return;
       fillAthlete(profile); $('athletePanel').classList.remove('hidden');
       $('profileBirthDate').required=role!=='coach';
-      $('sportsPanel').classList.remove('hidden');$('sportsProfileForm').hidden=role==='coach';
-      $('sportsToggle').hidden=role!=='coach';$('sportsToggle').setAttribute('aria-expanded',String(role!=='coach'));
+      $('sportsPanel').classList.remove('hidden');$('sportsProfileForm').hidden=false;
+      $('sportsToggle').hidden=role!=='coach';$('sportsToggle').setAttribute('aria-expanded','true');$('sportsToggle').textContent='Masquer';
       $('sportsHint').textContent=role==='coach'?'Facultatif : à compléter seulement si tu utilises aussi ton profil pour t’entraîner.':'Ces informations servent à préparer les listes d’athlètes.';
       $('accountEmail').textContent=currentUser.email||'';$('resetPasswordButton').disabled=!currentUser.email;
       $('securityPanel').classList.remove('hidden');

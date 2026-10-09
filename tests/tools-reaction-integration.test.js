@@ -32,11 +32,11 @@ test('reaction opens lazily from actual tools and receives its private store, cl
   try {
     assert.equal(loads, 0);
     app.ui.select('reaction'); await settle();
-    assert.equal(loads, 1); assert.equal(app.$('toolTitle').textContent, 'Jeux cognitifs');
+    assert.equal(loads, 1); assert.equal(app.$('toolTitle').textContent, 'Test de réactivité');
     assert.equal(mounted.options.store, store); assert.equal(mounted.options.ownerId, 'owner-a');
     assert.equal(mounted.options.autoTick, false); assert.equal(typeof mounted.options.onActivity, 'function');
     assert.equal(mounted.options.now(), 0); app.advance(321); assert.equal(mounted.options.now(), 321); assert.equal(ticks, 1);
-    app.$('toolsBack').click(); assert.equal(destroyed, 1); assert.equal(app.$('toolsMenu').hidden, false);
+    app.ui.navigate({ tool: 'steps' }); assert.equal(destroyed, 1); assert.ok(app.$('stepTap'));
     app.ui.select('boxing'); app.$('timerStart').click(); app.advance(500);
     assert.equal(app.$('timerBoard').dataset.status, 'running'); app.$('timerReset').click();
   } finally { await app.close(); }
@@ -52,8 +52,8 @@ test('reaction respects leave cancellation and releases its screen lock after le
     Object.defineProperty(app.window.navigator, 'wakeLock', { value: { async request() { requests++; return { addEventListener() {}, async release() { releases++; } }; } } });
     app.ui.select('reaction'); await settle(); options.onActivity(true); await settle();
     assert.equal(requests, 1);
-    app.$('toolsBack').click(); assert.equal(destroyed, 0); assert.ok(app.$('reactionStub')); assert.equal(releases, 0);
-    allowLeave = true; app.$('toolsBack').click(); await settle();
+    app.ui.navigate({ tool: 'steps' }); assert.equal(destroyed, 0); assert.ok(app.$('reactionStub')); assert.equal(releases, 0);
+    allowLeave = true; app.ui.navigate({ tool: 'steps' }); await settle();
     assert.equal(destroyed, 1); assert.equal(releases, 1); assert.equal(app.$('reactionStub'), null);
   } finally { await app.close(); }
 });
@@ -86,8 +86,8 @@ test('a late wake-lock acquisition is released when reaction has already been le
   try {
     Object.defineProperty(app.window.navigator, 'wakeLock', { value: { request: () => requested.promise } });
     app.ui.select('reaction'); await settle(); options.onActivity(true);
-    app.$('toolsBack').click(); requested.resolve({ addEventListener() {}, async release() { releases++; } }); await settle();
-    assert.equal(releases, 1); assert.equal(app.$('toolsMenu').hidden, false);
+    app.ui.navigate({ tool: 'steps' }); requested.resolve({ addEventListener() {}, async release() { releases++; } }); await settle();
+    assert.equal(releases, 1); assert.ok(app.$('stepTap'));
   } finally { await app.close(); }
 });
 
@@ -110,9 +110,9 @@ test('a real reaction session saves and reloads its personal best through the to
     app.advance(100); app.advance(1100); await settle();
     assert.deepEqual(rows, [{ mode: 'simple', input: 'mouse', best_ms: 225 }]);
     assert.match(app.$('reactionRecord').textContent, /225/);
-    app.$('toolsBack').click(); app.ui.select('reaction'); await settle();
+    app.ui.navigate({ tool: 'steps' }); app.ui.select('reaction'); await settle();
     assert.match(app.$('reactionRecord').textContent, /225/); assert.equal(app.$('reactionRounds').value, '1');
-    app.$('toolsBack').click(); app.ui.select('boxing'); assert.ok(app.$('timerStart'));
+    app.ui.navigate({ tool: 'steps' }); app.ui.select('boxing'); assert.ok(app.$('timerStart'));
     app.$('timerStart').click(); assert.equal(app.$('timerBoard').dataset.status, 'running');
   } finally { await app.close(); }
 });

@@ -40,7 +40,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   const ownsAthlete = () => {
     const state = getState(); return !state.selectedGroup && !!state.user?.id && state.selectedAthlete?.user_id === state.user.id;
   };
-  const canDelete = item => canEdit(item) && item.created_by === getState().user?.id;
+  const canDelete = item => canEdit(item) && (item.created_by === getState().user?.id || item.is_group_session || item.is_group_event);
   const ownsSession = session => ownsAthlete() && session.athlete_id === getState().selectedAthlete.id;
   async function setCompleted(session, completed) {
     if (!ownsSession(session)) throw new Error('Seul l’athlète concerné peut indiquer que cette séance est faite.');
@@ -112,10 +112,10 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
   function eventVisible(event) {
     return !event.is_private || event.created_by === getState().user?.id;
   }
-  function accessStatus(locked, privateNote = false) {
+  function accessStatus(locked, privateNote = false, common = false) {
     const status = el('span', { class: 'access-status' });
     const badge = (icon, label) => el('span', { class: 'access-badge', role: 'img', 'aria-label': label, title: label }, accessIcon(icon));
-    if(locked)status.append(badge('locked', 'Verrouillé · seul l’auteur peut modifier.'));
+    if(locked)status.append(badge('locked', common ? 'Contenu commun · édition selon les permissions des destinataires.' : 'Verrouillé · seul l’auteur peut modifier.'));
     if (privateNote) status.append(badge('private', 'Privé · visible seulement par toi.'));
     return status;
   }
@@ -203,7 +203,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const basics = el('fieldset', {class:'session-basics'},el('legend',{},'Séance'),field('Titre de la séance',title),el('div',{class:'session-basics-grid'},field('Discipline',sport),templateOnly ? null : field('Date',day),templateOnly ? null : lock.field));
     const templateFolder=templateOnly?select('template_folder',[{value:'',label:'Mes entraînements (sans dossier)'},...folders.filter(f=>f.owner_id===editorUserId).map(f=>({value:f.id,label:f.name}))],existing?.folder_id||folderId||''):null;
     if(templateOnly)basics.querySelector('.session-basics-grid').append(field('Dossier',templateFolder));
-    const recipients = !templateOnly && state.profile?.account_type==='coach' && state.groupsAvailable && (!existing||existing.is_group_session)
+    const recipients = !templateOnly && (state.profile?.account_type==='coach'||state.groups?.length>0) && state.groupsAvailable && (!existing||existing.is_group_session)
       ? createRecipientPicker({athletes:planningAthletes(state),groups:state.groups||[],
           athleteIds:existing?.is_group_session?existing.athlete_ids||[]:state.selectedGroup?[]:athlete.id?[athlete.id]:[],
           groupIds:existing?.is_group_session?existing.group_ids||[]:state.selectedGroup?[state.selectedGroup.id]:[],
@@ -381,8 +381,8 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const version = ++detailGeneration;
     const dialog = $('detailDialog'), content = $('detailContent');
     const error = errorBox(), body = el('div', { class: 'dialog-body' });
-    body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), accessStatus(!!session.shared_session_id || session.is_locked !== false)));
-    if(session.shared_session_id&&!session.is_group_session)body.append(el('p',{class:'session-shared-note'},'Séance commune : son auteur gère le contenu pour tous les destinataires. Ta réalisation et ton bilan restent individuels.'));
+    body.append(el('div', { class: 'detail-meta' }, el('span', {}, sportName(session.sport)), el('span', {}, dateLabel(session.date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })), el('span', {}, `Créée par ${session.author_name || 'son auteur'}`), accessStatus(!!session.shared_session_id || session.is_locked !== false, false, !!session.shared_session_id)));
+    if(session.shared_session_id&&!session.is_group_session)body.append(el('p',{class:'session-shared-note'},'Séance commune : le contenu est géré pour tous les destinataires. Ta réalisation et ton bilan restent individuels.'));
     const workout = el('div');
     if (session.workout_document) {
       renderTrainingDocument(workout, session.workout_document);
@@ -445,8 +445,8 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const privacy = accessControl('is_private', 'Privé · visible seulement par moi', !!event?.is_private, !creator, 'private', 'shared', value => !creator ? 'Seul l’auteur peut changer la visibilité.' : value ? 'Privé · visible seulement par toi.' : 'Partagé · visible par l’athlète et ses coachs autorisés.');
     const visibility = el('p', { class: 'event-visibility', role: 'status' });
     let common=!!event?.is_group_event;
-    const updateVisibility = () => { visibility.textContent = common ? 'Note commune · visible par les destinataires, modifiable seulement par son auteur.' : privacy.control.checked ? 'Privé · visible seulement par toi.' : 'Partagé avec l’athlète et ses coachs autorisés.'; };
-    const recipients=state.profile?.account_type==='coach'&&state.groupsAvailable&&(!event||event.is_group_event)
+    const updateVisibility = () => { visibility.textContent = common ? 'Note commune · visible par les destinataires, gérée selon les permissions des groupes.' : privacy.control.checked ? 'Privé · visible seulement par toi.' : 'Partagé avec l’athlète et ses coachs autorisés.'; };
+    const recipients=(state.profile?.account_type==='coach'||state.groups?.length>0)&&state.groupsAvailable&&(!event||event.is_group_event)
       ? createRecipientPicker({athletes:planningAthletes(state),groups:state.groups||[],
           athleteIds:event?.is_group_event?event.athlete_ids||[]:groupContext?[]:[athleteId],
           groupIds:event?.is_group_event?event.group_ids||[]:groupContext?[state.selectedGroup.id]:[],
@@ -489,7 +489,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const version=++detailGeneration;
     const dialog = $('detailDialog'), container = $('detailContent'), error = errorBox();
     const period = dateLabel(event.date, { day: 'numeric', month: 'long', year: 'numeric' }) + (event.end_date && event.end_date !== event.date ? ` → ${dateLabel(event.end_date, { day: 'numeric', month: 'long', year: 'numeric' })}` : '');
-    const body = el('div', { class: 'dialog-body' }, el('div', { class: 'detail-meta' }, el('span', {}, EVENT_CATEGORIES.find(item => item.value === event.category)?.label || event.category), el('span', {}, period), accessStatus(!!event.shared_event_id || event.is_locked !== false, event.is_private)), el('p', { class: 'muted' }, `Créée par ${event.author_name || (event.created_by === getState().selectedAthlete?.user_id ? displayName(getState().selectedAthlete) : 'un coach')}.${event.is_private ? ' Privé · visible seulement par toi.' : ''}`), event.notes ? el('p', { class: 'note-box' }, event.notes) : null, error);
+    const body = el('div', { class: 'dialog-body' }, el('div', { class: 'detail-meta' }, el('span', {}, EVENT_CATEGORIES.find(item => item.value === event.category)?.label || event.category), el('span', {}, period), accessStatus(!!event.shared_event_id || event.is_locked !== false, event.is_private, !!event.shared_event_id)), el('p', { class: 'muted' }, `Créée par ${event.author_name || (event.created_by === getState().selectedAthlete?.user_id ? displayName(getState().selectedAthlete) : 'un coach')}.${event.is_private ? ' Privé · visible seulement par toi.' : ''}`), event.notes ? el('p', { class: 'note-box' }, event.notes) : null, error);
     if(event.shared_event_id)body.append(el('p',{class:'session-shared-note'},'Note commune : les modifications de son auteur s’appliquent à tous les destinataires.'));
     const actions = el('footer', { class: 'dialog-actions' });
     if (canDelete(event)) actions.append(deleteButton(event,'event',dialog,error,version));

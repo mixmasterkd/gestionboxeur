@@ -10,6 +10,7 @@ async function fixture(){
  const entries=[],updates=[],calls=[];
  const api={loadJournal:async()=>structuredClone({entries,updates}),saveJournalEntry:async(payload,existing)=>{calls.push(['save',payload]);const row=existing?entries.find(e=>e.id===existing.id):{id:'j1',created_by:state.user.id,author_name:'Auteur',created_at:'2026-09-24T12:00:00Z',archived:false};Object.assign(row,payload,{updated_at:'2026-09-24T12:01:00Z'});if(!existing){entries.push(row);updates.push({id:'u1',entry_id:row.id,kind:'created',content:row.body,created_at:row.created_at,author_name:'Auteur'});}return structuredClone(row);},addJournalComment:async(id,content)=>{calls.push(['comment',id,content]);updates.push({id:'u2',entry_id:id,kind:'comment',content,created_at:'2026-09-24T13:00:00Z',author_name:'Coach'});}};
  const sortables=[];
+ api.deleteJournalEntry=async(entry,expectedUpdates)=>{calls.push(['delete',structuredClone(entry),structuredClone(expectedUpdates)]);entries.splice(entries.findIndex(item=>item.id===entry.id),1);for(let index=updates.length-1;index>=0;index--)if(updates[index].entry_id===entry.id)updates.splice(index,1);return {id:entry.id};};
  const ui=createJournalUI({getState:()=>state,api,makeSortable:(node,options)=>{const instance={node,options,destroy(){this.destroyed=true;},option(key,value){this.options[key]=value;}};sortables.push(instance);return instance;}});await ui.refresh();
  return {window,state,api,ui,entries,updates,calls,sortables,close:async()=>{ui.invalidate();await window.happyDOM.abort();delete globalThis.document;delete globalThis.window;}};
 }
@@ -82,5 +83,90 @@ test('creating a journal subject on mobile keeps the title field unfocused until
   f.window.matchMedia=()=>({matches:true});click('＋ Sujet');
   assert.equal(document.activeElement,document.getElementById('journalTitle'));
   const title=document.querySelector('[name=journal_title]');title.focus();assert.equal(document.activeElement,title);
+ }finally{await f.close();}
+});
+
+test('saving opens the subject detail before its history loads and preserves a new observation draft',async()=>{
+ const f=await fixture();try{
+  let resolveHistory;f.api.loadJournal=()=>new Promise(resolve=>{resolveHistory=resolve;});
+  click('＋ Sujet');document.querySelector('[name=journal_title]').value='Respiration';click('Enregistrer');await tick();
+  assert.equal(document.getElementById('journalTitle').textContent,'Respiration');
+  assert.equal(document.querySelector('[name=journal_title]'),null);
+  assert.ok(document.querySelector('[name=journal_comment]'));
+  assert.match(document.querySelector('.journal-guide').textContent,/observations/);
+  document.querySelector('[name=journal_comment]').value='Déjà en train de noter un conseil.';
+  resolveHistory(structuredClone({entries:f.entries,updates:f.updates}));await tick();
+  assert.equal(document.querySelector('[name=journal_comment]').value,'Déjà en train de noter un conseil.');
+  assert.equal(document.querySelectorAll('.journal-update').length,1);
+ }finally{await f.close();}
+});
+
+test('archives are one searchable list regardless of the active board view and preserve status on reactivation',async()=>{
+ const f=await fixture();try{
+  await addSubject(f);
+  f.entries[0].status='maintain';f.entries[0].archived=true;
+  f.entries.push({...f.entries[0],id:'j2',title:'Mobilité',status:'work'});
+  f.updates.push({id:'u3',entry_id:'j2',kind:'comment',content:'Épaules',created_at:'2026-09-24T14:00:00Z'});
+  await f.ui.refresh();click('Chronologie');click('Archives');
+  assert.equal(document.querySelectorAll('.journal-archive-list').length,1);
+  assert.equal(document.querySelectorAll('.journal-column').length,0);
+  assert.equal(document.querySelectorAll('.journal-archive-card').length,2);
+  assert.equal(document.querySelector('[aria-label="Vue du journal"]').hidden,true);
+  const search=document.querySelector('[name=journal_search]');search.value='epaules';search.dispatchEvent(new f.window.Event('input'));
+  assert.equal(document.querySelectorAll('.journal-archive-card').length,1);
+  assert.match(document.querySelector('.journal-archive-card').textContent,/Mobilité/);
+  document.querySelector('.journal-archive-card .journal-card-open').click();click('Réactiver');await tick();
+  assert.equal(f.entries.find(entry=>entry.id==='j2').archived,false);
+  assert.equal(f.entries.find(entry=>entry.id==='j2').status,'work');
+  assert.ok(document.querySelector('[name=journal_comment]'));
+ }finally{await f.close();}
+});
+
+test('permanent deletion requires explicit confirmation and sends the subject and exact history snapshot',async()=>{
+ const f=await fixture();try{
+  await addSubject(f);document.querySelector('.journal-card-open').click();
+  click('Supprimer définitivement le sujet');
+  assert.match(document.getElementById('journalContent').textContent,/ne peut pas être annulée/);
+  assert.equal(f.calls.filter(call=>call[0]==='delete').length,0);
+  click('Annuler');assert.equal(document.getElementById('journalTitle').textContent,'Garde');
+  click('Supprimer définitivement le sujet');click('Supprimer définitivement');await tick();
+  const deletion=f.calls.find(call=>call[0]==='delete');assert.equal(deletion[1].id,'j1');assert.equal(deletion[1].updated_at,'2026-09-24T12:01:00Z');assert.deepEqual(deletion[2].map(update=>update.id),['u1']);
+  assert.equal(f.entries.length,0);assert.equal(f.updates.length,0);assert.equal(document.getElementById('journalDialog').open,false);
+  assert.equal(document.querySelectorAll('.journal-card').length,0);
+ }finally{await f.close();}
+});
+
+test('deletion conflicts keep the confirmation open and leave the subject and its follow-ups intact',async()=>{
+ const f=await fixture();try{
+  await addSubject(f);document.querySelector('.journal-card-open').click();click('Supprimer définitivement le sujet');
+  f.api.deleteJournalEntry=async()=>{throw new Error('Un nouveau suivi a été ajouté. Rouvre le sujet.');};
+  click('Supprimer définitivement');await tick();
+  assert.equal(f.entries.length,1);assert.equal(f.updates.length,1);assert.equal(document.getElementById('journalDialog').open,true);
+  assert.match(document.getElementById('journalContent').textContent,/nouveau suivi/);
+  f.updates.push({id:'new-followup',entry_id:'j1',kind:'comment',content:'Un conseil récent',created_at:'2026-09-24T14:00:00Z'});
+  click('Actualiser le sujet');await tick();
+  assert.equal(document.getElementById('journalTitle').textContent,'Garde');
+  assert.match(document.querySelector('.journal-history').textContent,/Un conseil récent/);
+ }finally{await f.close();}
+});
+
+test('only the athlete owner or the author with current writing permission sees permanent deletion',async()=>{
+ const f=await fixture();try{
+  await addSubject(f);f.entries[0].created_by='original-coach';
+  await f.ui.refresh();document.querySelector('.journal-card-open').click();assert.match(document.getElementById('journalContent').textContent,/Supprimer définitivement le sujet/);
+  f.state.user.id='other-coach';f.state.relation={status:'accepted',can_view_calendar:true,can_add_sessions:true};await f.ui.refresh();document.querySelector('.journal-card-open').click();assert.doesNotMatch(document.getElementById('journalContent').textContent,/Supprimer définitivement/);
+  f.state.user.id='original-coach';await f.ui.refresh();document.querySelector('.journal-card-open').click();assert.match(document.getElementById('journalContent').textContent,/Supprimer définitivement le sujet/);
+  f.state.relation.can_add_sessions=false;await f.ui.refresh();assert.doesNotMatch(document.getElementById('journalContent').textContent,/Supprimer définitivement/);
+ }finally{await f.close();}
+});
+
+test('a save from before an athlete switch cannot reopen its dialog when returning to the first athlete',async()=>{
+ const f=await fixture();try{
+  let resolveSave;f.api.saveJournalEntry=()=>new Promise(resolve=>{resolveSave=resolve;});
+  click('＋ Sujet');document.querySelector('[name=journal_title]').value='Ancien brouillon';click('Enregistrer');
+  f.state.selectedAthlete={id:'a2',user_id:'athlete'};await f.ui.refresh();
+  f.state.selectedAthlete={id:'a1',user_id:'athlete'};await f.ui.refresh();
+  resolveSave({id:'old',title:'Ancien brouillon',body:'',archived:false,status:'explore',created_by:'athlete',created_at:'2026-09-24T12:00:00Z',updated_at:'2026-09-24T12:01:00Z'});await tick();
+  assert.equal(document.getElementById('journalDialog').open,false);assert.doesNotMatch(document.querySelector('.journal-content').textContent,/Ancien brouillon/);
  }finally{await f.close();}
 });

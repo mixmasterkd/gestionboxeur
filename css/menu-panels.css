@@ -1,0 +1,85 @@
+/* Shared navigation and menu surfaces; page dialogs keep their styles. */
+:root :is(.profile-menu-dialog,.tools-menu-dialog) { border-radius:18px; }
+:root :is(.profile-menu-heading,.tools-menu-heading) {
+  position:sticky;top:0;z-index:1;min-height:54px;padding:16px 18px;
+  background:var(--paper);color:var(--ink);border-bottom:1px solid var(--line);
+}
+:root :is(.profile-menu-heading,.tools-menu-heading) h2 {
+  margin:0;font-family:inherit;font-size:16px;font-weight:650;line-height:1.4;
+  letter-spacing:0;text-transform:none;color:var(--ink);
+}
+:root :is(.profile-menu-heading,.tools-menu-heading) h2:focus { outline:none; }
+:root .profile-menu-heading .profile-menu-back { color:var(--ink);background:transparent;border:0; }
+.menu-drawer-dismiss { display:none; }
+
+/* Both button triggers use the established desktop navigation appearance. */
+@media(min-width:801px) {
+  :root .nav-links :is(a,.nav-menu-trigger) {
+    position:relative;display:flex;align-items:center;gap:11px;min-height:49px;
+    padding:13px 11px;border:1px solid transparent;border-radius:13px;
+    background:transparent;color:var(--muted);font-family:inherit;font-size:13px;
+    font-weight:500;line-height:normal;text-align:left;text-decoration:none;
+    box-shadow:none;transition:color .18s,background .18s,transform .18s;
+  }
+  :root .nav-links :is(a,.nav-menu-trigger):hover {
+    background:var(--soft);color:var(--ink);transform:translateX(3px);
+  }
+  :root .nav-links :is(a,.nav-menu-trigger):is([aria-current="page"],.is-open),
+  :root .nav-links :is(a,.nav-menu-trigger):is([aria-current="page"],.is-open):hover {
+    background:#303a48;color:#edf0f4;border-color:#65768d;box-shadow:none;font-weight:700;
+  }
+  :root[data-theme="light"] .nav-links :is(a,.nav-menu-trigger):is([aria-current="page"],.is-open),
+  :root[data-theme="light"] .nav-links :is(a,.nav-menu-trigger):is([aria-current="page"],.is-open):hover {
+    background:#e6ecf4;color:#222c3a;border-color:#91a2b9;
+  }
+  :root .nav-links .nav-menu-trigger.is-open svg { stroke-width:2; }
+}
+@media(min-width:801px) and (max-width:1100px) {
+  :root .nav-links :is(a,.nav-menu-trigger) { padding-left:10px;gap:8px;font-size:12px; }
+}
+@media(max-width:800px) {
+  :root { --calendar-nav-fill:#d7dfe9;--calendar-nav-ink:#18202b; }
+  :root[data-theme="light"] { --calendar-nav-fill:#263246;--calendar-nav-ink:#fff; }
+  :root .primary-navigation .nav-links a[data-nav-item="calendar"],
+  :root .primary-navigation .nav-links a[data-nav-item="calendar"]:hover {
+    background:var(--calendar-nav-fill);border-color:var(--calendar-nav-fill);
+    color:var(--calendar-nav-ink);box-shadow:none;
+  }
+  /* Keep the original 20px flow height so the bar and labels stay aligned. */
+  :root .nav-links a[data-nav-item="calendar"] > svg {
+    width:24px;height:24px;margin-block:-2px;
+  }
+  :root .nav-links a[data-nav-item="calendar"] > .nav-label {
+    font-weight:650;
+  }
+  :root .nav-links a[data-nav-item="calendar"][aria-current="page"] > .nav-label {
+    font-weight:700;
+  }
+  :root .nav-links a[data-nav-item="calendar"][aria-current="page"]::after {
+    content:"";position:absolute;left:50%;bottom:3px;width:16px;height:2px;
+    transform:translateX(-50%);border-radius:2px;background:currentColor;pointer-events:none;
+  }
+  html:has(body.menu-drawer-open) { overflow:hidden; }
+  body.menu-drawer-open { overflow:hidden; }
+  body.menu-drawer-open > .menu-drawer-shift { translate:var(--menu-drawer-width) 0; }
+  :root body.menu-drawer-open :is(.profile-menu-dialog,.tools-menu-dialog)[open] {
+    margin:0;max-width:none;border-radius:0 20px 20px 0;overflow-y:auto;overflow-x:hidden;
+    overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom);
+    animation:menu-drawer-enter .18s ease-out;
+  }
+  :root body.menu-drawer-open :is(.profile-menu-heading,.tools-menu-heading) {
+    padding-top:max(20px,env(safe-area-inset-top));padding-bottom:18px;
+  }
+  :root body.menu-drawer-open .menu-drawer-dismiss {
+    display:block;position:fixed;z-index:89;inset:0 0 0 var(--menu-drawer-width);
+    width:auto;height:100dvh;min-width:0;margin:0;padding:0;border:0;border-radius:0;
+    background:#00000014;color:inherit;box-shadow:none;cursor:pointer;touch-action:manipulation;
+  }
+  :root body.menu-drawer-open .menu-drawer-dismiss:focus-visible { outline-offset:-4px; }
+  :root body.menu-drawer-open :is(.profile-menu-list,.tools-menu-list) { padding:10px; }
+}
+@keyframes menu-drawer-enter { from { transform:translateX(-100%); } to { transform:translateX(0); } }
+@media(prefers-reduced-motion:reduce) {
+  :root body.menu-drawer-open :is(.profile-menu-dialog,.tools-menu-dialog)[open] { animation:none; }
+  :root .nav-links :is(a,.nav-menu-trigger) { transition:none; }
+}

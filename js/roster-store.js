@@ -1,4 +1,4 @@
-/** Roster persistence for the existing coach schema and the training-platform schema.
+/** Personal athlete-list persistence for the existing owner schema and the training-platform schema.
  * Legacy access is enabled only after both missing-schema facts are established.
  * Authorization, transport and RPC errors never select another persistence path.
  */
@@ -31,8 +31,8 @@ export function createRosterStore(client) {
   let owner = null;
   let accountType = null;
   let loadTicket = 0;
-  function requireCoach() {
-    if (!owner || accountType !== 'coach' || mode === 'unknown') throw new Error('Charge ton compte coach avant de modifier l’effectif.');
+  function requireAccount() {
+    if (!owner || !['coach', 'athlete'].includes(accountType) || mode === 'unknown') throw new Error('Charge ton compte avant de modifier ta liste d’athlètes.');
   }
   return {
     get mode() { return mode; },
@@ -62,19 +62,26 @@ export function createRosterStore(client) {
       return response.data;
     },
     async loadAthletes() {
-      requireCoach();
+      requireAccount();
+      const userId = owner, ticket = loadTicket;
+      const assertCurrent = () => { if (owner !== userId || ticket !== loadTicket) throw new Error('La session a changé. Recharge ta liste.'); };
       if (mode === 'legacy') {
-        const rows = await checked(client.from('athletes').select(LEGACY_FIELDS).eq('coach_id', owner).order('last_name'));
+        const rows = await checked(client.from('athletes').select(LEGACY_FIELDS).eq('coach_id', userId).order('last_name'));
+        assertCurrent();
         return rows.map(row => ({ row, relation: { private_notes: row.notes || '', selected: row.selected } }));
       }
-      const rows = await checked(client.from('coach_athletes').select('athlete_id,private_notes,selected,can_view_calendar,updated_at').eq('coach_id', owner).eq('status', 'accepted'));
+      // RLS also exposes personally visible/group-related athletes; the owner's
+      // accepted list relations define this directory, never every visible row.
+      const rows = await checked(client.from('coach_athletes').select('athlete_id,private_notes,selected,can_view_calendar,updated_at').eq('coach_id', userId).eq('status', 'accepted'));
+      assertCurrent();
       const relations = new Map(rows.map(row => [row.athlete_id, row]));
       if (!relations.size) return [];
       const athletes = await checked(client.from('athletes').select(`${ROSTER_FIELDS},user_id`).in('id', [...relations.keys()]).order('last_name'));
+      assertCurrent();
       return athletes.filter(row => relations.has(row.id)).map(row => ({ row, relation: relations.get(row.id) }));
     },
     async saveAthlete(id, payload, snapshot) {
-      requireCoach();
+      requireAccount();
       if (mode === 'modern') {
         if (id && (!snapshot?.updatedAt || !snapshot?.relationUpdatedAt)) throw new Error('Recharge la fiche avant de l’enregistrer.');
         return checked(id
@@ -87,12 +94,13 @@ export function createRosterStore(client) {
         : client.from('athletes').insert({ ...data, coach_id: owner }).select('id').single());
     },
     async removeAthlete(id) {
-      requireCoach();
+      requireAccount();
       if (mode === 'modern') return checked(client.rpc('archive_roster_athlete', { p_athlete_id: id }));
       return checked(client.from('athletes').delete().eq('id', id).eq('coach_id', owner).select('id').single());
     },
     async mergeAthletes(source, target, choices) {
-      requireCoach();
+      requireAccount();
+      if (accountType !== 'coach') throw new Error('Le rattachement nécessite un lien de coaching déjà établi.');
       if (mode !== 'modern') throw new Error('Le rattachement nécessite la mise à jour de la base de données.');
       if (!source?.id || !target?.id || source.id === target.id || source.userId || !target.userId) {
         throw new Error('Choisis une fiche libre et le compte inscrit de la même personne.');

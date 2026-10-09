@@ -84,8 +84,8 @@ test('manual cadence uses intervals between taps and resets for a fresh measurem
 test('boxing settings, pause, reset and retained appearance operate from the real page', async () => {
   const app = fixture({ sound: false });
   try {
-    app.$('toolsApp').querySelector('[data-tool="boxing"]').click();
-    assert.equal(app.$('toolsMenu').hidden, true); assert.equal(app.$('toolTitle').textContent, 'Timer de boxe');
+    app.ui.navigate({ tool: 'boxing' });
+    assert.equal(app.$('toolDetail').hidden, false); assert.equal(app.$('toolTitle').textContent, 'Timer de boxe');
     assert.equal(app.window.document.activeElement, app.$('toolTitle'), 'opening a tool never focuses an input');
     const form = app.$('timerForm'); form.elements.preparation.value = '0'; form.elements.work.value = '120';
     form.dispatchEvent(new app.window.Event('change', { bubbles: true }));
@@ -96,7 +96,7 @@ test('boxing settings, pause, reset and retained appearance operate from the rea
     app.$('timerStart').click(); app.advance(6000); assert.equal(app.$('timerDigits').textContent, '01:48');
     app.$('timerReset').click(); assert.equal(app.$('timerDigits').textContent, '02:00'); assert.equal(app.$('timerFields').disabled, false);
     assert.equal(JSON.parse(app.window.localStorage.getItem('gestionboxeur:tools:v1')).design, 'classic');
-    app.$('toolsBack').click(); assert.equal(app.$('toolsMenu').hidden, false);
+    app.ui.navigate({ tool: 'steps' }); assert.ok(app.$('stepTap'));
   } finally { await app.close(); }
 });
 
@@ -104,7 +104,7 @@ test('leaving a timer pauses it and selecting another tool preserves its progres
   const app = fixture({ sound: false });
   try {
     app.ui.select('boxing'); app.$('timerStart').click(); app.advance(2000);
-    app.$('toolsBack').click(); app.advance(90000);
+    app.ui.navigate({ tool: 'steps' }); app.advance(90000);
     app.ui.select('steps'); app.ui.select('boxing');
     assert.equal(app.$('timerDigits').textContent, '00:08'); assert.equal(app.$('timerStart').textContent, 'Reprendre');
     assert.equal(app.$('timerState').textContent, 'En pause');

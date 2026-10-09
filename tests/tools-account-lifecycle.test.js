@@ -5,12 +5,12 @@ import {Window} from 'happy-dom';
 const source=await readFile(new URL('../js/tools-page.js',import.meta.url),'utf8');
 const html=await readFile(new URL('../tools.html',import.meta.url),'utf8');
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
-function fixture({pending=false}={}){
- const window=new Window({url:'https://example.test/tools.html',settings:{disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});window.document.write(html);
+function fixture({pending=false,url='https://example.test/tools.html'}={}){
+ const window=new Window({url,settings:{disableJavaScriptFileLoading:true,disableCSSFileLoading:true}});window.document.write(html);
  let authChange, resolveAccount, destroyed=0;const mounts=[];
  window.__client={auth:{getSession:async()=>({data:{session:{user:{id:'owner-a',email:'a@example.test'}}}}),onAuthStateChange(fn){authChange=fn;},signOut:async()=>({data:null})}};
  window.__loadAccount=async()=>pending?new Promise(resolve=>resolveAccount=resolve):{profile:{full_name:'A',account_type:'coach'},gym:null};
- window.__mount=(root,options)=>{mounts.push(options.ownerId);return{destroy(){destroyed++;root.replaceChildren();}};};
+ window.__mount=(root,options)=>{mounts.push(options.ownerId);let selected={tool:null};return{getSelection:()=>selected,navigate(route){selected=route;options.onSelection(route);return true;},destroy(){destroyed++;root.replaceChildren();}};};
  window.eval(source.replace(/^import .*;\s*$/gm,'')
   .replace('const $ =','const client=window.__client,loadAccount=window.__loadAccount,result=async p=>(await p).data,isDemo=false,createToolStore=()=>({}),createDemoToolStore=()=>({}),createCognitiveRecordStore=()=>({}),createDemoCognitiveRecordStore=()=>({}),createReactionRecordStore=()=>({}),createDemoReactionRecordStore=()=>({}),createMentalStore=()=>({}),mountNavigation=()=>{},mountTools=window.__mount;const $ ='));
  return{window,mounts,get destroyed(){return destroyed},event:(e,s)=>authChange(e,s),resolve:()=>resolveAccount?.({profile:{full_name:'A',account_type:'coach'},gym:null})};
@@ -25,4 +25,12 @@ test('account switch invalidates an old account lookup before it can mount score
 });
 test('sign-out destroys tools and clears account identity before returning to login',async()=>{
  const f=fixture();try{await settle();f.event('SIGNED_OUT',null);assert.equal(f.destroyed,1);assert.equal(f.window.location.pathname,'/login.html');assert.equal(f.window.document.getElementById('accountName').textContent,'');}finally{await f.window.happyDOM.abort();}
+});
+
+test('account switch preserves the direct tool destination and demo mode',async()=>{
+ const f=fixture({url:'http://192.168.50.123:4173/tools.html?demo=1&tool=cognitive&game=bag'});try{
+  await settle();assert.equal(f.window.document.getElementById('toolsError').hidden,true);
+  f.event('SIGNED_IN',{user:{id:'owner-b'}});
+  assert.equal(f.window.location.search,'?demo=1&tool=cognitive&game=bag');
+ }finally{await f.window.happyDOM.abort();}
 });

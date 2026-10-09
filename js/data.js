@@ -138,11 +138,22 @@ export async function loadJournal(athleteId) {
 }
 export const saveJournalEntry=(payload,existing)=>preview?preview.saveJournalEntry(payload,existing):result(existing?client.from('journal_entries').update(payload).eq('id',existing.id).eq('updated_at',existing.updated_at).select().single():client.from('journal_entries').insert(payload).select().single());
 export const addJournalComment=(entryId,content)=>preview?preview.addJournalComment(entryId,content):result(client.from('journal_updates').insert({entry_id:entryId,content}).select().single());
+export function deleteJournalEntry(entry,updates) {
+ if(!entry?.id||!entry.updated_at||!Array.isArray(updates))throw new Error('Rouvre le sujet avant de le supprimer.');
+ if(preview)return preview.deleteJournalEntry(entry,updates);
+ return rpc('delete_journal_entry',{p_id:entry.id,p_updated_at:entry.updated_at,p_update_ids:updates.map(update=>update.id)});
+}
 
-// Group identities are private to their coach. Athlete copies retain the existing
-// calendar/feedback security model and never expose the other recipients.
+// Group roles are scoped to membership. Personal copies keep the existing
+// calendar/feedback rules; membership never grants individual coaching access.
+let hasCommunity=false;
+export const communityAvailable=()=>hasCommunity;
 export async function loadTrainingGroups(database=client) {
   if(preview&&database===client)return preview.loadTrainingGroups();
+  const community=await database.rpc('community_command',{p_action:'list_groups',p_data:{}});
+  if(!community.error){hasCommunity=true;return community.data;}
+  // Older deployed backends retain their existing owner-only group API.
+  if(!['PGRST202','42883'].includes(community.error.code))return result(community);
   const rows=[];
   for(let offset=0;;offset+=500){
     const page=await result(database.from('training_groups').select('*,training_group_members(athlete_id)').order('name').order('id').range(offset,offset+499));
@@ -178,6 +189,7 @@ export async function getSharedEvent(id,database=client){
 }
 export async function loadGroupCalendar(groupId,start,end,database=client) {
   if(preview&&database===client)return preview.loadGroupCalendar(groupId,start,end);
+  if(database===client&&hasCommunity)return result(database.rpc('community_command',{p_action:'group_calendar',p_data:{group_id:groupId,from:start,to:end}}));
   const sessions=[],events=[];
   for(let offset=0;;offset+=500){
     const page=await result(database.from('shared_training_sessions').select(`${sharedColumns},selected_group:shared_session_groups!inner(group_id)`)

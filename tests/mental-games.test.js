@@ -65,3 +65,17 @@ test('memory UI shows the full grid, saves only a completed game and interrupts 
     host.querySelector('#mentalStart').click(); window.dispatchEvent(new window.Event('pagehide')); assert.equal(host.querySelector('.mental').dataset.status, 'interrupted');
   } finally { ui.destroy(); await window.happyDOM.abort(); }
 });
+
+test('mental games have no return menu and preserve the active-game exit confirmation', async () => {
+  for(const mode of ['visual-memory','dual-task']){
+    const window=new Window(),host=window.document.createElement('div');window.document.body.append(host);
+    let confirmations=0,allow=false;window.confirm=()=>{confirmations++;return allow;};
+    const ui=mountMentalGame(host,{mode,autoTick:false,now:()=>0});
+    try {
+      assert.equal(host.querySelector('#mentalBack'),null);assert.doesNotMatch(host.textContent,/← Jeux/);
+      assert.equal(ui.canLeave(),true);assert.equal(confirmations,0);
+      host.querySelector('#mentalStart').click();assert.equal(ui.canLeave(),false);assert.equal(confirmations,1);
+      allow=true;assert.equal(ui.canLeave(),true);assert.equal(confirmations,2);
+    }finally{ui.destroy();await window.happyDOM.abort();}
+  }
+});

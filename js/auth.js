@@ -1,18 +1,24 @@
 import { client } from './config.js';
 import { isTestSession } from './config.js';
 import { returnFromTestSession } from './test-session.js';
+import { captureGroupJoinToken, validGroupJoinToken, groupJoinUrl } from './community-join-state.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const fragment = new URLSearchParams(location.hash.slice(1));
 const invite = params.get('invite');
-if (invite) sessionStorage.setItem('pendingInvite', invite);
-const pendingInvite = invite || sessionStorage.getItem('pendingInvite');
-let mode = fragment.get('type') === 'recovery' || params.get('mode') === 'recovery' ? 'recovery' : 'login';
+let pendingInvite = invite;
+try {
+  if (invite) sessionStorage.setItem('pendingInvite', invite);
+  else pendingInvite = sessionStorage.getItem('pendingInvite');
+} catch { /* Explicit invitations remain available in the URL when storage is blocked. */ }
+const pendingGroupJoin = invite && !params.has('join') ? null : validGroupJoinToken(captureGroupJoinToken());
+let mode = fragment.get('type') === 'recovery' || params.get('mode') === 'recovery' ? 'recovery' : params.get('mode') === 'signup' ? 'signup' : 'login';
 let recoveryReady = false;
 let busy = false;
 
 function dashboardUrl() {
+  if (pendingGroupJoin) return groupJoinUrl(pendingGroupJoin);
   const url = new URL('./planning.html', location.href);
   if (pendingInvite) url.searchParams.set('invite', pendingInvite);
   return url.href;
@@ -98,7 +104,10 @@ function setMode(next) {
   updatePasswordFeedback();
 }
 
-if (pendingInvite) {
+if (pendingGroupJoin) {
+  $('inviteNotice').textContent = 'Une invitation à un groupe t’attend. Connecte-toi ou crée ton compte. Tu pourras ensuite choisir de rejoindre le groupe.';
+  $('inviteNotice').classList.remove('hidden');
+} else if (pendingInvite) {
   $('inviteNotice').classList.remove('hidden');
 }
 setMode(mode);
@@ -147,6 +156,7 @@ $('authForm').addEventListener('submit', async event => {
       const resetUrl = new URL('./login.html', location.href);
       resetUrl.searchParams.set('mode', 'recovery');
       if (pendingInvite) resetUrl.searchParams.set('invite', pendingInvite);
+      if (pendingGroupJoin) resetUrl.searchParams.set('join', pendingGroupJoin);
       const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: resetUrl.href });
       if (error) throw error;
       message('Si un compte existe pour ce courriel, un lien de réinitialisation a été envoyé. Vérifie aussi tes indésirables.', 'success');
@@ -190,7 +200,7 @@ $('authForm').addEventListener('submit', async event => {
       });
       if (error) throw error;
       if (data.session) { location.replace(dashboardUrl()); return; }
-      message('Vérifie ton courriel pour confirmer ton compte, puis connecte-toi.' + (pendingInvite ? ' Ton invitation sera conservée.' : ''), 'success');
+      message('Vérifie ton courriel pour confirmer ton compte, puis connecte-toi.' + (pendingInvite || pendingGroupJoin ? ' Ton invitation sera conservée.' : ''), 'success');
     } else {
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;

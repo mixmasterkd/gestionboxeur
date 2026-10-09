@@ -15,6 +15,7 @@ const defaults = {
   intervals: { rounds: 8, work: 45, rest: 15, preparation: 5, warning: false, series: 1, seriesRest: 60 },
 };
 const titles = { boxing: 'Timer de boxe', intervals: 'Timer à intervalles', punches: 'Compteur de coups', steps: 'Compteur de pas', bulletin: 'Babillard', cognitive: 'Jeux cognitifs', reaction: 'Test de réactivité' };
+const gameTitles = { tiles: 'Tuiles', bag: 'Sac', 'visual-memory': 'Mémoire visuelle', reaction: 'Test de réactivité', 'dual-task': 'Double Tâche' };
 const options = (values, selected) => values.map(([value, label]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${label}</option>`).join('');
 
 function preferences(storage) {
@@ -56,7 +57,7 @@ export function bindTap(button, callback) {
   button.addEventListener('contextmenu', event => event.preventDefault());
 }
 
-export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), loadReaction = () => import('./reaction-game.js'), loadMental = () => import('./mental-games.js'), ownerId = 'local', toolStore = null, cognitiveStore = null, reactionStore = null, mentalStore = null } = {}) {
+export function mountTools(root, { now = () => performance.now(), autoTick = true, storage, loadClassicScene = () => import('./classic-timer-scene.js'), loadBulletin = () => import('./bulletin-board.js'), loadCognitive = () => import('./cognitive-games.js'), loadReaction = () => import('./reaction-game.js'), loadMental = () => import('./mental-games.js'), ownerId = 'local', toolStore = null, cognitiveStore = null, reactionStore = null, mentalStore = null, onSelection = () => {} } = {}) {
   const doc = root.ownerDocument, view = doc.defaultView;
   const $ = id => root.querySelector(`#${id}`);
   if (storage === undefined) { try { storage = view.localStorage; } catch { storage = null; } }
@@ -356,12 +357,12 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
       bulletinUI = mountBulletinBoard(host, { store: toolStore });
     }).catch(() => {
       if (destroyed || ticket !== bulletinTicket) return;
-      host.innerHTML = '<p role="alert">Impossible d’ouvrir le babillard. Reviens aux outils puis réessaie.</p>';
+      host.innerHTML = '<p role="alert">Impossible d’ouvrir le babillard. Choisis un autre outil, puis réessaie depuis le menu Outils.</p>';
     });
   }
   function mountCognitive() {
     const ticket = ++cognitiveTicket;
-    cognitiveUI = mountCognitiveMenu($('toolStage'), { loadCognitive, loadReaction, loadMental, cognitiveStore, reactionStore, mentalStore, ownerId, storage, now, autoTick, onActivity(active) { if (destroyed || ticket !== cognitiveTicket) return; counterActive = active; syncWake(); } });
+    cognitiveUI = mountCognitiveMenu($('toolStage'), { loadCognitive, loadReaction, loadMental, cognitiveStore, reactionStore, mentalStore, ownerId, storage, now, autoTick, onSelection(game) { if (destroyed || ticket !== cognitiveTicket) return; $('toolTitle').textContent = gameTitles[game] || titles.cognitive; onSelection(getSelection()); }, onActivity(active) { if (destroyed || ticket !== cognitiveTicket) return; counterActive = active; syncWake(); } });
   }
   function drawSteps() {
     const state = steps.snapshot();
@@ -387,13 +388,16 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     doc.body.classList.remove('tools-expanded');
     updateFullscreen();
   }
-  function select(kind) {
-    if (timerSession?.locked) return;
-    if (kind === 'reaction') { select('cognitive'); void cognitiveUI?.select('reaction'); return; }
-    if (kind !== null && !Object.hasOwn(titles, kind)) return;
-    if (selected === 'bulletin' && bulletinUI?.canLeave && !bulletinUI.canLeave()) return;
-    if (selected === 'cognitive' && cognitiveUI?.canLeave && !cognitiveUI.canLeave()) return;
-    const oldKind = selected;
+  function getSelection() {
+    const game = selected === 'cognitive' ? cognitiveUI?.getSelection() : null;
+    return game ? { tool: selected, game } : { tool: selected };
+  }
+  function selectTool(kind, announce = true) {
+    if (destroyed) return false;
+    if (selected === kind) return true;
+    if (timerSession?.locked) return false;
+    if (selected === 'bulletin' && bulletinUI?.canLeave && !bulletinUI.canLeave()) return false;
+    if (selected === 'cognitive' && cognitiveUI?.canLeave && !cognitiveUI.canLeave()) return false;
     if (isTimer()) timers[selected].pause();
     stopAudio(); releaseClassicScene(); advancedUI?.destroy(); advancedUI = null;
     presetsUI?.destroy(); presetsUI = null; bulletinTicket++; bulletinUI?.destroy(); bulletinUI = null;
@@ -401,14 +405,30 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
     timerSession?.destroy(); timerSession = null;
     selected = kind; counterActive = false;
     closeFullscreen(); syncWake(); notice('');
-    $('toolsMenu').hidden = Boolean(kind); $('toolDetail').hidden = !kind;
-    if (!kind) { root.querySelector(`[data-tool="${oldKind}"]`)?.focus({ preventScroll: true }); return; }
-    $('toolTitle').textContent = titles[kind];
-    if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else mountSteps();
-    $('toolTitle').focus({ preventScroll: true });
+    $('toolDetail').hidden = !kind;
+    if (kind) {
+      $('toolTitle').textContent = titles[kind];
+      if (isTimer()) mountTimer(); else if (kind === 'punches') mountPunches(); else if (kind === 'bulletin') mountBulletin(); else if (kind === 'cognitive') mountCognitive(); else mountSteps();
+      $('toolTitle').focus({ preventScroll: true });
+    }
+    if (announce) onSelection(getSelection());
+    return true;
   }
-  root.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => select(button.dataset.tool)));
-  $('toolsBack').addEventListener('click', () => select(null));
+  function navigate(route) {
+    if (!route || destroyed) return false;
+    const tool = route.tool === null ? 'boxing' : route.tool;
+    const game = tool === 'cognitive' && route.game === undefined ? 'tiles' : route.game;
+    if (!['boxing', 'intervals', 'punches', 'steps', 'bulletin', 'cognitive'].includes(tool)) return false;
+    if (game !== undefined && (tool !== 'cognitive' || !['tiles', 'bag', 'visual-memory', 'reaction', 'dual-task'].includes(game))) return false;
+    if (tool !== 'cognitive') return selectTool(tool);
+    if (selected !== tool && !selectTool(tool, false)) return false;
+    // Ask the existing child once before changing games; never recreate the container to bypass its guard.
+    return cognitiveUI.select(game);
+  }
+  function select(kind) {
+    if (kind === null) return selectTool(null, false);
+    return navigate(kind === 'reaction' ? { tool: 'cognitive', game: 'reaction' } : { tool: kind });
+  }
   $('toolFullscreen').addEventListener('click', async () => {
     const detail = $('toolDetail');
     if (doc.fullscreenElement === detail || detail.classList.contains('is-expanded')) { closeFullscreen(); return; }
@@ -427,7 +447,7 @@ export function mountTools(root, { now = () => performance.now(), autoTick = tru
   view.addEventListener('pagehide', onPageHide);
   if (autoTick) interval = view.setInterval(tick, 100);
   return {
-    tick, select,
+    tick, select, navigate, getSelection,
     destroy() {
       destroyed = true; audioTicket++; view.clearInterval(interval); syncWake(); audio.destroy(); releaseClassicScene(); advancedUI?.destroy(); closeFullscreen();
       presetsUI?.destroy(); bulletinTicket++; bulletinUI?.destroy();

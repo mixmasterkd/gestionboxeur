@@ -145,6 +145,8 @@ test('lazy bulletin loading is cancelled on tool changes or teardown and only th
     app.ui.select('steps'); pending[0](module); await settle();
     assert.equal(mounts.length, 0); assert.ok(app.$('stepTap'));
     app.ui.select('bulletin'); app.ui.select('bulletin');
+    assert.equal(pending.length, 2, 'reselecting the current board keeps its pending load');
+    app.ui.select('steps'); app.ui.select('bulletin');
     pending[1](module); await settle(); assert.equal(mounts.length, 0);
     pending[2](module); await settle(); assert.equal(mounts.length, 1);
     assert.equal(mounts[0].store, app.store); assert.equal(app.$('toolStage').textContent, 'Babillard prêt');

@@ -17,11 +17,13 @@ import { renderSessionChart } from './session-chart.js';
 const state = { surface:location.hash==='#journal'?'journal':'calendar', user:null, profile:null, gym:null, planningAvailable:true, coach:null, relations:[], athletes:[], selectedAthlete:null, selectedGroup:null, groups:[], groupsAvailable:false, groupsError:null, relation:null, sessions:[],events:[],feedback:[],runningWeekSessions:null,runningWeekError:false,view:'week',anchor:todayLocal() };
 let calendarTicket=0, accountTicket=0, dragSaving=false, sortables=[], destroyed=false;
 const isCoach=()=>state.profile?.account_type==='coach';
+const managesGroup=group=>!!group&&(group.role==='owner'||group.role==='admin'||!group.role&&group.coach_id===state.user?.id);
+const hasCalendarPicker=()=>isCoach()||state.groups.some(managesGroup);
 const ownsCalendar=()=>!state.selectedGroup && !!state.user?.id && state.selectedAthlete?.user_id===state.user.id;
-const canView=()=>state.planningAvailable && (state.selectedGroup ? isCoach() && state.groups.some(g=>g.id===state.selectedGroup.id) : !!state.selectedAthlete?.user_id && (ownsCalendar() || isCoach() && state.relation?.status==='accepted' && state.relation.can_view_calendar));
+const canView=()=>state.planningAvailable && (state.selectedGroup ? state.groups.some(g=>g.id===state.selectedGroup.id&&managesGroup(g)) : !!state.selectedAthlete?.user_id && (ownsCalendar() || isCoach() && state.relation?.status==='accepted' && state.relation.can_view_calendar));
 const canAdd=()=>canView() && (!!state.selectedGroup || ownsCalendar() || !!state.relation?.can_add_sessions);
 const isCommon=item=>!!(item.is_group_session||item.is_group_event||item.shared_session_id||item.shared_event_id);
-const canEdit=session=>canView() && (session.is_group_session||session.is_group_event ? (!state.selectedGroup || session.group_ids?.includes(state.selectedGroup.id)) && session.created_by===state.user?.id : !state.selectedGroup && session.athlete_id===state.selectedAthlete?.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (!isCommon(session) || session.created_by===state.user?.id) && (!session.is_private || session.created_by===state.user?.id) && (session.created_by===state.user?.id || session.is_locked===false));
+const canEdit=session=>canView() && (session.is_group_session||session.is_group_event ? (!state.selectedGroup || session.group_ids?.includes(state.selectedGroup.id)) && (typeof session.can_manage==='boolean'?session.can_manage:(session.created_by===state.user?.id||session.group_ids?.length>0&&session.group_ids.every(id=>state.groups.some(g=>g.id===id&&['owner','admin'].includes(g.role)))&&!session.athlete_ids?.length)) : !state.selectedGroup && session.athlete_id===state.selectedAthlete?.id && (ownsCalendar() || !!state.relation?.can_edit_own_sessions) && (!isCommon(session) || session.created_by===state.user?.id) && (!session.is_private || session.created_by===state.user?.id) && (session.created_by===state.user?.id || session.is_locked===false));
 const canDrag=session=>canEdit(session)&&(!isCommon(session)||session.is_group_session||session.is_group_event);
 const sessionUI=createSessionUI({getState:()=>state,refresh:()=>refreshCalendar({throwOnError:true}),openLibrary:options=>libraryUI.open(options),canEdit,canAdd,api:dataApi,onTimer:openSessionTimer});
 const libraryUI=createLibraryUI({getState:()=>state,canAdd,onCreateTemplate:options=>sessionUI.editTemplate(null,options),onEditTemplate:(template,options)=>sessionUI.editTemplate(template,options),onUseTemplate:template=>sessionUI.editSession({...template,id:undefined,athlete_id:state.selectedAthlete?.id,date:state.anchor},state.anchor,true)});
@@ -82,8 +84,8 @@ async function refreshAccount() {
   if(ticket!==accountTicket||destroyed||state.user?.id!==userId)return false;
   Object.assign(state,account);
   state.groupsError=null;state.groupsAvailable=false;
-  if(isCoach()&&account.planningAvailable&&dataApi.loadTrainingGroups) {
-    try { const groups=await dataApi.loadTrainingGroups();if(ticket!==accountTicket||destroyed||state.user?.id!==userId)return false;state.groups=groups;state.groupsAvailable=true; }
+  if(account.planningAvailable&&dataApi.loadTrainingGroups) {
+    try { const groups=await dataApi.loadTrainingGroups();if(ticket!==accountTicket||destroyed||state.user?.id!==userId)return false;state.groups=groups.filter(managesGroup);state.groupsAvailable=true; }
     catch(error) { if(ticket!==accountTicket||destroyed||state.user?.id!==userId)return false;state.groups=[];state.groupsError=error.message; }
   } else state.groups=[];
   const groupFromURL=new URL(location.href).searchParams.get('group');
@@ -105,17 +107,17 @@ function renderAccount() {
   $('gymAddress').hidden=!$('gymAddress').textContent;
   $('gymHome').href=isCoach()?'./':'planning.html';
   document.title=`Planification — ${$('gymBrand').textContent}`;
-  $('rosterLink').hidden=!isCoach();$('libraryButton').hidden=!state.planningAvailable;$('adminLink').hidden=!state.profile.is_admin;
-  $('connectionsButton').hidden=!state.planningAvailable;
+  $('rosterLink').hidden=false;$('libraryButton').hidden=!state.planningAvailable;$('adminLink').hidden=!state.profile.is_admin;
+  $('connectionsButton').hidden=true;
   $('planningUnavailable').hidden=state.planningAvailable;
   $('workspace').hidden=!state.planningAvailable;
   if(!state.planningAvailable) {
     clearCalendar();$('athleteList').replaceChildren();
-    $('planningUnavailable').querySelector('p').textContent=isCoach()?'Les fiches de tes athlètes, tes contacts et tes listes combat/sparring restent accessibles.':'Ton calendrier sera accessible une fois la planification activée.';
-    $('planningUnavailable').querySelector('a').hidden=!isCoach();
+    $('planningUnavailable').querySelector('p').textContent='Ta liste personnelle d’athlètes, tes coachs de contact et tes listes combat/sparring restent accessibles.';
+    $('planningUnavailable').querySelector('a').hidden=false;
     return;
   }
-  $('athleteSidebar').hidden=!isCoach();$('athletePickerButton').hidden=!isCoach();$('workspace').classList.toggle('athlete-workspace',!isCoach());
+  $('athleteSidebar').hidden=!hasCalendarPicker();$('athletePickerButton').hidden=!hasCalendarPicker();$('workspace').classList.toggle('athlete-workspace',!hasCalendarPicker());
   $('todayViewButton').hidden=false;$('addSessionButton').hidden=!canAdd();
   $('addEventButton').hidden=!canAdd();
   $('inviteButton').hidden=!isCoach()||!state.selectedAthlete||!!state.selectedAthlete.user_id;
@@ -250,7 +252,7 @@ function sessionCard(session) {
   applyEventColor(card,sessionColor(session));
   const top=el('div',{class:'session-top'},el('span',{class:'sport-tag',dataset:{sport:session.sport}},`${sport.icon} ${sport.label}`));
   if(canDrag(session))top.append(button('⠿',()=>{},'drag-handle',{'aria-label':`Déplacer ${session.title} par glisser-déposer`,title:'Glisser pour déplacer. Pour changer la date au clavier, ouvre la séance puis Modifier.'}));
-  if(isCommon(session)||session.is_locked!==false)top.append(calendarAccessBadge('locked',isCommon(session)?'Séance commune · modifiable par son auteur pour tous les destinataires':'Verrouillée · modifiable uniquement par son créateur'));
+  if(isCommon(session)||session.is_locked!==false)top.append(calendarAccessBadge('locked',isCommon(session)?'Séance commune · contenu partagé entre les destinataires':'Verrouillée · modifiable uniquement par son créateur'));
   const titleRow=el('div',{class:'session-title-row'},button(session.title,()=>sessionUI.showSession(session),'session-title'));
   if(state.view==='month')titleRow.querySelector('button').setAttribute('aria-label',`${session.title} · ${completed?'Faite':'À faire'} · Ouvrir la séance`);
   card.append(el('header',{class:'session-card-header'},top,titleRow));
@@ -291,7 +293,7 @@ function eventCard(event,{span=null,mobile=false}={}) {
   if(preview)open.append(el('span',{class:'event-preview'},preview));
   if(multiple)open.append(el('span',{class:'event-date-range'},range));
   const controls=el('div',{class:'event-controls'});
-  if(isCommon(event)||event.is_locked!==false)controls.append(calendarAccessBadge('locked',isCommon(event)?'Note commune · modifiable par son auteur pour tous les destinataires':'Verrouillée · modifiable uniquement par son créateur'));
+  if(isCommon(event)||event.is_locked!==false)controls.append(calendarAccessBadge('locked',isCommon(event)?'Note commune · contenu partagé entre les destinataires':'Verrouillée · modifiable uniquement par son créateur'));
   if(event.is_private)controls.append(calendarAccessBadge('private','Privée · visible uniquement par son auteur'));
   if(canDrag(event))controls.append(button('⠿',event=>{event.preventDefault();event.stopPropagation();},'event-drag-handle',{'aria-label':`Déplacer ${event.title} par glisser-déposer`,title:'Glisser pour déplacer toute la plage. Au clavier, ouvre la note puis Modifier.'}));
   card.append(open);if(controls.childElementCount)card.append(controls);
@@ -442,7 +444,7 @@ $('journalButton').addEventListener('click',()=>setSurface('journal'));
 $('calendarButton').addEventListener('click',()=>setSurface('calendar'));
 $('athleteSearch').addEventListener('input',renderAthleteList);
 $('athletePickerButton').addEventListener('click',()=>{
-  if(!isCoach())return;
+  if(!hasCalendarPicker())return;
   $('athleteSearch').value='';renderAthleteList();openDialog($('athletePickerDialog'),$('athleteSearch'));
 });
 $('closeAthletePicker').addEventListener('click',()=>$('athletePickerDialog').close());
@@ -456,11 +458,15 @@ $('addEventButton').addEventListener('click',()=>sessionUI.editEvent(null,state.
 $('inviteButton').addEventListener('click',()=>connectionsUI.inviteAthlete());
 $('connectionsButton').addEventListener('click',()=>connectionsUI.open({personal:ownsCalendar()}));
 $('connectionsButton').addEventListener('open-personal-connections',()=>connectionsUI.open({personal:true}));
+window.addEventListener('connections:open',()=>{if(state.user&&!destroyed&&state.planningAvailable)connectionsUI.open({personal:true});});
 $('manageConnectionsButton').addEventListener('click',()=>{$('athletePickerDialog').close();connectionsUI.open();});
 $('libraryButton').addEventListener('click',()=>libraryUI.open());
 $('logoutButton').addEventListener('click',async()=>{try{const {error}=await client.auth.signOut();if(error)throw error;}catch(error){toast(error.message);}});
 window.addEventListener('offline',()=>{$('connectionBanner').textContent='Connexion interrompue. Reconnecte-toi avant d’enregistrer des changements.';$('connectionBanner').hidden=false;});
 window.addEventListener('online',()=>{$('connectionBanner').hidden=true;refreshCalendar();});
+window.addEventListener('community-changed',event=>{
+  if(state.user&&!destroyed&&['respond_invitation','respond_coaching_invitation','respond_coach_request','set_role','leave_group','remove_member'].includes(event.detail?.action))refreshAccount().then(refreshCalendar).catch(fatal);
+});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&state.user&&state.profile&&!document.querySelector('dialog[open]')&&!dragSaving){refreshAccount().then(refreshCalendar).catch(fatal);}});
 window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
 init().catch(fatal);

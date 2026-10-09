@@ -1,7 +1,6 @@
 import { client as supabase } from "./config.js";
 import { createRosterStore } from "./roster-store.js";
 import { createRosterAttachmentUI } from './roster-attachment.js';
-import { createAthleteAddUI } from './roster-add.js';
 import { mountNavigation } from './navigation.js';
 
   (() => {
@@ -12,7 +11,6 @@ import { mountNavigation } from './navigation.js';
     const sexShortLabels = { M: "H", F: "F" };
     let state = { athletes: [], coaches: [] };
     let currentUser;
-    let groupsUI;
     let profileData;
     let gymSettings;
     let shareType = "sparring";
@@ -45,7 +43,6 @@ import { mountNavigation } from './navigation.js';
       },
     });
 
-    const athleteAddUI = createAthleteAddUI({client:supabase,getUserId:()=>currentUser?.id,onCreateSheet:()=>openAthlete()});
 
     function uid() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
     function todayLocal() {
@@ -67,13 +64,9 @@ import { mountNavigation } from './navigation.js';
         relationUpdatedAt: relation.updated_at, canViewCalendar: relation.can_view_calendar === true };
     }
     function coachFromDb(row) { return { id: row.id, firstName: row.first_name, lastName: row.last_name || "", phone: row.phone || "", email: row.email || "" }; }
-    function selfCoach() {
-      const pieces = (profileData?.full_name || currentUser?.user_metadata?.full_name || "Moi").trim().split(/\s+/);
-      return { id: currentUser.id, firstName: pieces.shift() || "Moi", lastName: pieces.join(" "), phone: profileData?.phone || "", email: profileData?.contact_email || currentUser.email || "", isSelf: true };
-    }
     function applyGymSettings() {
       $("gymBrand").textContent = gymSettings?.gym_name || "Mon gym";
-      document.title = `${gymSettings?.gym_name || "Mon gym"} — Athlètes et listes`;
+      document.title = `${gymSettings?.gym_name || "Mon gym"} — Liste d’athlètes`;
       $("gymAddress").textContent = gymSettings?.address || "";
     }
     function athleteToDb(athlete) {
@@ -86,7 +79,7 @@ import { mountNavigation } from './navigation.js';
       ['addAthleteButton', 'addCoachButton', 'shareButton'].forEach(id => { $(id).disabled = !loaded; });
     }
     function pageError(error) {
-      $('pageError').textContent = `Impossible de charger l’effectif : ${error.message || error}. Recharge la page pour réessayer.`;
+      $('pageError').textContent = `Impossible de charger ta liste d’athlètes : ${error.message || error}. Recharge la page pour réessayer.`;
       $('pageError').classList.remove('hidden');
     }
     async function loadState() {
@@ -111,47 +104,22 @@ import { mountNavigation } from './navigation.js';
       const profile = await rosterStore.loadProfile(currentUser.id);
       if (generation !== loadGeneration) return;
       profileData = profile;
-      if (profileData.account_type === 'athlete') {
-        const target = new URL('planning.html', location.href);
-        target.search = location.search; target.hash = location.hash;
-        location.replace(target.href); return;
-      }
-      if (profileData.account_type !== 'coach') throw new Error('Le rôle de ton compte n’est pas reconnu.');
+      if (!['coach', 'athlete'].includes(profileData.account_type)) throw new Error('Le rôle de ton compte n’est pas reconnu.');
       const [athletes, coachesResult, gymResult] = await Promise.all([
         rosterStore.loadAthletes(),
         supabase.from('coach_contacts').select('id,first_name,last_name,phone,email').eq('coach_id', currentUser.id).order('last_name'),
-        supabase.from('gym_settings').select('id,gym_name,address').eq('coach_id', currentUser.id).single(),
+        supabase.from('gym_settings').select('id,gym_name,address').eq('coach_id', currentUser.id).maybeSingle(),
       ]);
       if (generation !== loadGeneration) return;
       if (coachesResult.error || gymResult.error) throw (coachesResult.error || gymResult.error);
-      if(rosterStore.mode==='modern') {
-        const contact=await supabase.from('athletes').select('email').eq('user_id',currentUser.id).limit(1);
-        if(generation!==loadGeneration)return;if(contact.error)throw contact.error;
-        profileData.contact_email=contact.data?.[0]?.email||null;
-      }
       gymSettings = gymResult.data;
-      state = { athletes: athletes.map(({ row, relation }) => athleteFromDb(row, relation)), coaches: [selfCoach(), ...coachesResult.data.map(coachFromDb)] };
+      state = { athletes: athletes.map(({ row, relation }) => athleteFromDb(row, relation)), coaches: (coachesResult.data || []).map(coachFromDb) };
       $('pageError').classList.add('hidden');
       applyGymSettings();
       mountNavigation({role:profileData.account_type,isAdmin:profileData.is_admin});
       $('adminButton').classList.toggle('hidden', !profileData.is_admin);
       setLoaded(true);
       renderAll();
-      void refreshGroups(generation);
-    }
-    async function refreshGroups(generation) {
-      try {
-        if (!groupsUI && document.getElementById('groupDirectory')) {
-          const { createGroupsUI } = await import('./groups.js');
-          if (generation !== loadGeneration) return;
-          groupsUI = createGroupsUI({ getUser: () => currentUser, onToast: showToast });
-        }
-        await groupsUI?.refresh();
-      } catch (error) {
-        if (generation !== loadGeneration) return;
-        const message = $('groupError');
-        if (message) { message.textContent = 'Impossible de charger les groupes. Recharge la page pour réessayer.'; message.hidden = false; }
-      }
     }
     function saveState(message) {
       renderAll();
@@ -277,8 +245,7 @@ import { mountNavigation } from './navigation.js';
         card.append(node("strong", {}, coachName(c)));
         if (c.phone) card.append(node("span", {}, c.phone));
         if (c.email) card.append(node("span", {}, c.email));
-        if (c.isSelf) card.append(node('a', {class:'edit',href:'profile.html'}, 'Mon profil'));
-        else {const edit=node('button',{class:'edit',type:'button'},'Modifier');edit.addEventListener('click',()=>openCoach(c.id));card.append(edit);}
+        const edit=node('button',{class:'edit',type:'button'},'Modifier');edit.addEventListener('click',()=>openCoach(c.id));card.append(edit);
         els.coachGrid.append(card);
       });
       els.coachEmpty.classList.toggle("hidden", state.coaches.length > 0);
@@ -289,7 +256,7 @@ import { mountNavigation } from './navigation.js';
       $("athleteForm").reset(); $("athleteId").value = id; $("athleteError").classList.add("hidden");
       $("athleteDialogTitle").textContent = id ? "Modifier la fiche" : "Créer une fiche";
       $("deleteAthleteButton").classList.toggle("hidden", !id);
-      $("deleteAthleteButton").textContent = rosterStore.mode === "legacy" ? "Supprimer la fiche" : "Retirer de mon effectif";
+      $("deleteAthleteButton").textContent = rosterStore.mode === "legacy" ? "Supprimer la fiche" : "Retirer de ma liste";
       const registered = !!state.athletes.find(a=>a.id===id)?.userId;
       ['firstName','lastName','birthDate','sex','status'].forEach(fieldId=>{$(fieldId).disabled=registered;});
       let note=$('registeredProfileNote');
@@ -302,12 +269,13 @@ import { mountNavigation } from './navigation.js';
         $("sex").value = a.sex; $("status").value = a.status; $("weight").value = a.weightKg ?? ""; $("weightUnit").value = "kg";
         $("fights").value = a.fights; $("wins").value = a.wins ?? ""; $("losses").value = a.losses ?? ""; $("athleteNote").value = a.note;
       } else { $("sex").value = ""; $("status").value = "available"; $("weightUnit").value = "kg"; $("fights").value = 0; }
-      $('attachAthleteButton').hidden = !id || registered || rosterStore.mode !== 'modern';
+      $('attachAthleteButton').hidden = !id || registered || rosterStore.mode !== 'modern' || profileData?.account_type !== 'coach';
       athleteFormSnapshot = formSnapshot();
       athleteVersionSnapshot = id ? { ...state.athletes.find(a => a.id === id) } : null;
       updateWeightConversion(); els.athleteDialog.showModal(); setTimeout(() => $(registered?'weight':'firstName').focus(), 0);
     }
     async function openRosterAttachment(id, button) {
+      if (profileData?.account_type !== 'coach') return;
       const owner = currentUser?.id, generation = loadGeneration, request = ++attachmentRequest;
       button.disabled = true; button.textContent = 'Chargement…';
       try {
@@ -388,24 +356,26 @@ import { mountNavigation } from './navigation.js';
 
     function openCoach(id = "") {
       $("coachForm").reset(); $("coachId").value = id; $("coachError").classList.add("hidden");
-      $("coachDialogTitle").textContent = id ? "Modifier le coach" : "Ajouter un coach"; $("deleteCoachButton").classList.toggle("hidden", !id);
+      $("coachDialogTitle").textContent = id ? "Modifier le contact" : "Ajouter un contact"; $("deleteCoachButton").classList.toggle("hidden", !id);
       if (id) { const c = state.coaches.find(x => x.id === id); if (!c) return; $("coachFirstName").value = c.firstName; $("coachLastName").value = c.lastName; $("coachPhone").value = c.phone; $("coachEmail").value = c.email; }
       els.coachDialog.showModal(); setTimeout(() => $("coachFirstName").focus(), 0);
     }
     function coachError(message) { $("coachError").textContent = message; $("coachError").classList.remove("hidden"); }
     async function saveCoach(event) {
+      const owner = currentUser?.id, generation = loadGeneration;
       event.preventDefault(); $("coachError").classList.add("hidden");
       const firstName = $("coachFirstName").value.trim(), lastName = $("coachLastName").value.trim(), phone = $("coachPhone").value.trim(), email = $("coachEmail").value.trim();
       if (!firstName) return coachError("Le prénom est obligatoire.");
       if (email && !$("coachEmail").checkValidity()) return coachError("Le courriel n’est pas valide.");
       const id = $("coachId").value; const coach = { id: id || uid(), firstName, lastName, phone, email };
       const result = id
-        ? await supabase.from("coach_contacts").update(coachToDb(coach)).eq("id", id).select().single()
+        ? await supabase.from("coach_contacts").update(coachToDb(coach)).eq("id", id).eq("coach_id", currentUser.id).select().single()
         : await supabase.from("coach_contacts").insert(coachToDb(coach)).select().single();
+      if (owner !== currentUser?.id || generation !== loadGeneration) return;
       if (result.error) return coachError(result.error.message);
       const saved = coachFromDb(result.data);
       if (id) state.coaches = state.coaches.map(c => c.id === id ? saved : c); else state.coaches.push(saved);
-      els.coachDialog.close(); saveState(id ? "Coach mis à jour." : "Coach ajouté.");
+      els.coachDialog.close(); saveState(id ? "Contact mis à jour." : "Contact ajouté.");
     }
 
     function renderCoachChoices() {
@@ -448,7 +418,7 @@ import { mountNavigation } from './navigation.js';
         if (box.querySelector(".include-email")?.checked && c.email) details.push(c.email);
         contacts.push(details.length ? `${coachName(c)} — ${details.join(" — ")}` : coachName(c));
       });
-      if (contacts.length) lines.push("", "COACHS CONTACTS", ...contacts);
+      if (contacts.length) lines.push("", "COACHS DE CONTACT", ...contacts);
       return lines.join("\n");
     }
     function updateSharePreview() { $("sharePreview").textContent = shareText(); }
@@ -487,7 +457,7 @@ import { mountNavigation } from './navigation.js';
       if (formSnapshot() !== athleteFormSnapshot) { athleteError('Enregistre tes modifications avant de rattacher ce compte.'); return; }
       openRosterAttachment($('athleteId').value, $('attachAthleteButton'));
     });
-    $("addAthleteButton").addEventListener("click", () => athleteAddUI.open()); $("athleteForm").addEventListener("submit", saveAthlete);
+    $("addAthleteButton").addEventListener("click", () => openAthlete()); $("athleteForm").addEventListener("submit", saveAthlete);
     $("weight").addEventListener("input", updateWeightConversion); $("weightUnit").addEventListener("change", updateWeightConversion);
     $('deleteAthleteButton').addEventListener('click', async () => {
       const id = $('athleteId').value;
@@ -495,15 +465,15 @@ import { mountNavigation } from './navigation.js';
       if (!athlete) return;
       const legacy = rosterStore.mode === 'legacy';
       const confirmation = legacy
-        ? `Supprimer définitivement la fiche de ${athlete.firstName} ${athlete.lastName} et ses notes de ton effectif ? Cette action est irréversible.`
-        : `Retirer ${athlete.firstName} ${athlete.lastName} de ton effectif ? Son profil et les liens avec les autres coachs seront conservés.`;
+        ? `Supprimer définitivement la fiche de ${athlete.firstName} ${athlete.lastName} et ses notes de ta liste ? Cette action est irréversible.`
+        : `Retirer ${athlete.firstName} ${athlete.lastName} de ta liste ? Son profil et les liens avec les autres coachs seront conservés.`;
       if (!confirm(confirmation)) return;
       $('deleteAthleteButton').disabled = true;
       try {
         await rosterStore.removeAthlete(id);
         state.athletes = state.athletes.filter(item => item.id !== id);
         els.athleteDialog.close();
-        saveState(legacy ? 'Fiche supprimée de ton effectif.' : 'Athlète retiré de ton effectif.');
+        saveState(legacy ? 'Fiche supprimée de ta liste.' : 'Athlète retiré de ta liste.');
       } catch (error) { athleteError(error.message); }
       finally { $('deleteAthleteButton').disabled = false; }
     });
@@ -512,9 +482,11 @@ import { mountNavigation } from './navigation.js';
       const id = $('coachId').value;
       const coach = state.coaches.find(item => item.id === id);
       if (!coach || !confirm(`Supprimer ${coachName(coach)} de tes contacts ?`)) return;
+      const owner = currentUser?.id, generation = loadGeneration;
       $('deleteCoachButton').disabled = true;
       try {
-        const { error } = await supabase.from('coach_contacts').delete().eq('id', id).eq('coach_id', currentUser.id);
+        const { error } = await supabase.from('coach_contacts').delete().eq('id', id).eq('coach_id', owner);
+        if (owner !== currentUser?.id || generation !== loadGeneration) return;
         if (error) throw error;
         state.coaches = state.coaches.filter(item => item.id !== id);
         els.coachDialog.close(); saveState('Contact supprimé.');
@@ -543,7 +515,6 @@ import { mountNavigation } from './navigation.js';
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
 
     function clearPrivateState() {
-      groupsUI?.invalidate();
       attachmentRequest++;
       attachmentUI.invalidate();
       loadGeneration++; rosterStore.reset();

@@ -86,7 +86,8 @@ test('external personal-connections requests never inherit another athlete’s c
  const page=await surface({role:'coach'});
  try {
   assert.equal(page.app.state.selectedAthlete.user_id,'athlete-user');
-  page.$('connectionsButton').dispatchEvent(new page.window.CustomEvent('open-personal-connections'));
+  assert.equal(page.$('connectionsButton').hidden,true);
+  page.window.dispatchEvent(new page.window.CustomEvent('connections:open',{detail:{personal:true}}));
   assert.deepEqual(structuredClone(page.calls.at(-1)),['connections',{personal:true}]);
   page.$('connectionsButton').click();assert.deepEqual(structuredClone(page.calls.at(-1)),['connections',{personal:false}]);
  }finally{await page.close();}
@@ -96,7 +97,7 @@ test('athlete starts with today, can add workouts and context but cannot drag lo
   const page=await surface({role:'athlete',sessions:[makeSession('a')]});
   try{
     assert.equal(page.app.state.view,'today');assert.equal(page.$('athleteSidebar').hidden,true);
-    assert.equal(page.$('rosterLink').hidden,true);assert.equal(page.$('addSessionButton').hidden,false);
+    assert.equal(page.$('rosterLink').hidden,false);assert.equal(page.$('addSessionButton').hidden,false);
     assert.equal(page.$('addEventButton').hidden,false);assert.equal(page.$('calendar').querySelectorAll('.day').length,1);
     assert.equal(page.$('calendar').querySelectorAll('.drag-handle').length,0);
     assert.equal(page.app.canAdd(),true);assert.equal(page.app.canEdit(makeSession('a')),false);
@@ -496,7 +497,7 @@ test('dragging a continued band shifts the complete note relative to its visible
 
 test('group picker identifies groups and displays only their common sessions with no personal completion',async()=>{
  const master={...makeSession('shared'),athlete_id:null,is_group_session:true,shared_session_id:'shared',group_ids:['g1'],athlete_ids:[]};
- const page=await surface({groups:[{id:'g1',name:'Compétition',athlete_ids:['athlete']}],sessions:[master,makeSession('private')]});
+ const page=await surface({groups:[{id:'g1',coach_id:'coach',name:'Compétition',athlete_ids:['athlete']}],sessions:[master,makeSession('private')]});
  try {
   assert.equal(page.app.state.groupsAvailable,true);
   const picker=[...page.$('athleteList').querySelectorAll('button')].find(b=>b.textContent.includes('Compétition'));
@@ -509,6 +510,23 @@ test('group picker identifies groups and displays only their common sessions wit
   assert.match(page.$('athleteTitle').textContent,/Compétition/);
   page.$('journalButton').click();await settle();assert.equal(page.app.state.selectedGroup,null);assert.equal(page.app.state.surface,'journal');
  }finally{await page.close();}
+});
+
+test('group admin with athlete account can select and edit the managed group, members keep only their own calendar',async()=>{
+ const groups=[{id:'managed',name:'MRJEU',role:'admin',coach_id:'other',athlete_ids:['athlete']},{id:'joined',name:'Compétiteurs',role:'member',coach_id:'other',athlete_ids:['athlete']}];
+ const master={...makeSession('shared','other'),athlete_id:null,is_group_session:true,shared_session_id:'shared',group_ids:['managed'],athlete_ids:[]};
+ const page=await surface({role:'athlete',groups,sessions:[master],url:'https://example.test/planning.html?group=managed'});
+ try{
+  assert.equal(page.$('athletePickerButton').hidden,false);page.$('athletePickerButton').click();assert.equal(page.$('athletePickerDialog').open,true);
+  assert.equal(page.app.state.selectedGroup.id,'managed');assert.equal(page.app.canAdd(),true);assert.equal(page.app.canEdit(master),true);
+  assert.equal(page.app.canEdit({...master,group_ids:['managed','joined']}),false);
+  assert.equal(page.app.canEdit({...master,athlete_ids:['someone-else']}),false);
+  assert.equal(page.app.state.groups.length,1);assert.doesNotMatch(page.$('athleteList').textContent,/Compétiteurs/);
+  assert.equal(page.$('calendar').querySelector('.completion-button'),null);
+ }finally{await page.close();}
+ const member=await surface({role:'athlete',groups:[groups[1]],url:'https://example.test/planning.html?group=joined'});
+ try{assert.equal(member.$('athletePickerButton').hidden,true);assert.equal(member.app.state.selectedGroup,null);assert.equal(member.app.state.selectedAthlete.user_id,'athlete-user');}
+ finally{await member.close();}
 });
 
 test('unavailable group feature keeps individual planning usable and shared copies never drag',async()=>{
@@ -525,7 +543,7 @@ test('unavailable group feature keeps individual planning usable and shared copi
 });
 
 test('group deep link survives refresh and late group calendar cannot overwrite an athlete',async()=>{
- const page=await surface({groups:[{id:'g1',name:'Équipe',athlete_ids:['athlete']}],url:'https://example.test/planning.html?group=g1'});
+ const page=await surface({groups:[{id:'g1',coach_id:'coach',name:'Équipe',athlete_ids:['athlete']}],url:'https://example.test/planning.html?group=g1'});
  try {
   assert.equal(page.app.state.selectedGroup.id,'g1');
   let resolve;page.controls.groupCalendar=()=>new Promise(r=>{resolve=r;});const pending=page.app.refreshCalendar();
@@ -560,7 +578,7 @@ test('day plus opens the three original choices with the clicked date and neutra
 });
 
 test('day library choices preserve group context and reject a stale calendar, permission or account',async()=>{
- const page=await surface({groups:[{id:'g1',name:'Équipe',athlete_ids:['athlete']}],url:'https://example.test/planning.html?group=g1'});
+ const page=await surface({groups:[{id:'g1',coach_id:'coach',name:'Équipe',athlete_ids:['athlete']}],url:'https://example.test/planning.html?group=g1'});
  try {
   const open=()=>{const day=page.$('calendar').querySelectorAll('.day')[1];day.querySelector('.add-day').click();page.$('dayAddOptions').querySelector('button').click();return {date:day.dataset.date,select:page.calls.at(-1)[1].onSelect};};
   const group=open();assert.match(page.$('dayAddContext').textContent,/Groupe · Équipe/);
@@ -588,7 +606,7 @@ test('unlocked notes omit access icons and short text has a safe compact preview
 
 test('group notes show only on the selected group, remain author-only and can move as a master',async()=>{
  const note=makeEvent('group-note',{athlete_id:null,is_group_event:true,shared_event_id:'group-note',group_ids:['g1'],athlete_ids:[],is_locked:false});
- const page=await surface({groups:[{id:'g1',name:'Équipe',athlete_ids:['athlete']}],events:[note,makeEvent('individual')],url:'https://example.test/planning.html?group=g1'});
+ const page=await surface({groups:[{id:'g1',coach_id:'coach',name:'Équipe',athlete_ids:['athlete']}],events:[note,makeEvent('individual')],url:'https://example.test/planning.html?group=g1'});
  try {
   page.app.state.anchor=note.date;await page.app.refreshCalendar();
   assert.equal(page.$('calendar').querySelectorAll('.event-card').length,1);assert.equal(page.$('addEventButton').hidden,false);

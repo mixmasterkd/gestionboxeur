@@ -18,7 +18,7 @@
 <header class="app-header">
 <a id="gymHome" class="gym-identity" href="./"><span id="gymBrand" class="gym-name">Mon espace</span><span id="gymAddress" class="gym-address" hidden></span></a>
 <nav class="main-nav" aria-label="Navigation principale"><a id="rosterLink" href="roster.html" hidden>Athlètes &amp; listes</a><a href="planning.html" aria-current="page">Planification</a></nav>
-<div class="account-nav"><span id="accountName" class="account-name"></span><button id="connectionsButton" class="icon-button" type="button" title="Coachs et invitations" aria-label="Coachs et invitations">↗</button><a id="adminLink" href="admin/" hidden>Admin</a><button id="logoutButton" class="quiet-button" type="button">Déconnexion</button></div>
+<div class="account-nav"><span id="accountName" class="account-name"></span><button id="connectionsButton" class="icon-button" type="button" hidden aria-hidden="true" tabindex="-1" title="Coachs et invitations" aria-label="Coachs et invitations">↗</button><a id="adminLink" href="admin/" hidden>Admin</a><button id="logoutButton" class="quiet-button" type="button">Déconnexion</button></div>
 </header>
 <div id="globalError" class="banner error-banner" role="alert" hidden></div><div id="connectionBanner" class="banner" role="status" hidden></div>
 <div id="loading" class="loading-state"><span class="loading-dot"></span>Chargement de ton espace…</div>
@@ -38,7 +38,7 @@
 <dialog id="athletePickerDialog" class="app-dialog athlete-picker-dialog" aria-labelledby="athletePickerTitle"><aside id="athleteSidebar" class="athlete-sidebar" hidden aria-label="Choix de l’athlète">
 <div class="sidebar-heading"><h2 id="athletePickerTitle">Choisir un calendrier</h2><button id="closeAthletePicker" class="close-button" type="button" aria-label="Fermer le choix de calendrier">×</button></div>
 <label class="search-box"><span aria-hidden="true">⌕</span><input id="athleteSearch" type="search" aria-label="Rechercher un athlète ou un groupe"></label><div id="athleteList" class="athlete-list"></div>
-<div class="sidebar-footer"><a class="roster-shortcut" href="roster.html#groupes">Gérer les groupes</a><a class="roster-shortcut" href="roster.html">Préparer une liste combat / sparring</a><button id="manageConnectionsButton" class="quiet-button" type="button">Coachs et invitations ↗</button></div>
+<div class="sidebar-footer"><a class="roster-shortcut" href="groups.html">Mes groupes</a><a class="roster-shortcut" href="roster.html">Préparer une liste combat / sparring</a><button id="manageConnectionsButton" class="quiet-button" type="button" hidden>Coachs et invitations ↗</button></div>
 </aside></dialog>
 <dialog id="dayAddDialog" class="app-dialog day-add-dialog" aria-labelledby="dayAddTitle" aria-describedby="dayAddContext"><div class="dialog-heading"><div><h2 id="dayAddTitle" tabindex="-1"></h2><p id="dayAddContext" class="muted"></p></div><button id="closeDayAdd" class="close-button" type="button" aria-label="Fermer">×</button></div><div id="dayAddOptions" class="day-add-options"></div></dialog>
 <dialog id="sessionDialog" class="app-dialog wide-dialog" aria-labelledby="sessionDialogTitle"><div id="sessionDialogContent"></div></dialog>

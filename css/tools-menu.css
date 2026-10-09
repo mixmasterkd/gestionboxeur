@@ -1,0 +1,11 @@
+:root .tools-menu-dialog{position:fixed;inset:auto;margin:0;z-index:90;box-sizing:border-box;width:320px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:0;border:1px solid var(--line);border-radius:14px;background:var(--paper);color:var(--ink);box-shadow:0 12px 40px #0005;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.tools-menu-heading{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px 8px 14px;border-bottom:1px solid var(--line);background:var(--white)}
+.tools-menu-heading h2{margin:0;font-size:16px;letter-spacing:-.02em}
+.tools-menu-list{display:grid;gap:2px;padding:6px}
+.tools-menu-item{display:flex;align-items:center;gap:11px;min-height:44px;padding:10px 12px;box-sizing:border-box;border:1px solid transparent;border-radius:8px;color:var(--ink);text-decoration:none;font-size:14px;line-height:1.35;font-weight:550}
+.tools-menu-item:hover{background:var(--soft);border-color:var(--line)}
+.tools-menu-item[aria-current="page"]{background:var(--accent-soft);border-color:var(--accent-line);font-weight:650}
+.tools-menu-icon{display:flex;flex-shrink:0;color:var(--muted)}
+.tools-menu-item[aria-current="page"] .tools-menu-icon{color:var(--ink)}
+.tools-menu-section{margin:6px 10px 0;padding:11px 2px 5px;border-top:1px solid var(--line);font-size:11px;line-height:1.4;color:var(--muted);font-weight:650}
+:root .nav-links .nav-tools-trigger[aria-current="page"]{background:var(--accent-soft);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent-line)}

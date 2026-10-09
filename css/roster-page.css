@@ -7,4 +7,5 @@
 @import './share-controls.css';
 @import './ui-polish.css';
 
-@import './groups.css';
+.roster-contact-hint {color:var(--muted);font-size:13px;line-height:1.5;margin:0;padding:0 32px 22px;}
+@media(max-width:620px){.roster-contact-hint{padding:0 17px 20px;}}

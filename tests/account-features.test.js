@@ -97,16 +97,28 @@ test('personal account can request coaching activation only for itself',async()=
 test('coach personal contact saves independently of unused sports fields and defaults to account email',async()=>{
  const ui=await profileSurface('coach',{birthDate:null});try{
   assert.equal(ui.$('profileEmail').value,'account@example.test');assert.equal(ui.$('profileBirthDate').required,false);
-  assert.equal(ui.$('sportsProfileForm').hidden,true);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'false');
+  assert.equal(ui.$('sportsProfileForm').hidden,false);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'true');assert.equal(ui.$('sportsToggle').textContent,'Masquer');
   ui.$('profileWins').value='900';ui.$('profileWeight').value='-1';
   ui.$('profileEmail').value='contact@example.test';ui.$('athleteProfileForm').dispatchEvent(new ui.window.Event('submit',{cancelable:true}));await settle();
   const patch=ui.calls.find(c=>c[0]==='save_athlete_profile_checked')[1].p_data;
   assert.equal(patch.email,'contact@example.test');assert.equal(patch.birth_date,null);
   assert.deepEqual(Object.keys(patch).sort(),['birth_date','email','first_name','last_name','phone','sex']);
   assert.equal(ui.$('personalStatus').className,'success');
-  ui.$('sportsToggle').click();assert.equal(ui.$('sportsProfileForm').hidden,false);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'true');
-  ui.$('sportsToggle').click();assert.equal(ui.$('sportsProfileForm').hidden,true);
+  ui.$('sportsToggle').click();assert.equal(ui.$('sportsProfileForm').hidden,true);assert.equal(ui.$('sportsToggle').getAttribute('aria-expanded'),'false');
+  ui.$('sportsToggle').click();assert.equal(ui.$('sportsProfileForm').hidden,false);
  }finally{await ui.close();}
+});
+
+test('profiles show sports by default and keep only the coaching activation action outside Menu', async () => {
+  for (const role of ['coach', 'athlete']) {
+    const ui = await profileSurface(role);
+    try {
+      assert.equal(ui.$('sportsProfileForm').hidden, false);
+      assert.equal(ui.$('sportsPanel').classList.contains('hidden'), false);
+      assert.equal(ui.window.document.querySelector('a[href="planning.html#coachs"]'), null);
+      assert.equal(ui.$('enableCoachingButton').hidden, role === 'coach');
+    } finally { await ui.close(); }
+  }
 });
 
 test('saved contact email is displayed but password recovery always uses the account email',async()=>{

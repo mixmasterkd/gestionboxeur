@@ -1,7 +1,10 @@
 import { mountTestSessionBanner } from './test-session.js';
+import { mountProfileMenu } from './profile-menu.js';
+import { mountToolsMenu } from './tools-menu.js';
 
 // The return action remains available even if the test account cannot load.
 mountTestSessionBanner();
+let profileMenu, toolsMenu, removeResponsiveOrder;
 
 const icons = {
   logout: '<path d="M9 5H5v14h4m5-14 7 7-7 7m7-7H9"/>',
@@ -12,15 +15,18 @@ const icons = {
   library: '<path d="M4 4h6v16H4zM14 4h6v16h-6zM6 8h2m8 0h2"/>',
   gym: '<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM9 21v-8h6v8"/>',
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/>',
-  admin: '<path d="m12 3 8 4v5c0 5-8 9-8 9s-8-4-8-9V7z"/><path d="m8 12 3 3 5-6"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
 };
 
 function icon(name) {
   return `<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
 }
 
-/** Role-specific primary navigation. Authorization remains in the data layer. */
+/** Primary destinations stay stable across roles. Authorization remains in the data layer. */
 export function mountNavigation({ role = 'athlete', isAdmin = false, section = '' } = {}) {
+  removeResponsiveOrder?.();
+  profileMenu?.destroy();
+  toolsMenu?.destroy();
   const accountName = document.getElementById('accountName');
   document.getElementById('primaryNavigation')?.remove();
   const path = location.pathname;
@@ -29,12 +35,11 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   const athlete = role === 'athlete';
   const onPlanning = path.endsWith('/planning.html');
   const onJournal=onPlanning&&(section==='journal'||!section&&location.hash==='#journal');
-  const onProfile = path.endsWith('/profile.html');
   const params = new URLSearchParams(location.search);
   const previewRole = import.meta.env?.DEV && ['coach', 'athlete'].includes(params.get('demo')) ? params.get('demo') : null;
   const route = href => {
     const url = new URL(base + href, location.href);
-    if (previewRole && /\/(?:planning|tools)\.html$/.test(url.pathname)) url.searchParams.set('demo', previewRole);
+    if (previewRole && /\/(?:planning|tools|groups)\.html$/.test(url.pathname)) url.searchParams.set('demo', previewRole);
     return url.href;
   };
   const nav = document.createElement('nav');
@@ -49,52 +54,52 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   identity.querySelector('.nav-role').textContent = athlete ? 'Mon compte' : 'Fonctions coach';
   if (accountName) identity.append(accountName);
   nav.append(identity);
-  const items = athlete
-    ? [
-      { icon: 'calendar', text: 'Calendrier', href: 'planning.html', active: onPlanning && !onJournal && location.hash !== '#coachs', calendar: true },
-      { icon: 'athletes', text: 'Mes coachs', href: 'planning.html#coachs', active: onPlanning && location.hash === '#coachs', connections: true },
-      { icon: 'profile', text: 'Mon profil', href: 'profile.html', active: onProfile },
-    ]
-    : [
+  const items = [
       { icon: 'calendar', text: 'Calendrier', href: 'planning.html', active: onPlanning&&!onJournal, calendar:true },
       { icon: 'athletes', text: 'Athlètes', href: 'roster.html', active: path.endsWith('/roster.html') },
-      { icon: 'gym', text: 'Mon profil', href: 'profile.html', active: onProfile },
+      { icon: 'menu', text: 'Menu', menu: true, active: inAdmin && isAdmin },
     ];
   items.splice(1,0,{icon:'journal',text:'Journal',href:'planning.html#journal',active:onJournal,journal:true});
-  items.splice(items.length-1,0,{icon:'tools',text:'Outils',href:'tools.html',active:path.endsWith('/tools.html')});
-  if (isAdmin) items.push({ icon: 'admin', text: 'Administration', short: 'Admin', href: 'admin/', active: inAdmin });
+  items.splice(items.length-1,0,{icon:'tools',text:'Outils',tools:true,active:path.endsWith('/tools.html')});
   const links = document.createElement('div');
   links.className = 'nav-links';
   for (const item of items) {
-    const link = document.createElement('a');
-    link.href = route(item.href);
-    if (previewRole && !/\/(?:planning|tools)\.html$/.test(new URL(link.href).pathname)) link.title = 'Quitter l’aperçu et ouvrir mon espace connecté';
+    const isMenu = item.menu || item.tools;
+    const link = document.createElement(isMenu ? 'button' : 'a');
+    link.dataset.navItem = item.icon;
+    if (isMenu) { link.type = 'button'; link.className = 'nav-menu-trigger'; if (item.menu) link.dataset.primaryMenu = 'true'; else { link.dataset.toolsMenu = 'true'; link.classList.add('nav-tools-trigger'); } }
+    else link.href = route(item.href);
+    if (!isMenu && previewRole && !/\/(?:planning|tools)\.html$/.test(new URL(link.href).pathname)) link.title = 'Quitter l’aperçu et ouvrir mon espace connecté';
     link.innerHTML = `${icon(item.icon)}<span class="nav-label">${item.text}</span>${item.short ? `<span class="nav-label-short">${item.short}</span>` : ''}`;
     if (item.active) link.setAttribute('aria-current', 'page');
     if ((item.journal||item.calendar)&&onPlanning) link.addEventListener('click',event=>{const target=document.getElementById(item.journal?'journalButton':'calendarButton');if(target){event.preventDefault();target.click();}});
-    if (item.connections && onPlanning) link.addEventListener('click', event => {
-      const button = document.getElementById('connectionsButton');
-      if (button) { event.preventDefault(); button.click(); }
-    });
     links.append(link);
   }
+  // Keep keyboard and screen-reader order aligned with the visible mobile bar.
+  const mobile = window.matchMedia('(max-width: 800px)');
+  const arrangeLinks = () => {
+    const order = mobile.matches ? ['menu', 'tools', 'calendar', 'journal', 'athletes'] : items.map(item => item.icon);
+    if ([...links.children].every((node, index) => node.dataset.navItem === order[index])) return;
+    const focused = links.contains(document.activeElement) ? document.activeElement : null;
+    for (const key of order) links.append(links.querySelector(`[data-nav-item="${key}"]`));
+    focused?.focus({ preventScroll: true });
+  };
+  arrangeLinks();
+  mobile.addEventListener('change', arrangeLinks);
+  removeResponsiveOrder = () => mobile.removeEventListener('change', arrangeLinks);
   nav.append(links);
   document.body.classList.add('has-navigation');
   document.body.dataset.accountRole = athlete ? 'athlete' : 'coach';
   document.body.prepend(nav);
-  let connections=document.getElementById('connectionsButton');
-  if(!connections&&(onProfile||path.endsWith('/roster.html')||path.endsWith('/tools.html')||inAdmin)) {
-    const actions=document.querySelector('.topbar .top-actions, .topbar .topbar-actions');
-    if(actions) {
-      connections=document.createElement('a');connections.id='connectionsButton';connections.className='icon-button header-connections';
-      connections.href=route('planning.html#coachs');
-      const logout=document.getElementById('logoutButton');
-      if(logout?.parentElement===actions)logout.before(connections);else actions.append(connections);
-    }
-  }
+  const profileTrigger = links.querySelector('[data-primary-menu]');
+  if (profileTrigger) profileMenu = mountProfileMenu({ trigger: profileTrigger, route, isAdmin });
+  const toolsTrigger = links.querySelector('[data-tools-menu]');
+  if (toolsTrigger) toolsMenu = mountToolsMenu({ trigger: toolsTrigger, route });
+  // Keep the legacy calendar control available to existing listeners, while the
+  // only visible connections entry lives in Menu on every page.
+  const connections=document.getElementById('connectionsButton');
   if(connections) {
-    connections.innerHTML=icon('athletes')+'<span class="connections-label">Coachs et invitations</span>';
-    connections.setAttribute('aria-label','Coachs et invitations');connections.title='Coachs et invitations';
+    connections.hidden=true;connections.setAttribute('aria-hidden','true');connections.tabIndex=-1;
   }
   const logout=document.getElementById('logoutButton');
   if(logout){logout.classList.add('header-logout');logout.innerHTML=icon('logout')+'<span>Déconnexion</span>';logout.setAttribute('aria-label','Déconnexion');logout.title='Déconnexion';}
@@ -115,8 +120,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
     clean.hash = '';
     history.replaceState(history.state, '', clean.href);
     requestAnimationFrame(() => {
-      const connections = document.getElementById('connectionsButton');
-      if (connections && !connections.hidden) connections.dispatchEvent(new CustomEvent('open-personal-connections'));
+      window.dispatchEvent(new CustomEvent('connections:open', { detail: { personal: true } }));
     });
   }
 }

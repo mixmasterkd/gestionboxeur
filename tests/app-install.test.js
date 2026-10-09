@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Window } from 'happy-dom';
-import { appInstallInstructions, mountAppInstall } from '../js/app-install.js';
+import { appInstallInstructions, mountAppInstall, prepareMenuInstall, openInstall, isAppInstalled } from '../js/app-install.js';
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 function fixture({ hasHost = true, userAgent = '', platform = '', maxTouchPoints = 0, standalone = false, mode = null, fallback = false } = {}) {
@@ -69,23 +69,45 @@ test('login installation is a text action alongside unchanged auth actions and r
   } finally { ui?.destroy(); await window.happyDOM.abort(); }
 });
 
-test('profile Application section is compact and entirely hidden after installation or in standalone mode', async () => {
+test('profile keeps account controls and no longer duplicates installation at the bottom', async () => {
   const html = await readFile(new URL('../profile.html', import.meta.url), 'utf8');
-  for (const standalone of [false, true]) {
-    const window = new Window({ url: 'https://example.test/profile.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
-    window.document.write(html); Object.defineProperty(window.navigator, 'standalone', { value: standalone });
-    const doc = window.document, section = doc.querySelector('[data-app-install-section]');
-    assert.equal(section.hidden, true); assert.equal(section.querySelector('h2').textContent, 'Application');
-    assert.ok(doc.getElementById('enableCoachingButton')); assert.ok(doc.getElementById('resetPasswordButton'));
-    const ui = mountAppInstall({ doc, view: window });
-    try {
-      assert.equal(section.hidden, standalone);
-      assert.equal(doc.getElementById('appInstallButton').classList.contains('secondary'), true);
-      window.dispatchEvent(new window.Event('appinstalled'));
-      assert.equal(section.hidden, true); assert.equal(doc.getElementById('appInstallMount').hidden, true);
-      assert.ok(doc.getElementById('enableCoachingButton')); assert.ok(doc.getElementById('resetPasswordButton'));
-    } finally { ui.destroy(); await window.happyDOM.abort(); }
-  }
+  const window = new Window({ url: 'https://example.test/profile.html', settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
+  try {
+    window.document.write(html);
+    assert.equal(window.document.querySelector('[data-app-install-section]'), null);
+    assert.equal(window.document.getElementById('appInstallMount'), null);
+    assert.ok(window.document.getElementById('enableCoachingButton'));
+    assert.ok(window.document.getElementById('resetPasswordButton'));
+  } finally { await window.happyDOM.abort(); }
+});
+
+test('menu installation reuses captured prompt across navigation remounts and returns once to menu', async () => {
+  const app = fixture({ hasHost: false });
+  const options = { doc: app.doc, view: app.window };
+  const controller = prepareMenuInstall(options);
+  try {
+    const target = app.$('#before');
+    assert.equal(app.$('#menuAppInstallMount').style.display, 'none');
+    assert.equal(prepareMenuInstall(options), controller);
+    let prompts = 0, returns = 0;
+    app.prompt(() => { prompts++; return Promise.resolve({ outcome: 'dismissed' }); });
+    const task = openInstall({ ...options, returnFocus: target, onClose: () => returns++ });
+    assert.equal(prompts, 1);
+    await task;
+    assert.equal(returns, 1); assert.equal(app.doc.activeElement, target);
+    openInstall({ ...options, returnFocus: target, onClose: () => returns++ });
+    assert.equal(app.$('#appInstallDialog').open, true);
+    assert.equal(app.$('.app-install-done').textContent, '← Menu');
+    app.$('.app-install-done').click();
+    await flush();
+    assert.equal(returns, 2); assert.equal(app.doc.activeElement, target);
+    assert.equal(app.doc.querySelectorAll('#appInstallDialog').length, 1);
+    let changed = 0;
+    app.window.addEventListener('app-install-state', () => changed++);
+    app.window.dispatchEvent(new app.window.Event('appinstalled'));
+    assert.equal(isAppInstalled(options), true); assert.equal(changed, 1);
+    openInstall(options); assert.equal(app.$('#appInstallDialog').open, false);
+  } finally { controller.destroy(); await app.close(); }
 });
 
 test('instructions identify iPhone, iPad desktop mode, Android, Safari Mac and desktop', () => {

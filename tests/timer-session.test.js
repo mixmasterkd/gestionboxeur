@@ -14,7 +14,7 @@ test('session locks every timer command, cancels short holds and unlocks without
   const app = fixture(); try {
     app.ui.select('intervals'); app.$('timerStart').click(); app.$('timerFocusOpen').click();
     assert.equal(app.$('timerBoard').dataset.sessionLocked, 'true');
-    app.$('timerReset').click(); app.$('timerStart').click(); app.$('timerSessionClose').click(); app.$('toolsBack').click(); assert.equal(app.$('timerBoard').dataset.status, 'running');
+    app.$('timerReset').click(); app.$('timerStart').click(); app.$('timerSessionClose').click(); app.ui.navigate({ tool: 'steps' }); assert.equal(app.$('timerBoard').dataset.status, 'running');
     app.pointer('pointerdown'); app.advance(2900); app.pointer('pointerup'); app.advance(1000); assert.equal(app.$('timerBoard').dataset.sessionLocked, 'true');
     app.pointer('pointerdown'); app.advance(3000); assert.equal(app.$('timerBoard').dataset.sessionLocked, 'false'); assert.equal(app.$('timerBoard').dataset.status, 'running');
     app.pointer('pointerup'); app.$('timerSessionLock').dispatchEvent(new app.window.MouseEvent('click', { detail: 1 })); assert.equal(app.$('timerBoard').dataset.sessionLocked, 'false');

@@ -2,7 +2,7 @@ import { VisualMemoryGame, DualTaskGame } from './mental-engine.js';
 import { mentalScore } from './mental-records.js';
 
 const TITLES = { 'visual-memory': 'Mémoire visuelle', 'dual-task': 'Double Tâche' };
-export function mountMentalGame(host, { mode, store, now = () => performance.now(), random = Math.random, autoTick = true, onActivity = () => {}, onBack = () => {} } = {}) {
+export function mountMentalGame(host, { mode, store, now = () => performance.now(), random = Math.random, autoTick = true, onActivity = () => {} } = {}) {
   if (!Object.hasOwn(TITLES, mode)) throw new Error('Mode de jeu invalide.');
   const doc = host.ownerDocument, view = doc.defaultView, memory = mode === 'visual-memory';
   const game = memory ? new VisualMemoryGame({ now, random }) : new DualTaskGame({ now, random });
@@ -10,7 +10,7 @@ export function mountMentalGame(host, { mode, store, now = () => performance.now
   let message = '', recordError = false, away = false;
   const $ = id => host.querySelector(`#${id}`);
   host.innerHTML = `<section class="mental" data-game="${mode}" aria-label="${TITLES[mode]}">
-    <header class="mental-heading"><button id="mentalBack" class="button secondary" type="button">← Jeux</button><h2>${TITLES[mode]}</h2></header>
+    <header class="mental-heading"><h2>${TITLES[mode]}</h2></header>
     <p id="mentalIntro" class="mental-intro">${memory ? 'Mémorise les cases éclairées ensemble, puis retrouve-les dans l’ordre de ton choix. Trois vies pour toute la partie.' : 'Touche les cercles rapidement. Ne touche pas les triangles : compte-les mentalement. Trente symboles, puis une question.'}</p>
     <div class="mental-metrics">${memory ? '<div><span>Niveau</span><output id="mentalLevel">1</output></div><div><span>Retrouvées</span><output id="mentalFound">0 / 3</output></div><div><span>Vies</span><output id="mentalLives">3</output></div>' : '<div><span>Série</span><output id="mentalProgress">0 / 30</output></div><div><span>Objectif</span><output>Cercles</output></div>'}<div><span>Record</span><output id="mentalBest">—</output></div></div>
     <p id="mentalStatus" class="mental-status" role="status" aria-live="polite">Prêt</p>
@@ -102,7 +102,6 @@ export function mountMentalGame(host, { mode, store, now = () => performance.now
   $('mentalStart').addEventListener('click', () => { if (saving || pending || game.active) return; recorded = false; away = false; $('mentalAnswer').value = ''; $('mentalAnswerError').hidden = true; draw(game.start()); schedule(); });
   function interrupt(hidden = false) { away = hidden; if (frame !== null) view.cancelAnimationFrame(frame); frame = null; draw(game.interrupt()); }
   $('mentalStop').addEventListener('click', () => { if (view.confirm('Arrêter cette partie ? Elle ne sera pas enregistrée.')) interrupt(); });
-  $('mentalBack').addEventListener('click', onBack);
   $('mentalAnswerForm').addEventListener('submit', event => {
     event.preventDefault(); const raw = $('mentalAnswer').value, answer = raw.trim() === '' ? NaN : Number(raw);
     if (!game.answer?.(answer)) { $('mentalAnswerError').hidden = false; return; }

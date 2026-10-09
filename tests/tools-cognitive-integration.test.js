@@ -17,25 +17,25 @@ function fixture(options={}) {
 }
 test('games open from actual tools, save a personal best and leave existing boxing tools operational',async()=>{
   const f=fixture();try{
-    f.window.document.querySelector('button[data-tool=cognitive]').click();await settle();f.window.document.querySelector('[data-game=tiles]').click();await settle();
-    assert.equal(f.$('toolTitle').textContent,'Jeux cognitifs');assert.equal(f.$('cognitiveSound').checked,false);
+    await f.ui.navigate({tool:'cognitive',game:'tiles'});await settle();
+    assert.equal(f.$('toolTitle').textContent,'Tuiles');assert.equal(f.$('cognitiveSound').checked,false);
     f.$('cognitiveStart').click();for(let i=0;i<16;i++)f.advance(100);
     f.window.document.querySelector('.cognitive-tile[data-index="0"]').click();
     for(let i=0;i<34;i++)f.advance(100);
     f.window.document.querySelector('.cognitive-tile[data-index="1"]').click();await settle();
     assert.deepEqual(await f.store.listRecords(),[{mode:'tiles-6',score:1}]);
-    f.$('toolsBack').click();assert.equal(f.$('toolsMenu').hidden,false);
+    f.ui.navigate({tool:'steps'});assert.ok(f.$('stepTap'));
     f.ui.select('boxing');assert.ok(f.$('timerStart'));f.$('timerStart').click();f.advance(500);
     assert.equal(f.$('timerBoard').dataset.status,'running');f.$('timerReset').click();
-    f.ui.select('cognitive');f.window.document.querySelector('[data-game=tiles]').click();await settle();assert.equal(f.$('cognitiveRecord').textContent,'1');
+    await f.ui.select('cognitive');await settle();assert.equal(f.$('cognitiveRecord').textContent,'1');
   }finally{await f.close();}
 });
 test('active game respects leave confirmation and releases its screen lock when stopped',async()=>{
   let requests=0,releases=0;const f=fixture();try{
     Object.defineProperty(f.window.navigator,'wakeLock',{value:{async request(){requests++;return {addEventListener(){},async release(){releases++;}};}}});
-    f.ui.select('cognitive');f.window.document.querySelector('[data-game=tiles]').click();await settle();f.$('cognitiveStart').click();await settle();assert.equal(requests,1);
-    f.window.confirm=()=>false;f.$('toolsBack').click();assert.ok(f.$('cognitiveStart'));assert.equal(releases,0);
-    f.window.confirm=()=>true;f.$('toolsBack').click();await settle();assert.equal(releases,1);assert.equal(f.$('cognitiveStart'),null);
+    await f.ui.select('cognitive');await settle();f.$('cognitiveStart').click();await settle();assert.equal(requests,1);
+    f.window.confirm=()=>false;f.ui.navigate({tool:'steps'});assert.ok(f.$('cognitiveStart'));assert.equal(releases,0);
+    f.window.confirm=()=>true;f.ui.navigate({tool:'steps'});await settle();assert.equal(releases,1);assert.equal(f.$('cognitiveStart'),null);
   }finally{await f.close();}
 });
 test('late game loading cannot replace a different tool or survive teardown',async()=>{

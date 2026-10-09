@@ -1,4 +1,5 @@
 const mounts = new WeakMap();
+const menuInstalls = new WeakMap();
 
 /** Browser instructions only: installation does not add an offline mode. */
 export function appInstallInstructions(navigator = {}) {
@@ -43,12 +44,12 @@ export function appInstallInstructions(navigator = {}) {
 }
 
 /** Mounts only at an explicitly provided #appInstallMount; never a floating banner. */
-export function mountAppInstall({ doc = globalThis.document, view = doc?.defaultView || globalThis.window } = {}) {
-  const host = doc?.getElementById('appInstallMount');
+export function mountAppInstall({ doc = globalThis.document, view = doc?.defaultView || globalThis.window, host = doc?.getElementById('appInstallMount') } = {}) {
   if (!host || !view) return null;
   if (mounts.has(host)) return mounts.get(host);
   const section = host.closest('[data-app-install-section]');
-  let disposed = false, installedEvent = false, pending = false, installPrompt = null, returnFocus = null;
+  let disposed = false, installedEvent = false, pending = false, installPrompt = null, returnFocus = null, onReturn = null;
+  let previousInstalled;
   const media = ['standalone', 'minimal-ui', 'window-controls-overlay'].flatMap(mode => {
     try { const query = view.matchMedia?.(`(display-mode: ${mode})`); return query ? [query] : []; }
     catch { return []; }
@@ -74,12 +75,15 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
   host.append(button); (doc.body || doc.documentElement).append(backdrop, dialog);
 
   function finishClose() {
+    if (dialog.open) return;
     backdrop.hidden = true;
     const previous = returnFocus; returnFocus = null;
+    const callback = onReturn; onReturn = null;
     if (!disposed && !installed() && previous?.isConnected && !host.hidden) previous.focus({ preventScroll: true });
+    if (!disposed && !installed()) callback?.();
   }
   function closeDialog({ restore = true } = {}) {
-    if (!restore) returnFocus = null;
+    if (!restore) { returnFocus = null; onReturn = null; }
     if (dialog.open) {
       if (typeof dialog.close === 'function') dialog.close();
       else dialog.removeAttribute('open');
@@ -95,7 +99,7 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
     $('appInstallHint').textContent = content.hint || ''; $('appInstallHint').hidden = !content.hint;
     $('appInstallNotice').textContent = notice; $('appInstallNotice').hidden = !notice;
     if (!dialog.open) {
-      returnFocus = doc.activeElement?.isConnected ? doc.activeElement : button;
+      returnFocus ||= doc.activeElement?.isConnected ? doc.activeElement : button;
       // Programmatic clicks need the same dependable return target as pointer clicks.
       if (returnFocus === doc.body || returnFocus === doc.documentElement) returnFocus = button;
       if (typeof dialog.showModal === 'function') dialog.showModal();
@@ -111,6 +115,10 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
     host.hidden = installed(); button.disabled = pending;
     if (section) section.hidden = host.hidden;
     if (host.hidden) { installPrompt = null; closeDialog({ restore: false }); }
+    if (previousInstalled !== host.hidden) {
+      previousInstalled = host.hidden;
+      view.dispatchEvent(new view.CustomEvent('app-install-state', { detail: { installed: host.hidden } }));
+    }
   }
   function beforeInstall(event) {
     if (disposed || installed() || !host.isConnected || typeof event.prompt !== 'function') return;
@@ -128,7 +136,7 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
       // Acceptance alone is not proof installation finished; appinstalled owns that state.
     } catch {
       if (!disposed && !installed()) instructions('L’invite automatique n’est pas disponible. Utilise le menu de ton navigateur.');
-    } finally { pending = false; sync(); }
+    } finally { pending = false; sync(); if (!dialog.open) finishClose(); }
   }
   function onKey(event) {
     if (!dialog.open) return;
@@ -157,6 +165,13 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
   }
   sync();
   const controller = {
+    isInstalled: installed,
+    open({ returnFocus: target, onClose } = {}) {
+      if (disposed || pending || installed()) return;
+      returnFocus = target || null; onReturn = typeof onClose === 'function' ? onClose : null;
+      dialog.querySelector('.app-install-done').textContent = onReturn ? '← Menu' : 'Fermer';
+      return install();
+    },
     destroy() {
       if (disposed) return;
       disposed = true; installPrompt = null; closeDialog({ restore: false });
@@ -171,6 +186,28 @@ export function mountAppInstall({ doc = globalThis.document, view = doc?.default
     },
   };
   mounts.set(host, controller); return controller;
+}
+
+/** Page-owned controller: remounting navigation must not lose the browser's prompt. */
+export function prepareMenuInstall({ doc = globalThis.document, view = doc?.defaultView || globalThis.window } = {}) {
+  if (!doc || !view) return null;
+  if (menuInstalls.has(doc)) return menuInstalls.get(doc);
+  const host = doc.createElement('div');
+  host.id = 'menuAppInstallMount'; host.style.display = 'none';
+  (doc.body || doc.documentElement).append(host);
+  const controller = mountAppInstall({ doc, view, host });
+  menuInstalls.set(doc, controller);
+  return controller;
+}
+
+export function openInstall({ doc = globalThis.document, view = doc?.defaultView || globalThis.window, ...options } = {}) {
+  return prepareMenuInstall({ doc, view })?.open(options);
+}
+
+export function isAppInstalled({ doc = globalThis.document, view = doc?.defaultView || globalThis.window } = {}) {
+  const controller = doc && menuInstalls.get(doc);
+  if (controller) return controller.isInstalled();
+  return view?.navigator?.standalone === true || ['standalone', 'minimal-ui', 'window-controls-overlay'].some(mode => view?.matchMedia?.(`(display-mode: ${mode})`).matches);
 }
 
 if (typeof document !== 'undefined' && typeof window !== 'undefined') {

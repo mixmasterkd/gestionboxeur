@@ -6,7 +6,7 @@ import { resolve, dirname } from 'node:path';
 import { Window } from 'happy-dom';
 import { intervalControlsMarkup } from '../js/timer-interval-controls.js';
 
-const pages = ['roster.html', 'login.html', 'planning.html', 'profile.html', 'tools.html', 'admin/index.html'];
+const pages = ['roster.html', 'login.html', 'planning.html', 'groups.html', 'profile.html', 'tools.html', 'admin/index.html'];
 // Validate the deployed subdirectory, not only a server mounted at '/'.
 const siteURL = new URL('https://mixmasterkd.github.io/gestionboxeur/');
 const manifestURL = new URL('manifest.webmanifest', siteURL);
@@ -37,7 +37,7 @@ for (const page of ['index.html', ...pages]) {
     assert.equal(data.readUInt32BE(16), 180); assert.equal(data.readUInt32BE(20), 180);
   } finally { await window.happyDOM.abort(); }
 }
-console.log('GBoxeur : manifeste, chemins GitHub Pages et icônes vérifiés sur les 7 pages.');
+console.log(`GBoxeur : manifeste, chemins GitHub Pages et icônes vérifiés sur les ${pages.length+1} pages.`);
 for (const page of pages) {
   const file = resolve('dist', page);
   const html = await readFile(file, 'utf8');
@@ -55,9 +55,8 @@ for (const page of pages) {
         const start = window.document.createElement('button');
         start.className = 'button primary';
         window.document.getElementById('toolStage').append(start);
-        const grid = window.document.querySelector('.tools-grid');
-        assert.equal(window.getComputedStyle(grid).display, 'grid', 'tools use an adaptable grid');
-        assert.ok(parseFloat(window.getComputedStyle(grid.querySelector('.tool-card')).minHeight) >= 180, 'tools have large touch targets');
+        assert.equal(window.document.querySelector('#toolsMenu, #toolsBack, .tool-card'), null, 'tools open directly without a second destination menu');
+        assert.equal(window.getComputedStyle(window.document.querySelector('.tool-toolbar')).display, 'flex', 'tool title and fullscreen command remain aligned');
         const board=window.document.createElement('div');board.className='timer-board';board.dataset.design='boxing';board.dataset.status='running';board.dataset.phase='work';board.dataset.warning='false';
         window.document.getElementById('toolStage').append(board);
         const workingBackground=window.getComputedStyle(board).backgroundImage;

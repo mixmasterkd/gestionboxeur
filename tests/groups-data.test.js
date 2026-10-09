@@ -32,11 +32,19 @@ test('mixed or multiple recipients use one atomic RPC and common edits preserve 
  assert.deepEqual(db.calls[3],{rpc:'delete_shared_training_session',args:{p_id:'master',p_updated_at:'version'}});
 });
 test('group listing paginates and membership saves match identity and version without including a supplied owner',async()=>{
- const db=database(q=>q.table?{data:q.range[0]===0?Array.from({length:500},(_,i)=>({id:String(i),name:'Groupe',training_group_members:[{athlete_id:'a'}]})):[{id:'last',training_group_members:[]}],error:null}:{data:{id:'group'},error:null});
+ const db=database(q=>q.rpc==='community_command'?{data:null,error:{code:'PGRST202'}}:q.table?{data:q.range[0]===0?Array.from({length:500},(_,i)=>({id:String(i),name:'Groupe',training_group_members:[{athlete_id:'a'}]})):[{id:'last',training_group_members:[]}],error:null}:{data:{id:'group'},error:null});
  const groups=await loadTrainingGroups(db);assert.equal(groups.length,501);assert.deepEqual(groups[0].athlete_ids,['a']);assert.deepEqual(groups[500].athlete_ids,[]);
  await saveTrainingGroup({name:'Boxe',athlete_ids:['a','a','self'],coach_id:'forged'},{id:'g',updated_at:'loaded'},db);
- assert.deepEqual(db.calls[2].args,{p_name:'Boxe',p_athlete_ids:['a','self'],p_id:'g',p_updated_at:'loaded'});
- await deleteTrainingGroup({id:'g',updated_at:'loaded'},db);assert.deepEqual(db.calls[3].args,{p_id:'g',p_updated_at:'loaded'});
+ assert.deepEqual(db.calls[3].args,{p_name:'Boxe',p_athlete_ids:['a','self'],p_id:'g',p_updated_at:'loaded'});
+ await deleteTrainingGroup({id:'g',updated_at:'loaded'},db);assert.deepEqual(db.calls[4].args,{p_id:'g',p_updated_at:'loaded'});
+});
+
+test('community group roles are loaded from the authenticated RPC and permission failures never fall back',async()=>{
+ const groups=[{id:'g',role:'admin',athlete_ids:['a']}];
+ const db=database(()=>({data:groups,error:null}));
+ assert.deepEqual(await loadTrainingGroups(db),groups);assert.equal(db.calls.length,1);assert.equal(db.calls[0].rpc,'community_command');
+ const denied=database(()=>({data:null,error:{code:'42501',message:'Interdit'}}));
+ await assert.rejects(()=>loadTrainingGroups(denied),/permission/);assert.equal(denied.calls.length,1);
 });
 test('group calendar fetches only common plans for the selected group and never athlete feedback',async()=>{
  const row={id:'master',title:'Commun',shared_session_groups:[{group_id:'one'},{group_id:'two'}],shared_session_athletes:[{athlete_id:'direct'}],selected_group:[{group_id:'one'}]};

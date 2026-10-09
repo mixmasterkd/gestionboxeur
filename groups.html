@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta name="referrer" content="no-referrer">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#171918">
+  <title>Mes groupes · GBoxeur</title>
+  <meta name="application-name" content="GBoxeur"><meta name="apple-mobile-web-app-title" content="GBoxeur"><meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="images/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="192x192" href="images/app-icon-192.png">
+  <link rel="stylesheet" href="css/community.css">
+  <script type="module" src="js/appearance.js"></script>
+</head>
+<body class="community-page">
+  <a class="skip-link" href="#communityMain">Aller à mes groupes</a>
+  <header class="topbar"><a class="brand" href="planning.html">Mon espace</a><nav class="top-actions" aria-label="Compte"><span id="accountName" hidden></span><button class="text-button" id="logoutButton" type="button">Déconnexion</button></nav></header>
+  <main class="dashboard community-dashboard" id="communityMain">
+    <nav id="communityBreadcrumb" class="community-breadcrumb" aria-label="Dans mes groupes" hidden></nav>
+    <p id="communityLoading" class="muted" role="status">Chargement de tes groupes…</p>
+    <p id="communityError" class="form-error" role="alert" hidden></p>
+    <button id="communityRetry" class="button secondary community-retry" type="button" hidden>Réessayer</button>
+    <section id="communityList" hidden>
+      <header class="page-heading community-page-heading"><div><h1 id="communityListTitle" tabindex="-1">Mes groupes</h1><p>Retrouve les entraînements, les suggestions et les sondages de tes groupes.</p></div><button id="createGroupButton" class="button primary" type="button">Créer un groupe</button></header>
+      <div id="communityGroups" class="community-group-grid"></div>
+    </section>
+    <section id="communityDetail" hidden aria-labelledby="communityGroupTitle"></section>
+  </main>
+  <dialog id="communityDialog" class="community-dialog" aria-labelledby="communityDialogTitle"></dialog>
+  <dialog id="confirmDialog" class="community-dialog community-confirm" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+    <form method="dialog"><div class="community-dialog-content"><h2 id="confirmTitle"></h2><p id="confirmText"></p></div><div class="community-dialog-actions"><button value="cancel" class="button secondary">Annuler</button><button id="confirmYes" value="confirm" class="button primary">Confirmer</button></div></form>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="js/community.js"></script>
+</body>
+</html>

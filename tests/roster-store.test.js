@@ -289,3 +289,26 @@ test('modern roster refuses a mutation without a complete form version and never
   await assert.rejects(()=>store.saveAthlete('athlete-one',{weight_kg:72},{updatedAt:'2026-10-07'}),/Recharge la fiche/);
   assert.equal(mock.calls.some(c=>c.rpc),false);
 });
+
+
+test('athlete accounts own a personal list without requesting coaching activation',async()=>{
+ const mock=backend({profileOverrides:{account_type:'athlete'}}),store=createRosterStore(mock.client);
+ await store.loadProfile('coach-id');const rows=await store.loadAthletes();assert.equal(rows.length,1);
+ assert.deepEqual(mock.calls.find(call=>call.table==='coach_athletes').filters,[['coach_id','coach-id'],['status','accepted']]);
+ await store.saveAthlete('',{first_name:'Fiche personnelle'});
+ await store.saveAthlete('athlete-one',{selected:true},{updatedAt:'2026-10-07T12:00:00Z',relationUpdatedAt:'2026-10-07T12:01:00Z'});
+ await store.removeAthlete('athlete-one');
+ assert.deepEqual(mock.calls.filter(call=>call.rpc).map(call=>call.rpc),['create_roster_athlete','update_roster_athlete_checked','archive_roster_athlete']);
+ assert.equal(mock.calls.some(call=>/enable_coaching|invite/.test(call.rpc||'')),false);
+});
+
+test('an account reset retires an in-flight personal list before reading or returning its athletes',async()=>{
+ const mock=backend();let finish;
+ const from=mock.client.from;mock.client.from=table=>{
+  const query=from(table);if(table==='coach_athletes')query.then=(resolve,reject)=>new Promise(done=>{finish=done;}).then(resolve,reject);return query;
+ };
+ const store=createRosterStore(mock.client);await store.loadProfile('coach-id');const loading=store.loadAthletes();
+ await Promise.resolve();store.reset();finish({data:[{athlete_id:'old-private-athlete'}],error:null});
+ await assert.rejects(loading,/session a changé/);
+ assert.equal(mock.calls.some(call=>call.table==='athletes'),false);
+});

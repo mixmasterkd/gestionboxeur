@@ -11,9 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="images/app-icon-192.png">
 
 <link rel="stylesheet" href="css/account-page.css">
-<link rel="stylesheet" href="css/app-install.css">
 <script type="module" src="js/appearance.js"></script>
-<script type="module" src="js/app-install.js"></script>
 </head>
 <body>
   <header class="topbar"><a class="brand" href="./"><span id="gymBrand">Mon espace</span><span class="brand-location" id="gymAddress"></span></a><nav class="top-actions" aria-label="Navigation principale"><a class="text-button" href="planning.html">Mon calendrier</a><button class="text-button" id="logoutButton" type="button">Déconnexion</button></nav></header>
@@ -22,7 +20,7 @@
     <p id="profileLoading" class="muted" role="status">Chargement de ton profil…</p>
     <p id="profileError" class="form-error hidden" role="alert"></p>
     <p id="profileSuccess" class="success hidden" role="status"></p>
-    <div class="intro-actions"><a class="button secondary" href="planning.html#coachs">Mes coachs</a><button id="enableCoachingButton" class="button secondary" type="button" hidden>Activer les fonctions coach</button></div>
+    <div class="intro-actions"><button id="enableCoachingButton" class="button secondary" type="button" hidden>Activer les fonctions coach</button></div>
     <section class="panel hidden" id="athletePanel">
       <div class="panel-head"><h2>Informations personnelles</h2><span class="pill" id="profileAge"></span></div>
       <form id="athleteProfileForm">
@@ -40,7 +38,7 @@
       </form>
     </section>
     <section class="panel hidden" id="sportsPanel">
-      <div class="panel-head"><h2>Informations sportives</h2><button id="sportsToggle" type="button" class="button secondary" aria-expanded="false" aria-controls="sportsProfileForm" hidden>Afficher</button></div>
+      <div class="panel-head"><h2>Informations sportives</h2><button id="sportsToggle" type="button" class="button secondary" aria-expanded="true" aria-controls="sportsProfileForm" hidden>Masquer</button></div>
       <p id="sportsHint" class="muted">Ces informations servent à préparer les listes d’athlètes.</p>
       <form id="sportsProfileForm">
         <div class="form-grid profile-grid">
@@ -67,10 +65,6 @@
       <div class="panel-head"><h2>Mot de passe</h2></div>
       <p class="muted">Le lien de réinitialisation sera envoyé au courriel de ton compte : <strong id="accountEmail"></strong>.</p>
       <div class="profile-security-actions"><button id="resetPasswordButton" class="button secondary" type="button">Recevoir un lien de réinitialisation</button><p id="passwordStatus" class="hidden" role="status"></p></div>
-    </section>
-    <section class="profile-app-install" data-app-install-section aria-labelledby="appInstallSectionTitle" hidden>
-      <h2 id="appInstallSectionTitle">Application</h2>
-      <div id="appInstallMount"></div>
     </section>
   </main>
   <script type="module" src="js/profile.js"></script>

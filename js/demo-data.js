@@ -158,6 +158,12 @@ export async function moveTemplate(template,folderId){return save(templates,{fol
 export async function loadJournal(athleteId){const entries=journalEntries.filter(e=>e.athlete_id===athleteId);return clone({entries,updates:journalUpdates.filter(u=>entries.some(e=>e.id===u.entry_id))});}
 function journalUpdate(entryId,kind,content=''){const item={id:crypto.randomUUID(),entry_id:entryId,kind,content,created_by:user.id,author_name:role==='coach'?'Camille · Coach':'Alex Morin',created_at:new Date().toISOString()};journalUpdates.push(item);return clone(item);}
 export async function addJournalComment(entryId,content){return journalUpdate(entryId,'comment',content);}
+export async function deleteJournalEntry(entry,updates){
+ const current=journalEntries.find(row=>row.id===entry.id);
+ const ids=journalUpdates.filter(row=>row.entry_id===entry.id).map(row=>row.id).sort();
+ if(!current||current.updated_at!==entry.updated_at||JSON.stringify(ids)!==JSON.stringify(updates.map(row=>row.id).sort()))throw new Error('Ce sujet ou ses suivis ont changé. Rouvre-le avant de le supprimer.');
+ journalEntries=journalEntries.filter(row=>row.id!==entry.id);journalUpdates=journalUpdates.filter(row=>row.entry_id!==entry.id);return entry.id;
+}
 export async function saveJournalEntry(payload,existing){
  const now=new Date().toISOString();
  if(existing){const entry=journalEntries.find(e=>e.id===existing.id);if(!entry||entry.updated_at!==existing.updated_at)throw new Error('Ce sujet a changé.');

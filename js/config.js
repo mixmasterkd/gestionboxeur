@@ -19,6 +19,8 @@ export const createTestClient = ({ fresh = false } = {}) => {
   });
 };
 export const isTestSession = () => Boolean(tabStorage?.getItem(TEST_MODE_KEY));
-export const client = isTestSession() ? createTestClient() : createClient(url, key, {
+const localPreview = import.meta.env?.DEV && import.meta.env?.VITE_LOCAL_SANDBOX === '1'
+  ? await import('./local-client.js') : null;
+export const client = localPreview?.client || (isTestSession() ? createTestClient() : createClient(url, key, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-});
+}));

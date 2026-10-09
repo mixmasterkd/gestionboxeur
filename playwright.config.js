@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
+ outputDir:'./test-results-calendar',
   testDir: './e2e',
+  testIgnore:['*.local.spec.js','*.preprod.spec.js'],
   fullyParallel: true,
   workers: 2,
   timeout: 30000,

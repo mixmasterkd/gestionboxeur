@@ -557,7 +557,7 @@ test('a group calendar can create a shared note for a date range without an athl
  document.querySelector('#eventDialog [name=end_date]').value='2026-10-05';
  document.querySelector('#eventDialog [name=notes]').value='Pour les exercices en équipe.';
  assert.equal(document.querySelector('[name=is_private]').closest('label').hidden,true);
- assert.match(document.querySelector('.event-visibility').textContent,/modifiable seulement par son auteur/);
+ assert.match(document.querySelector('.event-visibility').textContent,/gérée selon les permissions des groupes/);
  submit('eventDialog');await tick();
  assert.deepEqual(saved.group_ids,['g1']);assert.deepEqual(saved.athlete_ids,[]);
  assert.equal(saved.athlete_id,null);assert.equal(saved.date,'2026-10-03');assert.equal(saved.end_date,'2026-10-05');

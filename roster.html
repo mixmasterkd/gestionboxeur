@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#24272c">
   <meta name="description" content="Fiches de boxeurs, contacts et listes combat ou sparring.">
-  <title>Athlètes et listes — Mon gym</title>
+  <title>Liste d’athlètes — GBoxeur</title>
   <meta name="application-name" content="GBoxeur">
   <meta name="apple-mobile-web-app-title" content="GBoxeur">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -274,7 +274,7 @@
 <script type="module" src="js/appearance.js"></script>
 </head>
 <body class="roster-page">
-  <a class="skip-link" href="#rosterTitle">Aller à mes athlètes</a>
+  <a class="skip-link" href="#rosterTitle">Aller à ma liste d’athlètes</a>
   <header class="topbar">
     <div class="brand" aria-label="Gym"><span id="gymBrand">Mon gym</span><span class="brand-location" id="gymAddress"></span></div>
     <div class="topbar-actions">
@@ -287,14 +287,9 @@
 
   <main class="content">
     <p class="error hidden" id="pageError" role="alert"></p>
-    <div class="directory-tabs" role="group" aria-label="Athlètes et groupes"><button type="button" data-directory="athletes" aria-pressed="true">Athlètes</button><button type="button" data-directory="groups" aria-pressed="false">Groupes</button></div>
-    <section class="panel" id="groupDirectory" aria-labelledby="groupTitle" hidden>
-      <header class="panel-head"><h1 class="section-title" id="groupTitle">Mes groupes</h1><button class="button button-dark" id="addGroupButton" type="button" disabled>＋ Créer un groupe</button></header>
-      <p id="groupError" class="form-error group-error" role="alert" hidden></p><div class="group-list" id="groupList"></div>
-    </section>
     <section class="panel" id="athleteDirectory" data-roster-view="table" aria-labelledby="rosterTitle">
       <header class="panel-head">
-        <h1 class="section-title" id="rosterTitle" tabindex="-1">Mes athlètes</h1>
+        <h1 class="section-title" id="rosterTitle" tabindex="-1">Liste d’athlètes</h1>
         <div class="actions">
           <button class="button" id="shareButton" type="button">Préparer une liste <span class="count" id="selectedCount">0</span></button>
           <button class="button button-dark" id="addAthleteButton" type="button">＋ Ajouter un athlète</button>
@@ -334,16 +329,17 @@
         </table>
         <div class="empty" id="athleteEmpty"><span class="empty-ring" aria-hidden="true"></span><strong>Aucun athlète affiché</strong>Ajoute un athlète pour préparer tes listes, avec ou sans compte sur la plateforme.</div>
       </div>
-      <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Effectif et contacts enregistrés</span></footer>
+      <footer class="panel-foot"><span id="athleteFoot">0 fiche affichée</span><span>Ta liste et tes contacts enregistrés</span></footer>
     </section>
 
     <section class="panel" id="coachesDirectory" aria-labelledby="coachesTitle">
       <header class="panel-head">
-        <h2 class="section-title" id="coachesTitle">Contacts coachs</h2>
-        <button class="button button-dark" id="addCoachButton" type="button">＋ Ajouter un coach</button>
+        <h2 class="section-title" id="coachesTitle">Coachs de contact</h2>
+        <button class="button button-dark" id="addCoachButton" type="button">＋ Ajouter un contact</button>
       </header>
+      <p class="roster-contact-hint">Ces contacts servent à préparer tes listes. Tu choisis les coordonnées à y inclure.</p>
       <div class="coach-grid" id="coachGrid"></div>
-      <div class="empty" id="coachEmpty"><strong>Aucun coach</strong>Ajoute les personnes à afficher comme contacts sur les listes.</div>
+      <div class="empty" id="coachEmpty"><strong>Aucun contact</strong>Ajoute les personnes dont tu veux inclure les coordonnées dans tes listes.</div>
     </section>
   </main>
 
@@ -378,12 +374,12 @@
             <label><span>Victoires — facultatif</span><input id="wins" type="number" min="0" max="999"></label>
             <label><span>Défaites — facultatif</span><input id="losses" type="number" min="0" max="999"></label>
           </div>
-          <p class="hint">Si le dossier est inscrit, les victoires et les défaites doivent totaliser le nombre de combats.</p>
+          <p class="hint">Si le dossier est inscrit, les victoires et les défaites ne doivent pas dépasser le nombre de combats.</p>
         </fieldset>
-        <label><span>Note privée du coach — jamais incluse dans une liste</span><textarea id="athleteNote" maxlength="20000"></textarea></label>
+        <label><span>Note privée — jamais incluse dans une liste</span><textarea id="athleteNote" maxlength="20000"></textarea></label>
         <p class="error hidden" id="athleteError" role="alert"></p>
         <footer class="dialog-foot">
-          <button class="danger hidden" id="deleteAthleteButton" type="button">Retirer de mon effectif</button><span class="spacer"></span>
+          <button class="danger hidden" id="deleteAthleteButton" type="button">Retirer de ma liste</button><span class="spacer"></span>
           <button class="button" data-close="athleteDialog" type="button">Annuler</button><button class="button button-dark" type="submit">Enregistrer</button>
         </footer>
       </form>
@@ -392,7 +388,7 @@
 
   <dialog id="coachDialog" aria-labelledby="coachDialogTitle">
     <section class="dialog-box">
-      <header class="dialog-head"><div><p class="kicker">Contact</p><h2 class="dialog-title" id="coachDialogTitle">Ajouter un coach</h2></div><button class="close" data-close="coachDialog" type="button" aria-label="Fermer">×</button></header>
+      <header class="dialog-head"><div><p class="kicker">Contact</p><h2 class="dialog-title" id="coachDialogTitle">Ajouter un contact</h2></div><button class="close" data-close="coachDialog" type="button" aria-label="Fermer">×</button></header>
       <form id="coachForm" novalidate>
         <input id="coachId" type="hidden">
         <div class="form-grid cols-2">
@@ -442,9 +438,9 @@
             <label><input id="includeRecord" type="checkbox" checked> Ajouter le dossier victoires-défaites</label>
           </div>
           <div class="option-group">
-            <span class="option-title">Coachs contacts</span>
+            <span class="option-title">Coachs de contact</span>
             <div id="coachChoices"></div>
-            <p class="hint" id="noCoachChoice">Ajoute d’abord un coach dans la section Contacts.</p>
+            <p class="hint" id="noCoachChoice">Ajoute un contact dans la section Coachs de contact.</p>
           </div>
         </aside>
         <section class="preview-area">
