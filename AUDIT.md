@@ -504,3 +504,7 @@ Prévol de publication : contrôles des sources et build réussis. Mise à jour 
 Publication réussie depuis `3d5380d1594bd12de846ba643175e0703b3c860b` : https://github.com/mixmasterkd/gestionboxeur/actions/runs/37895880924. Prévol local : 873 tests isolés réussis; 74 parcours navigateur réussis lors de la première passe, puis les six variantes du scénario de menu réussies après adaptation à l’animation. GitHub valide la suite entière : 77 parcours réussis et 7 variantes volontairement ignorées. Les 44 fichiers publics sont identiques octet pour octet à l’artefact publié; aucun marqueur de données fictives dans ses 32 fichiers HTML/JS.
 
 QA connectée en lecture sur le site publié : statistiques compactes et absence du bouton Aujourd’hui; logo et bibliothèque dans Calendrier, Journal et Athlètes; sélecteur de calendriers opérationnel dans Athlètes; aucun débordement mobile ni erreur console. Aucune écriture de données pendant la vérification. Serveur LAN toujours accessible en HTTP 200. Aucun changement de base ou déploiement serveur dans cette publication.
+
+### Logo unique sur ordinateur — publication demandée le 9 octobre 2026
+
+Go limité au retrait du petit logo de l’en-tête au-dessus de 800 px. Le grand logo de navigation ordinateur et le logo mobile restent affichés. Une seule règle CSS responsive; contrôle du CSS compilé adapté au seuil. Aucun changement fonctionnel ou de données.

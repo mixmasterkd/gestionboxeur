@@ -120,7 +120,7 @@ for (const page of pages) {
         window.document.body.classList.add('has-navigation');
         assert.equal(window.getComputedStyle(window.document.querySelector('.app-header > .main-nav')).display,'none',`legacy calendar navigation reserves no header space at ${width}px`);
         assert.equal(window.getComputedStyle(window.document.querySelector('.date-navigation')).display, width <= 800 ? 'grid' : 'flex', 'compiled calendar responsiveness');
-        assert.equal(window.getComputedStyle(window.document.getElementById('gymHome')).display,'flex','calendar header keeps its logo');
+        assert.equal(window.getComputedStyle(window.document.getElementById('gymHome')).display,width<=800?'flex':'none','header logo appears only on mobile');
         assert.equal(window.getComputedStyle(window.document.getElementById('gymBrand')).display,'none','gym name stays hidden');
         assert.equal(window.document.getElementById('athleteTitle').closest('button').id,'athletePickerButton','calendar identity belongs to the selector');
         const library=window.document.getElementById('libraryButton');

@@ -56,3 +56,8 @@
  :root .calendar-header-page :is(.account-nav,.topbar-actions) {gap:4px;}
  :root .calendar-header-page .calendar-picker-button {font-size:12px;padding-inline:6px;gap:3px;}
 }
+
+/* Desktop keeps the main navigation logo; mobile keeps its header logo. */
+@media(min-width:801px) {
+ :root .calendar-header-page :is(.app-header,.topbar) .calendar-logo {display:none;}
+}
