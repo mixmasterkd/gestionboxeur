@@ -508,3 +508,5 @@ QA connectée en lecture sur le site publié : statistiques compactes et absence
 ### Logo unique sur ordinateur — publication demandée le 9 octobre 2026
 
 Go limité au retrait du petit logo de l’en-tête au-dessus de 800 px. Le grand logo de navigation ordinateur et le logo mobile restent affichés. Une seule règle CSS responsive; contrôle du CSS compilé adapté au seuil. Aucun changement fonctionnel ou de données.
+
+Publication réussie depuis `a5046567a57c13113517cf2d64c91d4f284e4f2a` : https://github.com/mixmasterkd/gestionboxeur/actions/runs/37896664009. Contrôles des sources, tests isolés, parcours navigateur et build réussis. Vérification du site public à 390/800/801/1280 px : petit logo visible jusqu’à 800 px; au-dessus, petit logo masqué et grand logo de 104 px conservé; aucun débordement horizontal. Aucune modification de données.
