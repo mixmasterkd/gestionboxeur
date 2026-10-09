@@ -39,6 +39,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
   const previewRole = import.meta.env?.DEV && ['coach', 'athlete'].includes(params.get('demo')) ? params.get('demo') : null;
   const route = href => {
     const url = new URL(base + href, location.href);
+    if (/\/(?:planning|roster)\.html$/.test(url.pathname)) for (const key of ['athlete','group']) { if(params.has(key)) url.searchParams.set(key,params.get(key)); }
     if (previewRole && /\/(?:planning|tools|groups)\.html$/.test(url.pathname)) url.searchParams.set('demo', previewRole);
     return url.href;
   };
@@ -108,7 +109,7 @@ export function mountNavigation({ role = 'athlete', isAdmin = false, section = '
     const logo=document.createElement('img');logo.className='mobile-brand-logo';logo.src=base+'images/boxing-logo.png';logo.alt='';logo.width=48;logo.height=48;
     brand.classList.add('has-mobile-logo');brand.prepend(logo);
   }
-  if (!athlete && onPlanning && location.hash === '#bibliotheque') {
+  if (onPlanning && location.hash === '#bibliotheque') {
     const clean = new URL(location.href); clean.hash = ''; history.replaceState(history.state, '', clean.href);
     requestAnimationFrame(() => { const library = document.getElementById('libraryButton'); if (library && !library.hidden) library.click(); });
   }

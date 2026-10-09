@@ -1,3 +1,4 @@
+import { mountRosterCalendarMenu } from './roster-calendar-menu.js';
 import { client as supabase } from "./config.js";
 import { createRosterStore } from "./roster-store.js";
 import { createRosterAttachmentUI } from './roster-attachment.js';
@@ -5,6 +6,7 @@ import { mountNavigation } from './navigation.js';
 
   (() => {
     const rosterStore = createRosterStore(supabase);
+    const calendarHeader = mountRosterCalendarMenu();
     const KG_TO_LB = 2.2046226218;
     const statusLabels = { available: "Disponible", unavailable: "Indisponible", injured: "Blessé", sick: "Malade", not_ready: "Pas prêt" };
     const sexLabels = { M: "Homme", F: "Femme" };
@@ -120,6 +122,7 @@ import { mountNavigation } from './navigation.js';
       $('adminButton').classList.toggle('hidden', !profileData.is_admin);
       setLoaded(true);
       renderAll();
+      void calendarHeader.refresh(currentUser);
     }
     function saveState(message) {
       renderAll();
@@ -515,6 +518,7 @@ import { mountNavigation } from './navigation.js';
     $("copyButton").addEventListener("click", copyShare); $("printButton").addEventListener("click", () => window.print());
 
     function clearPrivateState() {
+      calendarHeader.clear();
       attachmentRequest++;
       attachmentUI.invalidate();
       loadGeneration++; rosterStore.reset();

@@ -1,3 +1,4 @@
+import {mountCalendarMenu} from '../js/calendar-menu.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -33,11 +34,11 @@ async function surface({role='coach',sessions=[],events=[],feedback=[],url='http
     saveSession:async(...args)=>{calls.push(['save',...args]);return args[0];},
     saveEvent:async(payload,existing)=>{calls.push(['saveEvent',payload,existing]);if(controls.saveEvent)return controls.saveEvent(payload,existing);const index=source.events.findIndex(item=>item.id===existing.id);source.events[index]={...source.events[index],...payload,updated_at:'saved-event'};return structuredClone(source.events[index]);}};
   const methods={editSession:(...args)=>calls.push(['edit',...args]),showSession:s=>calls.push(['show',s]),editEvent:(...args)=>calls.push(['event',...args]),showEvent:e=>calls.push(['showEvent',e]),setCompleted:async(s,completed)=>{calls.push(['complete',s.id,completed]);source.sessions.find(item=>item.id===s.id).completed_at=completed?'2026-09-22T12:00:00Z':null;await window.__app.refreshCalendar();}};
-  window.__bridge={loadSessionTimer:()=>controls.loadSessionTimer?controls.loadSessionTimer():Promise.resolve({mountSessionTimer}),monthPreviews,createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
+  window.__bridge={mountCalendarMenu,loadSessionTimer:()=>controls.loadSessionTimer?controls.loadSessionTimer():Promise.resolve({mountSessionTimer}),monthPreviews,createJournalUI,api,domain,calendar,renderSessionChart,applyEventColor,accessIcon,ui:{...ui,toast:m=>calls.push(['toast',m])},
     Sortable:class {constructor(node,options){this.node=node;this.options=options;instances.push(this);}destroy(){}},
     createSessionUI:()=>methods,createConnectionsUI:()=>({open:options=>calls.push(['connections',options]),inviteAthlete:()=>{}}),createLibraryUI:options=>({open:config=>calls.push(['library',config]),options})};
   const code=await readFile(new URL('../js/app.js',import.meta.url),'utf8');
-  window.eval(`const mountNavigation=()=>{};const {createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor,accessIcon}=window.__bridge;
+  window.eval(`const mountNavigation=()=>{};const {mountCalendarMenu,createJournalUI,Sortable,createSessionUI,createConnectionsUI,createLibraryUI,renderSessionChart,applyEventColor,accessIcon}=window.__bridge;
     const {chooseMonthPreviews,monthSessionPreview,monthNotePreview}=window.__bridge.monthPreviews;
     const dataApi=window.__bridge.api;
     const {client,loadAccount,loadCalendar,rpc,saveSession}=dataApi;
@@ -60,6 +61,7 @@ test('coach calendar renders seven days, own handles, known totals and personal 
     assert.equal(page.$('calendar').querySelectorAll('.day').length,7);
     assert.equal(page.$('calendar').querySelectorAll('.drag-handle').length,1);
     assert.equal(page.$('sessionTotal').textContent,'2');assert.equal(page.$('durationTotal').textContent,'20 min');
+    assert.equal(page.$('sessionCountLabel').textContent,'séances');assert.equal(page.$('durationLabel').textContent,'prévues');assert.equal(page.$('todayButton'),null);
     assert.equal(page.$('calendar').querySelectorAll('.event-card').length,1);
     assert.equal(page.$('calendar').querySelectorAll('script').length,0);
     assert.match(page.$('calendar').textContent,/RPE 8\/10/);
@@ -96,7 +98,7 @@ test('external personal-connections requests never inherit another athlete’s c
 test('athlete starts with today, can add workouts and context but cannot drag locked coach sessions',async()=>{
   const page=await surface({role:'athlete',sessions:[makeSession('a')]});
   try{
-    assert.equal(page.app.state.view,'today');assert.equal(page.$('athleteSidebar').hidden,true);
+    assert.equal(page.app.state.view,'today');assert.equal(page.$('athleteSidebar').hidden,false);
     assert.equal(page.$('rosterLink').hidden,false);assert.equal(page.$('addSessionButton').hidden,false);
     assert.equal(page.$('addEventButton').hidden,false);assert.equal(page.$('calendar').querySelectorAll('.day').length,1);
     assert.equal(page.$('calendar').querySelectorAll('.drag-handle').length,0);
@@ -313,7 +315,9 @@ test('weekly running minutes are independent of day and month and reuse covering
     assert.equal(page.$('runningTotal').textContent,'90 min');assert.equal(page.$('durationTotal').textContent,'1 h 45 min');assert.equal(page.calls.filter(call=>call[0]==='load').length,1);
     page.app.state.view='month';page.calls.length=0;await page.app.refreshCalendar();
     assert.equal(page.$('runningTotal').textContent,'90 min');assert.equal(page.$('durationTotal').textContent,'1 h 15 min');assert.equal(page.$('sessionTotal').textContent,'2');assert.equal(page.calls.filter(call=>call[0]==='load').length,1);
-    assert.match(page.$('runningWeekRange').textContent,/28.*4/);
+    assert.match(page.$('runningTotal').title,/28.*4/);
+    assert.equal(page.$('runningWeekHint').textContent,'');
+    assert.equal(page.$('periodHint').textContent,'');
   }finally{await page.close();}
 });
 
@@ -508,7 +512,7 @@ test('group picker identifies groups and displays only their common sessions wit
   assert.equal(page.$('addEventButton').hidden,false);assert.equal(page.app.canEdit(master),true);
   assert.equal(page.$('calendar').querySelectorAll('.drag-handle').length,1);
   assert.match(page.$('athleteTitle').textContent,/Compétition/);
-  page.$('journalButton').click();await settle();assert.equal(page.app.state.selectedGroup,null);assert.equal(page.app.state.surface,'journal');
+  page.$('journalButton').click();await settle();assert.equal(page.app.state.selectedGroup,null);assert.equal(page.app.state.surface,'journal');assert.equal(page.$('libraryButton').hidden,false);page.$('libraryButton').click();assert.equal(page.calls.at(-1)[0],'library');
  }finally{await page.close();}
 });
 
@@ -525,7 +529,7 @@ test('group admin with athlete account can select and edit the managed group, me
   assert.equal(page.$('calendar').querySelector('.completion-button'),null);
  }finally{await page.close();}
  const member=await surface({role:'athlete',groups:[groups[1]],url:'https://example.test/planning.html?group=joined'});
- try{assert.equal(member.$('athletePickerButton').hidden,true);assert.equal(member.app.state.selectedGroup,null);assert.equal(member.app.state.selectedAthlete.user_id,'athlete-user');}
+ try{assert.equal(member.$('athletePickerButton').hidden,false);assert.equal(member.app.state.selectedGroup,null);assert.equal(member.app.state.selectedAthlete.user_id,'athlete-user');}
  finally{await member.close();}
 });
 

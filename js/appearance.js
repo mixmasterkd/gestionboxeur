@@ -20,7 +20,10 @@ function mount() {
   toggle = document.createElement('button');
   toggle.id = 'appearanceToggle'; toggle.type = 'button'; toggle.className = 'appearance-toggle';
   const topbar = document.querySelector('.top-actions, .topbar-actions, .account-nav');
-  if (topbar) topbar.prepend(toggle);
+  if (topbar) {
+    const library = topbar.querySelector('.calendar-library-button');
+    if (library) library.after(toggle); else topbar.prepend(toggle);
+  }
   else if (document.querySelector('.app-header, .topbar')) document.querySelector('.app-header, .topbar').append(toggle);
   else { const bar = document.createElement('div'); bar.className = 'auth-appearance'; bar.append(toggle); document.body.prepend(bar); }
   toggle.addEventListener('click', () => {

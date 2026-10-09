@@ -433,7 +433,7 @@ export function createSessionUI({ getState, refresh, openLibrary, canEdit, canAd
     const dateInput = input('date', event?.date || date, 'date', { required: true });
     const endDate = input('end_date', event?.end_date || '', 'date', { min: event?.date || date });
     dateInput.addEventListener('input', () => { endDate.min = dateInput.value; });
-    const notes = textarea('notes', event?.notes || '', { maxLength: 20000 });
+    const notes = textarea('notes', event?.notes || '', { maxLength: 20000, rows: 6 });
     const colors = el('fieldset', { class: 'event-colors' }, el('legend', {}, 'Couleur'));
     for (const choice of EVENT_COLORS) {
       const control = input('event_color', choice.id, 'radio', { checked: choice.id === (event?.color || 'sand'), 'aria-label': choice.label });

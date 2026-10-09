@@ -2,8 +2,8 @@ const drawerOwners = new WeakMap();
 const ignoredTags = new Set(['DIALOG', 'SCRIPT', 'STYLE', 'LINK', 'META', 'TEMPLATE', 'NOSCRIPT']);
 const layoutProperties = ['width', 'height', 'max-height', 'left', 'right', 'top', 'bottom'];
 
-/** Shared geometry and reversible page displacement for the two navigation menus. */
-export function createMenuPanelLayout({ dialog, trigger, onDismiss }) {
+/** Shared geometry and reversible page displacement for navigation and calendar menus. */
+export function createMenuPanelLayout({ dialog, trigger, onDismiss, placement = 'navigation' }) {
   const doc = dialog.ownerDocument, view = doc.defaultView, body = doc.body;
   const originalStyles = new Map(layoutProperties.map(name => [name, {
     value: dialog.style.getPropertyValue(name), priority: dialog.style.getPropertyPriority(name),
@@ -94,8 +94,8 @@ export function createMenuPanelLayout({ dialog, trigger, onDismiss }) {
     dialog.style.width = `${panelWidth}px`; dialog.style.height = 'auto';
     dialog.style.maxHeight = `${Math.max(0, height - margin * 2)}px`;
     const panel = dialog.getBoundingClientRect();
-    dialog.style.left = `${Math.max(left + margin, Math.min((nav?.right ?? anchor.right) + gap, right - panelWidth - margin))}px`;
-    dialog.style.top = `${Math.max(top + margin, Math.min(anchor.top, bottom - panel.height - margin))}px`;
+    dialog.style.left = `${Math.max(left + margin, Math.min(placement === 'below-trigger' ? anchor.left : (nav?.right ?? anchor.right) + gap, right - panelWidth - margin))}px`;
+    dialog.style.top = `${Math.max(top + margin, Math.min(placement === 'below-trigger' ? anchor.bottom + gap : anchor.top, bottom - panel.height - margin))}px`;
   }
   function close() {
     clearDrawer();

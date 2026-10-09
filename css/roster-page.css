@@ -6,6 +6,19 @@
 @import './roster-mobile.css';
 @import './share-controls.css';
 @import './ui-polish.css';
+@import './calendar-header.css';
 
 .roster-contact-hint {color:var(--muted);font-size:13px;line-height:1.5;margin:0;padding:0 32px 22px;}
 @media(max-width:620px){.roster-contact-hint{padding:0 17px 20px;}}
+
+/* Calendar chooser shares the header without changing the personal roster. */
+.roster-page .athlete-picker-dialog .search-box {display:flex;align-items:center;gap:9px;margin:0;border-bottom:1px solid var(--line);padding:9px 1px;}
+.roster-page .athlete-picker-dialog input {width:100%;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;}
+.roster-page .athlete-picker-dialog .athlete-list {display:flex;flex-direction:column;gap:7px;}
+.roster-page .athlete-picker-dialog .athlete-item {display:flex;align-items:center;width:100%;text-align:left;background:transparent;border:1px solid transparent;color:var(--ink);border-radius:10px;cursor:pointer;}
+.roster-page .athlete-picker-dialog .athlete-item:is(:hover,.active) {background:var(--soft);border-color:var(--line);}
+.roster-page .athlete-picker-dialog .athlete-avatar {display:grid;place-items:center;flex-shrink:0;background:var(--soft);font-size:11px;font-weight:700;}
+.roster-page .athlete-picker-dialog .athlete-item strong {display:block;font-size:12px;overflow-wrap:anywhere;}
+.roster-page .athlete-picker-dialog .athlete-item small {display:block;color:var(--muted);font-size:10px;margin-top:4px;}
+.roster-page .athlete-picker-dialog .picker-section-title {font-size:12px;margin:10px 0 4px;color:var(--muted);}
+.roster-page .athlete-picker-dialog .sidebar-footer {display:flex;flex-wrap:wrap;gap:12px;border-top:1px solid var(--line);padding-top:10px;font-size:12px;}

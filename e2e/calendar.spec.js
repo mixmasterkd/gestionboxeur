@@ -11,9 +11,11 @@ async function noOverflow(page, dialog) {
   if(dialog) {
     await expect(dialog).toBeVisible();
     expect(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+1)).toBe(true);
-    const box=await dialog.boundingBox(),viewport=page.viewportSize();
-    expect(box.x).toBeGreaterThanOrEqual(-1);
-    expect(box.x+box.width).toBeLessThanOrEqual(viewport.width+1);
+    // Wait for the drawer's entry animation before judging its final bounds.
+    await expect.poll(async()=>{
+      const box=await dialog.boundingBox(),viewport=page.viewportSize();
+      return !!box&&box.x>=-1&&box.x+box.width<=viewport.width+1;
+    }).toBe(true);
   }
 }
 
@@ -42,14 +44,14 @@ for(const theme of ['dark','light']) test(`navigation and month/day overview in 
   await expect(page.locator('#todayViewButton')).toBeFocused();
   await page.locator('#nextButton').click();await expect(page.locator('#calendar .day')).toHaveAttribute('data-date','2026-10-09');
   await page.locator('#previousButton').click();await expect(page.locator('#calendar .day')).toHaveAttribute('data-date','2026-10-08');
-  await page.locator('#todayButton').click();await expect(page.locator('#calendar .day')).toHaveAttribute('data-date','2026-10-07');
+  await expect(page.locator('#todayButton')).toHaveCount(0);await page.locator('#previousButton').click();await expect(page.locator('#calendar .day')).toHaveAttribute('data-date','2026-10-07');
   await noOverflow(page);
   await page.reload();await expect(page.locator('#calendar .day')).toHaveCount(1);
 });
 
 test('create, edit, move and delete a multi-day note',async({page})=>{
   await openCalendar(page);
-  await page.locator('#addEventButton').click();const form=page.locator('#eventDialog');
+  await page.locator('.add-day').first().click();await page.locator('#dayAddDialog').getByRole('button',{name:'Notes',exact:true}).click();const form=page.locator('#eventDialog');
   await noOverflow(page,form);
   await form.getByLabel('Titre',{exact:true}).fill('QA note');
   await form.getByLabel('Date de fin').fill('2026-10-09');
@@ -114,7 +116,7 @@ test('group and personal calendars stay distinct and dialogs work with the keybo
   await noOverflow(page,picker);
   await picker.getByRole('button',{name:/Boxe compétition/}).click();
   await expect(page.locator('#athleteTitle')).toContainText('Boxe compétition');
-  await page.locator('#addEventButton').click();await noOverflow(page,page.locator('#eventDialog'));
+  await page.locator('.add-day').first().click();await page.locator('#dayAddDialog').getByRole('button',{name:'Notes',exact:true}).click();await noOverflow(page,page.locator('#eventDialog'));
   await expect(page.locator('#eventDialog')).toContainText('Boxe compétition');
   await page.keyboard.press('Escape');
   await page.locator('#athletePickerButton').click();
@@ -204,7 +206,7 @@ test('month previews open the selected workout or note without changing the cale
 });
 
 async function addTimerWorkout(page,title,text) {
-  await page.locator('#addSessionButton').click();
+  await page.locator('.add-day').first().click();await page.locator('#dayAddDialog').getByRole('button',{name:'Planifier une séance',exact:true}).click();
   const form=page.locator('#sessionDialog');
   await form.getByLabel('Titre de la séance').fill(title);
   await form.locator('[name="sport"]').selectOption('boxing');

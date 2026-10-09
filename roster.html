@@ -273,17 +273,23 @@
 <link rel="stylesheet" href="css/roster-page.css">
 <script type="module" src="js/appearance.js"></script>
 </head>
-<body class="roster-page">
+<body class="roster-page calendar-header-page">
   <a class="skip-link" href="#rosterTitle">Aller à ma liste d’athlètes</a>
   <header class="topbar">
-    <div class="brand" aria-label="Gym"><span id="gymBrand">Mon gym</span><span class="brand-location" id="gymAddress"></span></div>
+    <a class="brand calendar-logo" href="planning.html" aria-label="Accueil du calendrier"><span id="gymBrand" hidden></span><span id="gymAddress" hidden></span></a>
+    <div class="calendar-header-actions"><button id="athletePickerButton" class="calendar-picker-button" type="button" aria-haspopup="dialog" aria-controls="athletePickerDialog" aria-expanded="false" hidden><span id="athleteTitle">Mon calendrier</span><svg class="calendar-picker-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m6 9 6 6 6-6"/></svg></button></div>
     <div class="topbar-actions">
-      <a class="text-button" href="roster.html" aria-current="page">Athlètes &amp; listes</a>
-      <a class="text-button" href="planning.html">Planification</a>
+      <a id="libraryButton" class="calendar-library-button" title="Bibliothèque" href="planning.html#bibliotheque" aria-label="Bibliothèque d’entraînements"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h5v16H4zM11 4h4v16h-4zM17 5l3-1 3 15-3 1z"/></svg></a>
       <a class="text-button hidden" id="adminButton" href="admin/">Administration</a>
       <button class="text-button" id="logoutButton" type="button">Déconnexion</button>
     </div>
   </header>
+
+<dialog id="athletePickerDialog" class="app-dialog athlete-picker-dialog" aria-modal="false" aria-labelledby="athletePickerTitle"><aside id="athleteSidebar" class="athlete-sidebar" aria-label="Choix de l’athlète">
+<div class="sidebar-heading"><h2 id="athletePickerTitle">Calendriers</h2></div>
+<label class="search-box"><span aria-hidden="true">⌕</span><input id="athleteSearch" type="search" placeholder="Rechercher…" aria-label="Rechercher un athlète ou un groupe"></label><div id="athleteList" class="athlete-list"></div>
+<div class="sidebar-footer"><a class="roster-shortcut" href="groups.html">Mes groupes</a><a class="roster-shortcut" href="roster.html">Préparer une liste combat / sparring</a><button id="manageConnectionsButton" class="quiet-button" type="button" hidden>Coachs et invitations ↗</button></div>
+</aside></dialog>
 
   <main class="content">
     <p class="error hidden" id="pageError" role="alert"></p>

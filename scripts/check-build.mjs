@@ -41,7 +41,7 @@ console.log(`GBoxeur : manifeste, chemins GitHub Pages et icônes vérifiés sur
 for (const page of pages) {
   const file = resolve('dist', page);
   const html = await readFile(file, 'utf8');
-  for (const width of [375, 1280]) for (const theme of ["dark", "light"]) {
+  for (const width of (page === 'planning.html' ? [320, 375, 800, 801, 844, 900, 950, 951, 1280] : [375, 1280])) for (const theme of ["dark", "light"]) {
     const window = new Window({ width, settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true } });
     try {
       window.document.write(html);
@@ -117,10 +117,16 @@ for (const page of pages) {
       assert.equal(window.getComputedStyle(window.document.body).backgroundColor, theme === 'dark' ? '#181b20' : '#f4f5f7', `${page}: graphite surface`);
       assert.ok(parseFloat(computed.minHeight) >= 44, `${page}: usable action height`);
       if (page === 'planning.html') {
-        assert.equal(window.getComputedStyle(window.document.querySelector('.date-navigation')).display, width < 620 ? 'grid' : 'flex', 'compiled calendar responsiveness');
-        const actions=window.document.querySelector('.planner-intro > .intro-actions');
-        assert.equal(window.getComputedStyle(actions).display,'grid','calendar actions share equal grid cells');
-        assert.ok(parseFloat(window.getComputedStyle(actions.querySelector('#addEventButton')).minHeight)>=80,'event action uses the common panel height');
+        window.document.body.classList.add('has-navigation');
+        assert.equal(window.getComputedStyle(window.document.querySelector('.app-header > .main-nav')).display,'none',`legacy calendar navigation reserves no header space at ${width}px`);
+        assert.equal(window.getComputedStyle(window.document.querySelector('.date-navigation')).display, width <= 800 ? 'grid' : 'flex', 'compiled calendar responsiveness');
+        assert.equal(window.getComputedStyle(window.document.getElementById('gymHome')).display,'flex','calendar header keeps its logo');
+        assert.equal(window.getComputedStyle(window.document.getElementById('gymBrand')).display,'none','gym name stays hidden');
+        assert.equal(window.document.getElementById('athleteTitle').closest('button').id,'athletePickerButton','calendar identity belongs to the selector');
+        const library=window.document.getElementById('libraryButton');
+        assert.equal(library.textContent.trim(),'','library uses only its icon');
+        assert.equal(window.getComputedStyle(library).width,'44px','library icon remains a usable touch target');
+        assert.equal(window.getComputedStyle(window.document.querySelector('.intro-actions')).display,'none','creation actions live in the calendar day chooser');
         const calendar=window.document.getElementById('calendar');
         calendar.className='calendar';
         calendar.innerHTML='<article class="session-card"><div class="session-title-row"><button class="session-title">Jog</button></div><div class="session-card-footer"><button class="completion-button" aria-pressed="false">○ Fait</button></div></article>';

@@ -66,7 +66,7 @@ test('group workout is editable by its admin, received once and completed only b
   await invited(request,group,ids[1],'alex@local.test','admin');await invited(request,group,ids[2],'sam@local.test','member');
   await persona(page,ids[0]);await page.goto(`/planning.html?group=${group.id}`);
   await expect(page.locator('#athleteTitle')).toHaveText(group.name);
-  await page.locator('#addSessionButton').click();const form=page.locator('#sessionDialog');
+  await page.locator('.add-day').first().click();await page.locator('#dayAddDialog').getByRole('button',{name:'Planifier une séance',exact:true}).click();const form=page.locator('#sessionDialog');
   await form.getByLabel('Titre de la séance').fill(title);
   await form.getByRole('textbox',{name:'Texte de l’entraînement'}).fill('3 rounds\n- Shadow 45s\n- Repos 15s');
   await form.getByRole('button',{name:'Planifier la séance',exact:true}).click();await expect(form).toBeHidden();
@@ -79,7 +79,7 @@ test('group workout is editable by its admin, received once and completed only b
   await admin.locator('#sessionDialog').getByRole('button',{name:'Enregistrer les modifications',exact:true}).click();await expect(admin.locator('#sessionDialog')).toBeHidden();
   const memberContext=await browser.newContext({...testInfo.project.use,timezoneId:'America/Toronto'});contexts.push(memberContext);
   const member=await memberContext.newPage();await persona(member,ids[2]);await member.goto('http://192.168.50.123:4173/planning.html');
-  await expect(member.locator('#athletePickerButton')).toBeHidden();
+  await expect(member.locator('#athletePickerButton')).toBeVisible();
   const received=member.getByRole('button',{name:editedTitle,exact:true});await expect(received).toHaveCount(1);await received.click();
   const detail=member.locator('#detailDialog');await expect(detail.getByRole('button',{name:'Modifier la séance commune',exact:true})).toHaveCount(0);
   await detail.getByRole('button',{name:'✓ Marquer comme faite',exact:true}).click();await expect(detail).toContainText('Séance faite');
